@@ -12,6 +12,11 @@ async function request(endpoint: string, options: RequestInit = {}) {
     credentials: "include",
   });
 
+  // Handle 204 No Content (successful delete)
+  if (res.status === 204) {
+    return { status: "success" };
+  }
+
   const data = await res.json();
 
   if (res.status === 401) {

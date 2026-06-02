@@ -44,27 +44,31 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [bookingsRes, usersRes, packagesRes, destsRes, reviewsRes, enquiriesRes] =
-          await Promise.all([
+        // Try the admin stats endpoint first
+        const statsRes = await api.get("/admin/stats");
+        if (statsRes?.status === "success" && statsRes.data) {
+          setStats(statsRes.data);
+        } else {
+          // Fallback: fetch individual counts
+          const [bookingsRes, packagesRes, destsRes] = await Promise.all([
             api.get("/bookings?limit=5&sort=-createdAt"),
-            api.get("/users?limit=1"),
             api.get("/packages?limit=1"),
             api.get("/destinations?limit=1"),
-            api.get("/reviews/featured"),
-            api.get("/enquiries?limit=1"),
           ]);
+          setStats({
+            totalBookings: bookingsRes?.total || 0,
+            totalRevenue: 0,
+            totalUsers: 0,
+            totalPackages: packagesRes?.total || 0,
+            totalDestinations: destsRes?.total || 0,
+            pendingBookings: 0,
+            pendingReviews: 0,
+            newEnquiries: 0,
+          });
+        }
 
-        setStats({
-          totalBookings: bookingsRes?.total || 0,
-          totalRevenue: 0, // Would need a stats endpoint
-          totalUsers: usersRes?.total || 0,
-          totalPackages: packagesRes?.total || 0,
-          totalDestinations: destsRes?.total || 0,
-          pendingBookings: 0,
-          pendingReviews: 0,
-          newEnquiries: enquiriesRes?.total || 0,
-        });
-
+        // Fetch recent bookings
+        const bookingsRes = await api.get("/bookings?limit=5&sort=-createdAt");
         setRecentBookings(bookingsRes?.data?.slice(0, 5) || []);
       } catch {
         // Fallback

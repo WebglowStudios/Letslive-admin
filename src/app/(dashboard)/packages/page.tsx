@@ -34,8 +34,12 @@ export default function PackagesPage() {
   async function handleDelete(id: string) {
     if (!confirm("Delete this package?")) return;
     try {
-      await api.del(`/packages/${id}`);
-      setPackages((prev) => prev.filter((p) => p._id !== id));
+      const res = await api.del(`/packages/${id}`);
+      if (res?.status === "success" || res === undefined) {
+        setPackages((prev) => prev.filter((p) => p._id !== id));
+      } else {
+        alert("Failed to delete");
+      }
     } catch {
       alert("Failed to delete");
     }

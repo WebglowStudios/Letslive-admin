@@ -25,7 +25,7 @@ export default function NewsletterPage() {
 
   async function fetchSubscribers() {
     try {
-      const res = await api.get("/newsletter?limit=100");
+      const res = await api.get("/newsletter/subscribers?limit=100");
       setSubscribers(res?.data || []);
     } catch {
       setSubscribers([]);
