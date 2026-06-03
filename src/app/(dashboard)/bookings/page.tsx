@@ -24,8 +24,8 @@ export default function BookingsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: "10" });
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      const res = await api.get(`/bookings?${params}`);
+      if (statusFilter !== "all") params.set("bookingStatus", statusFilter);
+      const res = await api.get(`/bookings/all?${params}`);
       setBookings(res?.data || []);
       setTotalPages(res?.pages || 1);
     } catch {
@@ -37,16 +37,26 @@ export default function BookingsPage() {
 
   async function updateStatus(id: string, status: string) {
     try {
-      await api.put(`/bookings/${id}`, { status });
+      await api.put(`/bookings/${id}/status`, { bookingStatus: status });
       fetchBookings();
     } catch {
       alert("Failed to update status");
     }
   }
 
+  async function updatePaymentStatus(id: string, paymentStatus: string) {
+    try {
+      await api.put(`/bookings/${id}/status`, { paymentStatus });
+      fetchBookings();
+    } catch {
+      alert("Failed to update payment status");
+    }
+  }
+
   const statusColors: Record<string, string> = {
     pending: "bg-amber-100 text-amber-700",
     confirmed: "bg-cyan-100 text-cyan-700",
+    "in-progress": "bg-blue-100 text-blue-700",
     completed: "bg-emerald-100 text-emerald-700",
     cancelled: "bg-red-100 text-red-700",
   };
@@ -87,18 +97,20 @@ export default function BookingsPage() {
                   <th className="px-6 py-3">Travel Date</th>
                   <th className="px-6 py-3">Amount</th>
                   <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Payment</th>
                   {canUpdate && <th className="px-6 py-3">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
                 ) : bookings.length === 0 ? (
-                  <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">No bookings found</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">No bookings found</td></tr>
                 ) : (
                   bookings.map((b) => {
                     const user = typeof b.user === "object" ? b.user : null;
                     const pkg = typeof b.package === "object" ? b.package : null;
+                    const bStatus = b.bookingStatus || b.status || "pending";
                     return (
                       <tr key={b._id} className="hover:bg-slate-50">
                         <td className="px-6 py-4">
@@ -109,22 +121,45 @@ export default function BookingsPage() {
                         <td className="px-6 py-4 text-sm text-slate-500">{formatDate(b.travelDate)}</td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-700">{formatCurrency(b.totalAmount)}</td>
                         <td className="px-6 py-4">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${statusColors[b.status] || ""}`}>
-                            {b.status}
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${statusColors[bStatus] || ""}`}>
+                            {bStatus}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${
+                            b.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" :
+                            b.paymentStatus === "partial" ? "bg-blue-100 text-blue-700" :
+                            b.paymentStatus === "refunded" ? "bg-purple-100 text-purple-700" :
+                            "bg-amber-100 text-amber-700"
+                          }`}>
+                            {b.paymentStatus || "pending"}
                           </span>
                         </td>
                         {canUpdate && (
                           <td className="px-6 py-4">
-                            <select
-                              value={b.status}
-                              onChange={(e) => updateStatus(b._id, e.target.value)}
-                              className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="confirmed">Confirmed</option>
-                              <option value="completed">Completed</option>
-                              <option value="cancelled">Cancelled</option>
-                            </select>
+                            <div className="flex flex-col gap-1.5">
+                              <select
+                                value={bStatus}
+                                onChange={(e) => updateStatus(b._id, e.target.value)}
+                                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white"
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                              <select
+                                value={b.paymentStatus || "pending"}
+                                onChange={(e) => updatePaymentStatus(b._id, e.target.value)}
+                                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white"
+                              >
+                                <option value="pending">Pay: Pending</option>
+                                <option value="partial">Pay: Partial</option>
+                                <option value="paid">Pay: Paid</option>
+                                <option value="refunded">Pay: Refunded</option>
+                              </select>
+                            </div>
                           </td>
                         )}
                       </tr>

@@ -42,6 +42,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Bookings", href: "/bookings", icon: <CalendarCheck size={20} />, permission: "bookings.view" },
       { label: "Enquiries", href: "/enquiries", icon: <MessageSquare size={20} />, permission: "enquiries.view" },
+      { label: "Custom Itineraries", href: "/itineraries", icon: <MapPin size={20} />, permission: "packages.view" },
     ],
   },
   {
@@ -50,12 +51,14 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Destinations", href: "/destinations", icon: <MapPin size={20} />, permission: "destinations.view" },
       { label: "Packages", href: "/packages", icon: <Package size={20} />, permission: "packages.view" },
       { label: "Careers", href: "/careers", icon: <Briefcase size={20} />, permission: "careers.view" },
+      { label: "Applications", href: "/applications", icon: <Briefcase size={20} />, permission: "careers.edit" },
     ],
   },
   {
     title: "Community",
     items: [
       { label: "Reviews", href: "/reviews", icon: <Star size={20} />, permission: "reviews.view" },
+      { label: "Articles", href: "/articles", icon: <MessageSquare size={20} />, permission: "reviews.view" },
       { label: "Newsletter", href: "/newsletter", icon: <Mail size={20} />, permission: "newsletter.view" },
     ],
   },

@@ -63,6 +63,11 @@ interface PackageData {
   destinationImages?: string[];
   stayImages?: string[];
   activityImages?: string[];
+  // Custom itinerary fields
+  isCustom?: boolean;
+  clientName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
 }
 
 // ─── Brand Colors ───
@@ -271,6 +276,39 @@ export async function generatePackagePdf(pkg: PackageData): Promise<void> {
   if (pkg.rating) chips.push(`${pkg.rating}/5 rating`);
   doc.text(chips.join("   |   "), M, cy);
   cy += 10;
+
+  // Client info for custom itineraries
+  if (pkg.isCustom && pkg.clientName) {
+    cy += 4;
+    doc.setFillColor(255, 255, 255);
+    doc.setGState(new (doc as any).GState({ opacity: 0.12 })); // eslint-disable-line @typescript-eslint/no-explicit-any
+    doc.roundedRect(M, cy - 5, CW - 20, 32, 3, 3, "F");
+    doc.setGState(new (doc as any).GState({ opacity: 1 })); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.amber);
+    doc.text("PREPARED FOR", M + 8, cy);
+    cy += 7;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...C.white);
+    doc.text(sanitize(pkg.clientName), M + 8, cy);
+    cy += 7;
+
+    const clientDetails: string[] = [];
+    if (pkg.clientEmail) clientDetails.push(sanitize(pkg.clientEmail));
+    if (pkg.clientPhone) clientDetails.push(sanitize(pkg.clientPhone));
+    if (clientDetails.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(200, 225, 230);
+      doc.text(clientDetails.join("  |  "), M + 8, cy);
+      cy += 8;
+    }
+    cy += 8;
+  }
 
   // Badge
   if (pkg.badge) {
@@ -777,6 +815,8 @@ export async function generatePackagePdf(pkg: PackageData): Promise<void> {
   }
 
   // ─── Save ───
-  const fileName = `LetsLive_${pkg.slug || pkg.name.replace(/\s+/g, "-").toLowerCase()}_Package.pdf`;
+  const prefix = pkg.isCustom ? "LetsLive_Itinerary" : "LetsLive";
+  const suffix = pkg.isCustom ? `_for_${(pkg.clientName || "Client").replace(/\s+/g, "_")}` : "_Package";
+  const fileName = `${prefix}_${pkg.slug || pkg.name.replace(/\s+/g, "-").toLowerCase()}${suffix}.pdf`;
   doc.save(fileName);
 }
