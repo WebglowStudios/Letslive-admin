@@ -118,6 +118,9 @@ export default function DestinationsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
+                          <a href={`http://localhost:3000/destinations/${d.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="View on site">
+                            <Eye size={16} />
+                          </a>
                           {canEdit && (
                             <Link href={`/destinations/${d._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600">
                               <Edit size={16} />

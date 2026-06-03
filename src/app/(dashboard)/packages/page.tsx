@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Package } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+import { generatePackagePdf } from "@/lib/generatePackagePdf";
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[]>([]);
@@ -51,6 +52,20 @@ export default function PackagesPage() {
       setPackages((prev) => prev.map((p) => p._id === id ? { ...p, isFeatured: !current } : p));
     } catch {
       alert("Failed to update");
+    }
+  }
+
+  async function handleDownloadPdf(id: string) {
+    try {
+      const res = await api.get(`/packages/${id}`);
+      const pkgData = res?.data || res;
+      if (pkgData) {
+        await generatePackagePdf(pkgData);
+      } else {
+        alert("Failed to fetch package details for PDF");
+      }
+    } catch {
+      alert("Failed to generate PDF");
     }
   }
 
@@ -112,6 +127,12 @@ export default function PackagesPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
+                            <a href={`http://localhost:3000/packages/${p.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="View on site">
+                              <Eye size={16} />
+                            </a>
+                            <button onClick={() => handleDownloadPdf(p._id)} className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600" title="Download PDF">
+                              <Download size={16} />
+                            </button>
                             {canEdit && (
                               <Link href={`/packages/${p._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600">
                                 <Edit size={16} />

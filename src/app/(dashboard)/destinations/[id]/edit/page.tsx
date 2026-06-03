@@ -3,9 +3,28 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
+import ListInput from "@/components/ui/ListInput";
+
+interface WhyVisitEntry {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+interface TravelTip {
+  question: string;
+  answer: string;
+}
+
+interface GroupDeal {
+  title: string;
+  description: string;
+  image: string;
+  discountText: string;
+}
 
 export default function EditDestinationPage() {
   const router = useRouter();
@@ -16,21 +35,38 @@ export default function EditDestinationPage() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [activeTab, setActiveTab] = useState("basic");
 
-  const [form, setForm] = useState({
-    name: "",
-    country: "",
-    region: "",
+  // Tab 1: Basic Info
+  const [name, setName] = useState("");
+  const [country, setCountry] = useState("");
+  const [region, setRegion] = useState("");
+  const [description, setDescription] = useState("");
+  const [shortDescription, setShortDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [startingPrice, setStartingPrice] = useState("");
+  const [bestSeason, setBestSeason] = useState("");
+  const [visaType, setVisaType] = useState("free");
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+
+  // Tab 2: Media
+  const [heroImage, setHeroImage] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+
+  // Tab 3: Page Content
+  const [highlights, setHighlights] = useState<string[]>([]);
+  const [whyVisit, setWhyVisit] = useState<WhyVisitEntry[]>([]);
+  const [travelTips, setTravelTips] = useState<TravelTip[]>([]);
+  const [photoGallery, setPhotoGallery] = useState<{ image: string; label: string }[]>([]);
+  const [partners, setPartners] = useState<string[]>([]);
+
+  // Tab 4: Group Deal
+  const [groupDeal, setGroupDeal] = useState<GroupDeal>({
+    title: "",
     description: "",
-    shortDescription: "",
-    category: "",
-    heroImage: "",
-    images: "",
-    startingPrice: "",
-    bestSeason: "",
-    visaType: "free",
-    isFeatured: false,
-    isActive: true,
+    image: "",
+    discountText: "",
   });
 
   useEffect(() => {
@@ -42,20 +78,51 @@ export default function EditDestinationPage() {
       const res = await api.get(`/destinations/${id}`);
       const d = res?.data || res;
       if (d) {
-        setForm({
-          name: d.name || "",
-          country: d.country || "",
-          region: d.region || "",
-          description: d.description || "",
-          shortDescription: d.shortDescription || "",
-          category: d.category || "",
-          heroImage: d.heroImage || "",
-          images: d.images?.join(", ") || "",
-          startingPrice: d.startingPrice ? String(d.startingPrice) : "",
-          bestSeason: d.bestSeason || "",
-          visaType: d.visaType || "free",
-          isFeatured: d.isFeatured || false,
-          isActive: d.isActive ?? true,
+        setName(d.name || "");
+        setCountry(d.country || "");
+        setRegion(d.region || "");
+        setDescription(d.description || "");
+        setShortDescription(d.shortDescription || "");
+        setCategory(d.category || "");
+        setStartingPrice(d.startingPrice ? String(d.startingPrice) : "");
+        setBestSeason(d.bestSeason || "");
+        setVisaType(d.visaType || "free");
+        setIsFeatured(d.isFeatured || false);
+        setIsActive(d.isActive ?? true);
+        setHeroImage(d.heroImage || "");
+        setImages(d.images || []);
+        setHighlights(d.highlights || []);
+        setWhyVisit(
+          d.whyVisit && d.whyVisit.length > 0
+            ? d.whyVisit.map((w: { icon?: string; title?: string; description?: string }) => ({
+                icon: w.icon || "",
+                title: w.title || "",
+                description: w.description || "",
+              }))
+            : []
+        );
+        setTravelTips(
+          d.travelTips && d.travelTips.length > 0
+            ? d.travelTips.map((t: { question?: string; answer?: string }) => ({
+                question: t.question || "",
+                answer: t.answer || "",
+              }))
+            : []
+        );
+        setPartners(d.partners || []);
+        setPhotoGallery(
+          d.photoGallery && d.photoGallery.length > 0
+            ? d.photoGallery.map((p: { image?: string; label?: string }) => ({
+                image: p.image || "",
+                label: p.label || "",
+              }))
+            : []
+        );
+        setGroupDeal({
+          title: d.groupDeal?.title || "",
+          description: d.groupDeal?.description || "",
+          image: d.groupDeal?.image || "",
+          discountText: d.groupDeal?.discountText || "",
         });
       }
     } catch {
@@ -65,13 +132,30 @@ export default function EditDestinationPage() {
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
-    const { name, value, type } = e.target;
-    if (type === "checkbox") {
-      setForm({ ...form, [name]: (e.target as HTMLInputElement).checked });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
+  // WhyVisit helpers
+  function addWhyVisit() {
+    setWhyVisit([...whyVisit, { icon: "", title: "", description: "" }]);
+  }
+  function removeWhyVisit(index: number) {
+    setWhyVisit(whyVisit.filter((_, i) => i !== index));
+  }
+  function updateWhyVisit(index: number, field: string, value: string) {
+    const updated = [...whyVisit];
+    updated[index] = { ...updated[index], [field]: value };
+    setWhyVisit(updated);
+  }
+
+  // TravelTips helpers
+  function addTravelTip() {
+    setTravelTips([...travelTips, { question: "", answer: "" }]);
+  }
+  function removeTravelTip(index: number) {
+    setTravelTips(travelTips.filter((_, i) => i !== index));
+  }
+  function updateTravelTip(index: number, field: string, value: string) {
+    const updated = [...travelTips];
+    updated[index] = { ...updated[index], [field]: value };
+    setTravelTips(updated);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -82,9 +166,27 @@ export default function EditDestinationPage() {
 
     try {
       const payload = {
-        ...form,
-        images: form.images ? form.images.split(",").map((s) => s.trim()).filter(Boolean) : [],
-        startingPrice: form.startingPrice ? Number(form.startingPrice) : undefined,
+        name,
+        country,
+        region,
+        description,
+        shortDescription,
+        category: category || undefined,
+        startingPrice: startingPrice ? Number(startingPrice) : undefined,
+        bestSeason,
+        visaType,
+        isFeatured,
+        isActive,
+        heroImage: heroImage || undefined,
+        images,
+        highlights,
+        whyVisit: whyVisit.filter((w) => w.title),
+        travelTips: travelTips.filter((t) => t.question),
+        partners,
+        photoGallery: photoGallery.filter((p) => p.image),
+        groupDeal: groupDeal.title
+          ? groupDeal
+          : undefined,
       };
 
       const res = await api.put(`/destinations/${id}`, payload);
@@ -101,11 +203,18 @@ export default function EditDestinationPage() {
     }
   }
 
+  const tabs = [
+    { id: "basic", label: "Basic Info" },
+    { id: "media", label: "Media" },
+    { id: "content", label: "Page Content" },
+    { id: "groupdeal", label: "Group Deal" },
+  ];
+
   if (fetching) {
     return (
       <RoleGuard permission="destinations.edit">
         <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-slate-400">Loading destination...</p>
+          <div className="w-8 h-8 border-3 border-cyan-600 border-t-transparent rounded-full animate-spin" />
         </div>
       </RoleGuard>
     );
@@ -113,7 +222,7 @@ export default function EditDestinationPage() {
 
   return (
     <RoleGuard permission="destinations.edit">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/destinations" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
             <ArrowLeft size={20} />
@@ -124,172 +233,259 @@ export default function EditDestinationPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>
-        )}
-        {success && (
-          <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">{success}</div>
-        )}
+        {error && <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
+        {success && <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">{success}</div>}
+
+        {/* Tabs */}
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+          {tabs.map((tab) => (
+            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Name</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            />
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Country</label>
-              <input
-                type="text"
-                name="country"
-                value={form.country}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Region</label>
-              <input
-                type="text"
-                name="region"
-                value={form.region}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-          </div>
+          {/* === TAB 1: BASIC INFO === */}
+          {activeTab === "basic" && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Destination Name *</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Country</label>
+                  <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Region</label>
+                  <input type="text" value={region} onChange={(e) => setRegion(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Short Description</label>
+                <input type="text" value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    <option value="">Select category</option>
+                    <option value="beach">Beach</option>
+                    <option value="city">City</option>
+                    <option value="mountain">Mountain</option>
+                    <option value="adventure">Adventure</option>
+                    <option value="cultural">Cultural</option>
+                    <option value="wildlife">Wildlife</option>
+                    <option value="tropical">Tropical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Starting Price (₹)</label>
+                  <input type="number" value={startingPrice} onChange={(e) => setStartingPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Best Season</label>
+                  <input type="text" value={bestSeason} onChange={(e) => setBestSeason(e.target.value)} placeholder="e.g. October - April" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Visa Type</label>
+                  <select value={visaType} onChange={(e) => setVisaType(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    <option value="free">Visa Free</option>
+                    <option value="on-arrival">Visa on Arrival</option>
+                    <option value="required">Visa Required</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Featured on homepage</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Active</span>
+                </label>
+              </div>
+            </>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows={4}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
-            />
-          </div>
+          {/* === TAB 2: MEDIA === */}
+          {activeTab === "media" && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Hero Image URL</label>
+                <input type="url" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="https://..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                {heroImage && <img src={heroImage} alt="Hero Preview" className="mt-3 w-full h-40 object-cover rounded-lg" />}
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Short Description</label>
-            <input
-              type="text"
-              name="shortDescription"
-              value={form.shortDescription}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            />
-          </div>
+              <div className="pt-4 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Gallery / Slideshow Images</p>
+                <p className="text-xs text-slate-400 mb-4">These images are displayed in the hero slideshow on the destination detail page.</p>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-            <select
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            >
-              <option value="">Select category</option>
-              <option value="beach">Beach</option>
-              <option value="mountain">Mountain</option>
-              <option value="city">City</option>
-              <option value="cultural">Cultural</option>
-              <option value="adventure">Adventure</option>
-              <option value="island">Island</option>
-            </select>
-          </div>
+              <ListInput label="Slideshow Images" items={images} onChange={setImages} placeholder="Paste image URL" />
+              {images.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {images.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />))}
+                </div>
+              )}
+            </>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Hero Image URL</label>
-            <input
-              type="url"
-              name="heroImage"
-              value={form.heroImage}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            />
-          </div>
+          {/* === TAB 3: PAGE CONTENT === */}
+          {activeTab === "content" && (
+            <>
+              <ListInput label="Highlights (Marquee + Chips)" items={highlights} onChange={setHighlights} placeholder="e.g. Burj Khalifa, Desert Safari" />
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Additional Images (comma-separated URLs)</label>
-            <input
-              type="text"
-              name="images"
-              value={form.images}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            />
-          </div>
+              {/* Photo Gallery Section */}
+              <div className="pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Photo Gallery</p>
+                    <p className="text-xs text-slate-400">Images with labels shown in the highlights grid (1 big + 4 small)</p>
+                  </div>
+                  <button type="button" onClick={() => setPhotoGallery([...photoGallery, { image: "", label: "" }])} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100">
+                    <Plus size={14} /> Add Photo
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {photoGallery.map((photo, i) => (
+                    <div key={i} className="flex items-center gap-3 border border-slate-200 rounded-xl p-3">
+                      <div className="flex-1 grid grid-cols-2 gap-3">
+                        <input type="url" value={photo.image} onChange={(e) => { const u = [...photoGallery]; u[i] = { ...u[i], image: e.target.value }; setPhotoGallery(u); }} placeholder="Image URL" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        <input type="text" value={photo.label} onChange={(e) => { const u = [...photoGallery]; u[i] = { ...u[i], label: e.target.value }; setPhotoGallery(u); }} placeholder="Label (e.g. Burj Khalifa)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                      </div>
+                      {photo.image && <img src={photo.image} alt="" className="w-12 h-9 object-cover rounded border border-slate-200" />}
+                      <button type="button" onClick={() => setPhotoGallery(photoGallery.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                  {photoGallery.length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No gallery photos yet. Click &quot;Add Photo&quot; to add images with labels.</p>
+                  )}
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Starting Price (₹)</label>
-              <input
-                type="number"
-                name="startingPrice"
-                value={form.startingPrice}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Best Season</label>
-              <input
-                type="text"
-                name="bestSeason"
-                value={form.bestSeason}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-          </div>
+              {/* Why Visit Section */}
+              <div className="pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Why Visit Section</p>
+                    <p className="text-xs text-slate-400">Cards showing key reasons to visit this destination</p>
+                  </div>
+                  <button type="button" onClick={addWhyVisit} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100">
+                    <Plus size={14} /> Add Card
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {whyVisit.map((entry, i) => (
+                    <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-cyan-700">Card {i + 1}</span>
+                        <button type="button" onClick={() => removeWhyVisit(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-slate-500 mb-1 block">Icon (Material Symbol)</label>
+                          <input type="text" value={entry.icon} onChange={(e) => updateWhyVisit(i, "icon", e.target.value)} placeholder="e.g. wb_sunny" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-500 mb-1 block">Title</label>
+                          <input type="text" value={entry.title} onChange={(e) => updateWhyVisit(i, "title", e.target.value)} placeholder="e.g. Best Time to Visit" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Description</label>
+                        <textarea value={entry.description} onChange={(e) => updateWhyVisit(i, "description", e.target.value)} placeholder="Brief description..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
+                      </div>
+                    </div>
+                  ))}
+                  {whyVisit.length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No why-visit cards yet. Click &quot;Add Card&quot; to create one.</p>
+                  )}
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Visa Type</label>
-            <select
-              name="visaType"
-              value={form.visaType}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            >
-              <option value="free">Visa Free</option>
-              <option value="on-arrival">Visa on Arrival</option>
-              <option value="required">Visa Required</option>
-            </select>
-          </div>
+              {/* Travel Tips Section */}
+              <div className="pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Travel Tips (FAQ)</p>
+                    <p className="text-xs text-slate-400">Question & answer accordion items</p>
+                  </div>
+                  <button type="button" onClick={addTravelTip} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100">
+                    <Plus size={14} /> Add Tip
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {travelTips.map((tip, i) => (
+                    <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-cyan-700">Tip {i + 1}</span>
+                        <button type="button" onClick={() => removeTravelTip(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Question</label>
+                        <input type="text" value={tip.question} onChange={(e) => updateTravelTip(i, "question", e.target.value)} placeholder="e.g. What documents do I need?" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Answer</label>
+                        <textarea value={tip.answer} onChange={(e) => updateTravelTip(i, "answer", e.target.value)} placeholder="Detailed answer..." rows={3} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
+                      </div>
+                    </div>
+                  ))}
+                  {travelTips.length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No travel tips yet. Click &quot;Add Tip&quot; to create one.</p>
+                  )}
+                </div>
+              </div>
 
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                name="isFeatured"
-                checked={form.isFeatured}
-                onChange={handleChange}
-                className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
-              />
-              <span className="text-sm text-slate-700">Featured</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                name="isActive"
-                checked={form.isActive}
-                onChange={handleChange}
-                className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
-              />
-              <span className="text-sm text-slate-700">Active</span>
-            </label>
-          </div>
+              {/* Partners */}
+              <div className="pt-4 border-t border-slate-100">
+                <ListInput label="Partner Logos (Image URLs)" items={partners} onChange={setPartners} placeholder="Paste partner logo URL" />
+                {partners.length > 0 && (
+                  <div className="flex gap-2 flex-wrap mt-2">
+                    {partners.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-contain rounded-lg border border-slate-200 bg-white p-1" />))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
-          <div className="flex items-center gap-3 pt-4">
+          {/* === TAB 4: GROUP DEAL === */}
+          {activeTab === "groupdeal" && (
+            <>
+              <p className="text-xs text-slate-400 mb-2">Configure the group deal CTA section shown on the destination page. Leave title empty to hide.</p>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Title</label>
+                <input type="text" value={groupDeal.title} onChange={(e) => setGroupDeal({ ...groupDeal, title: e.target.value })} placeholder="e.g. Bigger Group? Get Special Offers!" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+                <textarea value={groupDeal.description} onChange={(e) => setGroupDeal({ ...groupDeal, description: e.target.value })} placeholder="Describe the group deal offering..." rows={3} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Image URL</label>
+                <input type="url" value={groupDeal.image} onChange={(e) => setGroupDeal({ ...groupDeal, image: e.target.value })} placeholder="https://..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                {groupDeal.image && <img src={groupDeal.image} alt="Group deal preview" className="mt-3 w-full h-40 object-cover rounded-lg" />}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Discount Text</label>
+                <input type="text" value={groupDeal.discountText} onChange={(e) => setGroupDeal({ ...groupDeal, discountText: e.target.value })} placeholder="e.g. Save 15% on groups of 6+" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+            </>
+          )}
+
+          {/* Submit */}
+          <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
             <button
               type="submit"
               disabled={loading}
