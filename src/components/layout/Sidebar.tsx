@@ -20,8 +20,8 @@ import {
   ChevronLeft,
   LogOut,
 } from "lucide-react";
-import { useState } from "react";
 import { getInitials } from "@/lib/utils";
+import { useSidebarStore } from "@/stores/sidebarStore";
 
 interface NavItem {
   label: string;
@@ -81,7 +81,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggle } = useSidebarStore();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -109,7 +109,7 @@ export default function Sidebar() {
           </Link>
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggle}
           className={`ml-auto p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-transform ${
             collapsed ? "rotate-180 mx-auto" : ""
           }`}
@@ -119,7 +119,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-hide">
         {navSections.map((section) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.permission) return true;
@@ -141,14 +141,16 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${
                       isActive(item.href)
                         ? "bg-cyan-600/15 text-cyan-400"
                         : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                    } ${collapsed ? "justify-center" : ""}`}
+                    } ${collapsed ? "justify-center px-2 py-3" : "px-3 py-2.5"}`}
                     title={collapsed ? item.label : undefined}
                   >
-                    {item.icon}
+                    <span style={collapsed ? { transform: "scale(1.2)" } : undefined}>
+                      {item.icon}
+                    </span>
                     {!collapsed && <span>{item.label}</span>}
                   </Link>
                 ))}

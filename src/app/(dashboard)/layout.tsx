@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { useSidebarStore } from "@/stores/sidebarStore";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, loading, checkAuth } = useAuthStore();
+  const collapsed = useSidebarStore((s) => s.collapsed);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -52,7 +54,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
+      <div
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
+          collapsed ? "lg:ml-[72px]" : "lg:ml-[260px]"
+        }`}
+      >
         <Topbar onMenuClick={() => setMobileMenuOpen(true)} />
         <main className="flex-1 p-6">{children}</main>
       </div>
