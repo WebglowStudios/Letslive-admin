@@ -1,121 +1,190 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, X, Image as ImageIcon, Loader2, Check } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
-interface ImageUploadProps {
-  value: string; // current URL
-  onChange: (url: string) => void;
-  folder?: string;
-  label?: string;
-  showPreview?: boolean;
+interface LibraryImage {
+  url: string;
+  publicId: string;
+  width: number;
+  height: number;
+  createdAt: string;
 }
 
-export default function ImageUpload({ value, onChange, folder = "letslivetours", label, showPreview = true }: ImageUploadProps) {
+// ─── MEDIA LIBRARY MODAL ───
+function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open: boolean; onClose: () => void; onSelect: (urls: string[]) => void; multiple?: boolean }) {
+  const [images, setImages] = useState<LibraryImage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function handleUpload(file: File) {
-    setError("");
+  const fetchLibrary = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/upload/library?limit=200`, { credentials: "include" });
+      const json = await res.json();
+      setImages(json.data || []);
+    } catch { setImages([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (open) { fetchLibrary(); setSelected([]); } }, [open, fetchLibrary]);
+
+  async function handleUpload(files: FileList) {
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch(`${API_URL}/upload?folder=${folder}`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      const json = await res.json();
-
-      if (json.status === "success" && json.data?.url) {
-        onChange(json.data.url);
-      } else {
-        setError(json.message || "Upload failed");
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append("image", file);
+        const res = await fetch(`${API_URL}/upload?folder=letslivetours`, { method: "POST", body: formData, credentials: "include" });
+        const json = await res.json();
+        if (json.data?.url) {
+          setImages((prev) => [{ url: json.data.url, publicId: json.data.publicId, width: json.data.width, height: json.data.height, createdAt: new Date().toISOString() }, ...prev]);
+        }
       }
-    } catch {
-      setError("Upload failed. Check Cloudinary config.");
-    } finally {
-      setUploading(false);
+    } catch { alert("Upload failed"); }
+    finally { setUploading(false); }
+  }
+
+  function toggleSelect(url: string) {
+    if (multiple) {
+      setSelected((prev) => prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]);
+    } else {
+      setSelected([url]);
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) handleUpload(file);
-    e.target.value = "";
+  function handleInsert() {
+    onSelect(selected);
+    onClose();
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) handleUpload(file);
-  }
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)" }} />
+
+      {/* Modal */}
+      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(900px, 92vw)", height: "min(620px, 85vh)", background: "#fff", borderRadius: 16, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Media Library</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploading ? "Uploading..." : "Upload New"}
+            </button>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "#f1f5f9", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Grid */}
+        <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
+          {loading ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+              <Loader2 size={32} className="animate-spin" style={{ color: "#0891b2" }} />
+            </div>
+          ) : images.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
+              <ImageIcon size={48} style={{ color: "#cbd5e1" }} />
+              <p style={{ fontSize: 14, color: "#64748b" }}>No images yet. Upload your first one!</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+              {images.map((img) => {
+                const isSelected = selected.includes(img.url);
+                return (
+                  <div
+                    key={img.publicId}
+                    onClick={() => toggleSelect(img.url)}
+                    style={{
+                      position: "relative",
+                      aspectRatio: "1",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      border: isSelected ? "3px solid #0891b2" : "2px solid transparent",
+                      transition: "border .15s",
+                    }}
+                  >
+                    <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    {isSelected && (
+                      <div style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "#0891b2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Check size={12} style={{ color: "#fff" }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "12px 24px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={{ fontSize: 12, color: "#64748b" }}>{selected.length} selected | {images.length} total images</p>
+          <button
+            onClick={handleInsert}
+            disabled={selected.length === 0}
+            style={{ padding: "8px 20px", background: selected.length > 0 ? "#0891b2" : "#e2e8f0", color: selected.length > 0 ? "#fff" : "#94a3b8", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: selected.length > 0 ? "pointer" : "not-allowed" }}
+          >
+            {multiple ? `Insert ${selected.length} Image${selected.length !== 1 ? "s" : ""}` : "Select Image"}
+          </button>
+        </div>
+      </div>
+
+      <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleUpload(e.target.files)} style={{ display: "none" }} />
+    </div>
+  );
+}
+
+// ─── SINGLE IMAGE UPLOAD (opens modal) ───
+
+interface ImageUploadProps {
+  value: string;
+  onChange: (url: string) => void;
+  folder?: string;
+  label?: string;
+}
+
+export default function ImageUpload({ value, onChange, label }: ImageUploadProps) {
+  const [modalOpen, setModalOpen] = useState(false);
 
   return (
     <div className="space-y-2">
       {label && <label className="block text-sm font-medium text-slate-700">{label}</label>}
 
-      {/* Preview + Upload area */}
-      {value && showPreview ? (
+      {value ? (
         <div className="relative group">
-          <img src={value} alt="Uploaded" className="w-full h-40 object-cover rounded-xl border border-slate-200" />
+          <img src={value} alt="Selected" className="w-full h-40 object-cover rounded-xl border border-slate-200" />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-3">
-            <button onClick={() => fileRef.current?.click()} className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1"><Upload size={12} /> Replace</button>
+            <button onClick={() => setModalOpen(true)} className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1"><Upload size={12} /> Change</button>
             <button onClick={() => onChange("")} className="px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1"><X size={12} /> Remove</button>
           </div>
         </div>
       ) : (
-        <div
-          onClick={() => fileRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${uploading ? "border-cyan-400 bg-cyan-50" : "border-slate-200 hover:border-cyan-400 hover:bg-slate-50"}`}
+        <button
+          onClick={() => setModalOpen(true)}
+          className="w-full border-2 border-dashed border-slate-200 hover:border-cyan-400 rounded-xl p-6 text-center cursor-pointer transition-colors hover:bg-slate-50 flex flex-col items-center gap-2"
         >
-          {uploading ? (
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 size={24} className="text-cyan-600 animate-spin" />
-              <p className="text-xs text-cyan-600 font-medium">Uploading...</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <ImageIcon size={24} className="text-slate-400" />
-              <p className="text-xs text-slate-500">Click to upload or drag & drop</p>
-              <p className="text-[10px] text-slate-400">PNG, JPG, WebP up to 5MB</p>
-            </div>
-          )}
-        </div>
+          <ImageIcon size={24} className="text-slate-400" />
+          <span className="text-xs text-slate-500">Click to open Media Library</span>
+        </button>
       )}
 
-      {/* URL input fallback (always available) */}
-      <div className="flex gap-2">
-        <input
-          type="url"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Or paste image URL..."
-          className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500"
-        />
-        {!value && (
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-cyan-700 disabled:opacity-50">
-            <Upload size={12} /> Upload
-          </button>
-        )}
-      </div>
-
-      {error && <p className="text-[10px] text-red-500">{error}</p>}
-
-      <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+      <MediaLibraryModal open={modalOpen} onClose={() => setModalOpen(false)} onSelect={(urls) => { if (urls[0]) onChange(urls[0]); }} />
     </div>
   );
 }
 
-// ─── Multi-image upload variant ───
+// ─── MULTI IMAGE UPLOAD (opens modal with multiple select) ───
 
 interface MultiImageUploadProps {
   images: string[];
@@ -124,68 +193,33 @@ interface MultiImageUploadProps {
   label?: string;
 }
 
-export function MultiImageUpload({ images, onChange, folder = "letslivetours", label }: MultiImageUploadProps) {
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function handleFiles(files: FileList) {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      Array.from(files).slice(0, 10).forEach((f) => formData.append("images", f));
-
-      const res = await fetch(`${API_URL}/upload/multiple?folder=${folder}`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      const json = await res.json();
-      if (json.status === "success" && json.data) {
-        const newUrls = json.data.map((d: { url: string }) => d.url);
-        onChange([...images, ...newUrls]);
-      }
-    } catch {
-      alert("Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function removeImage(idx: number) {
-    onChange(images.filter((_, i) => i !== idx));
-  }
+export function MultiImageUpload({ images, onChange, label }: MultiImageUploadProps) {
+  const [modalOpen, setModalOpen] = useState(false);
 
   return (
     <div className="space-y-2">
       {label && <p className="text-sm font-medium text-slate-700">{label}</p>}
 
-      {/* Thumbnails */}
       {images.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {images.map((url, i) => (
             <div key={i} className="relative group">
               <img src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />
-              <button onClick={() => removeImage(i)} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
+              <button onClick={() => onChange(images.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Upload button */}
-      <div className="flex gap-2 items-center">
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 flex items-center gap-1 hover:bg-slate-200 disabled:opacity-50"
-        >
-          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-          {uploading ? "Uploading..." : "Upload Images"}
-        </button>
-        <span className="text-[10px] text-slate-400">{images.length} image(s)</span>
-      </div>
+      <button
+        onClick={() => setModalOpen(true)}
+        className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 flex items-center gap-1 hover:bg-slate-200"
+      >
+        <Upload size={12} /> {images.length > 0 ? "Add More Images" : "Select Images"}
+      </button>
+      <span className="text-[10px] text-slate-400">{images.length} image(s)</span>
 
-      <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleFiles(e.target.files)} className="hidden" />
+      <MediaLibraryModal open={modalOpen} onClose={() => setModalOpen(false)} onSelect={(urls) => onChange([...images, ...urls])} multiple />
     </div>
   );
 }

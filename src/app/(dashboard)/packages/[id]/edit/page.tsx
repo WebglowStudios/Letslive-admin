@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
+import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
 
 interface ItineraryDay {
   day: number;
@@ -446,9 +447,7 @@ export default function EditPackagePage() {
           {activeTab === "media" && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Hero Image URL (main large image)</label>
-                <input type="url" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                {heroImage && <img src={heroImage} alt="Preview" className="mt-3 w-full h-40 object-cover rounded-lg" />}
+                <ImageUpload value={heroImage} onChange={setHeroImage} folder="packages" label="Hero Image (main large image)" />
               </div>
 
               <div className="pt-4 border-t border-slate-100">
@@ -456,33 +455,10 @@ export default function EditPackagePage() {
                 <p className="text-xs text-slate-400 mb-4">The first image from each category appears in the 2×2 grid on the package detail page.</p>
               </div>
 
-              <ListInput label="📍 Destination Images" items={destinationImages} onChange={setDestinationImages} placeholder="Paste destination image URL" />
-              {destinationImages.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {destinationImages.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />))}
-                </div>
-              )}
-
-              <ListInput label="🏨 Stay Images" items={stayImages} onChange={setStayImages} placeholder="Paste hotel/stay image URL" />
-              {stayImages.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {stayImages.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />))}
-                </div>
-              )}
-
-              <ListInput label="🪂 Activity Images" items={activityImages} onChange={setActivityImages} placeholder="Paste activity image URL" />
-              {activityImages.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {activityImages.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />))}
-                </div>
-              )}
-
-              <ListInput label="📸 General Gallery Images" items={images} onChange={setImages} placeholder="Paste any additional image URL" />
-              {images.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {images.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />))}
-                </div>
-              )}
+              <MultiImageUpload images={destinationImages} onChange={setDestinationImages} folder="packages/destinations" label="Destination Images" />
+              <MultiImageUpload images={stayImages} onChange={setStayImages} folder="packages/stays" label="Stay Images" />
+              <MultiImageUpload images={activityImages} onChange={setActivityImages} folder="packages/activities" label="Activity Images" />
+              <MultiImageUpload images={images} onChange={setImages} folder="packages/gallery" label="General Gallery Images" />
             </>
           )}
 
