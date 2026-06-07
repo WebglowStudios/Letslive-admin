@@ -19,6 +19,7 @@ import {
   Activity,
   ChevronLeft,
   LogOut,
+  TrendingUp,
 } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import { useSidebarStore } from "@/stores/sidebarStore";
@@ -43,6 +44,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Bookings", href: "/bookings", icon: <CalendarCheck size={20} />, permission: "bookings.view" },
       { label: "Enquiries", href: "/enquiries", icon: <MessageSquare size={20} />, permission: "enquiries.view" },
       { label: "Custom Itineraries", href: "/itineraries", icon: <MapPin size={20} />, permission: "packages.view" },
+      { label: "Post-Sales Ops", href: "/operations", icon: <TrendingUp size={20} />, permission: "bookings.view" },
     ],
   },
   {
