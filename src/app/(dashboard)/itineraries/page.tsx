@@ -57,7 +57,7 @@ export default function ItinerariesPage() {
   }
 
   function copyLink(id: string) {
-    const url = `http://localhost:3000/itinerary/${id}`;
+    const url = `https://letslivetours.com/itinerary/${id}`;
     navigator.clipboard.writeText(url);
     alert("Link copied to clipboard!");
   }
@@ -172,7 +172,7 @@ export default function ItinerariesPage() {
                     <td className="px-6 py-4 text-sm text-slate-500">{formatDate(it.createdAt)}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <a href={`http://localhost:3000/itinerary/${it._id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="View">
+                        <a href={`https://letslivetours.com/itinerary/${it._id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="View">
                           <Eye size={16} />
                         </a>
                         <button onClick={() => copyLink(it._id)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600" title="Copy shareable link">

@@ -80,7 +80,7 @@ export default function ArticlesPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {a.isPublished && (
-                        <a href={`http://localhost:3000/articles/${a.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"><Eye size={16} /></a>
+                        <a href={`https://letslivetours.com/articles/${a.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"><Eye size={16} /></a>
                       )}
                       <Link href={`/articles/${a._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600"><Edit size={16} /></Link>
                       <button onClick={() => handleDelete(a._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>

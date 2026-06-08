@@ -140,8 +140,8 @@ export default function NewCustomItineraryPage() {
           <p className="font-semibold">{success}</p>
           {createdId && (
             <div className="mt-2 flex items-center gap-2">
-              <input type="text" readOnly value={`http://localhost:3000/itinerary/${createdId}`} className="flex-1 px-3 py-2 bg-white border border-emerald-200 rounded-lg text-xs" />
-              <button onClick={() => { navigator.clipboard.writeText(`http://localhost:3000/itinerary/${createdId}`); }} className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
+              <input type="text" readOnly value={`https://letslivetours.com/itinerary/${createdId}`} className="flex-1 px-3 py-2 bg-white border border-emerald-200 rounded-lg text-xs" />
+              <button onClick={() => { navigator.clipboard.writeText(`https://letslivetours.com/itinerary/${createdId}`); }} className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
                 <LinkIcon size={12} /> Copy
               </button>
             </div>
