@@ -353,13 +353,21 @@ export default function EditDestinationPage() {
                 </div>
                 <div className="space-y-3">
                   {photoGallery.map((photo, i) => (
-                    <div key={i} className="flex items-center gap-3 border border-slate-200 rounded-xl p-3">
-                      <div className="flex-1 grid grid-cols-2 gap-3">
-                        <input type="url" value={photo.image} onChange={(e) => { const u = [...photoGallery]; u[i] = { ...u[i], image: e.target.value }; setPhotoGallery(u); }} placeholder="Image URL" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                    <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cyan-700">Photo {i + 1}</span>
+                        <button type="button" onClick={() => setPhotoGallery(photoGallery.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>
+                      <ImageUpload
+                        value={photo.image}
+                        onChange={(url) => { const u = [...photoGallery]; u[i] = { ...u[i], image: url }; setPhotoGallery(u); }}
+                        label="Image"
+                        folder="destinations"
+                      />
+                      <div>
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Label</label>
                         <input type="text" value={photo.label} onChange={(e) => { const u = [...photoGallery]; u[i] = { ...u[i], label: e.target.value }; setPhotoGallery(u); }} placeholder="Label (e.g. Burj Khalifa)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                       </div>
-                      {photo.image && <img src={photo.image} alt="" className="w-12 h-9 object-cover rounded border border-slate-200" />}
-                      <button type="button" onClick={() => setPhotoGallery(photoGallery.filter((_, j) => j !== i))} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                     </div>
                   ))}
                   {photoGallery.length === 0 && (
@@ -444,12 +452,7 @@ export default function EditDestinationPage() {
 
               {/* Partners */}
               <div className="pt-4 border-t border-slate-100">
-                <ListInput label="Partner Logos (Image URLs)" items={partners} onChange={setPartners} placeholder="Paste partner logo URL" />
-                {partners.length > 0 && (
-                  <div className="flex gap-2 flex-wrap mt-2">
-                    {partners.map((url, i) => (<img key={i} src={url} alt="" className="w-16 h-12 object-contain rounded-lg border border-slate-200 bg-white p-1" />))}
-                  </div>
-                )}
+                <MultiImageUpload images={partners} onChange={setPartners} label="Partner Logos" folder="destinations" />
               </div>
             </>
           )}
@@ -466,11 +469,7 @@ export default function EditDestinationPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
                 <textarea value={groupDeal.description} onChange={(e) => setGroupDeal({ ...groupDeal, description: e.target.value })} placeholder="Describe the group deal offering..." rows={3} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Image URL</label>
-                <input type="url" value={groupDeal.image} onChange={(e) => setGroupDeal({ ...groupDeal, image: e.target.value })} placeholder="https://..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                {groupDeal.image && <img src={groupDeal.image} alt="Group deal preview" className="mt-3 w-full h-40 object-cover rounded-lg" />}
-              </div>
+              <ImageUpload value={groupDeal.image} onChange={(url) => setGroupDeal({ ...groupDeal, image: url })} label="Group Deal Image" folder="destinations" />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Discount Text</label>
                 <input type="text" value={groupDeal.discountText} onChange={(e) => setGroupDeal({ ...groupDeal, discountText: e.target.value })} placeholder="e.g. Save 15% on groups of 6+" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />

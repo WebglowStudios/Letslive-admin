@@ -7,6 +7,7 @@ import { Destination } from "@/types";
 import { ArrowLeft, Save, Plus, Trash2, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import ListInput from "@/components/ui/ListInput";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function NewCustomItineraryPage() {
   const router = useRouter();
@@ -221,8 +222,7 @@ export default function NewCustomItineraryPage() {
                 <input type="text" value={hotelRating} onChange={(e) => setHotelRating(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="5-Star" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Hero Image URL</label>
-                <input type="url" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="https://..." />
+                <ImageUpload value={heroImage} onChange={setHeroImage} label="Hero Image" folder="itineraries" />
               </div>
             </div>
           </>

@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import ListInput from "@/components/ui/ListInput";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function NewArticlePage() {
   const router = useRouter();
@@ -57,9 +58,7 @@ export default function NewArticlePage() {
           <input type="text" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Short summary shown on cards..." />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Cover Image URL</label>
-          <input type="url" value={coverImage} onChange={(e) => setCoverImage(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="https://..." />
-          {coverImage && <img src={coverImage} alt="" className="mt-3 w-full h-40 object-cover rounded-lg" />}
+          <ImageUpload value={coverImage} onChange={setCoverImage} label="Cover Image" folder="articles" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>

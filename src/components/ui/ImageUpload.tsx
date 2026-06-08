@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Upload, X, Image as ImageIcon, Loader2, Check } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -13,13 +14,16 @@ interface LibraryImage {
   createdAt: string;
 }
 
-// ─── MEDIA LIBRARY MODAL ───
+// ─── MEDIA LIBRARY MODAL (rendered via portal to avoid form nesting issues) ───
 function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open: boolean; onClose: () => void; onSelect: (urls: string[]) => void; multiple?: boolean }) {
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const fetchLibrary = useCallback(async () => {
     setLoading(true);
@@ -62,10 +66,10 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
     onClose();
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }}>
+  const modalContent = (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
       {/* Backdrop */}
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)" }} />
 
@@ -75,11 +79,11 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Media Library</h2>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               {uploading ? "Uploading..." : "Upload New"}
             </button>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "#f1f5f9", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <button type="button" onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "#f1f5f9", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
               <X size={16} />
             </button>
           </div>
@@ -131,6 +135,7 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
         <div style={{ padding: "12px 24px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <p style={{ fontSize: 12, color: "#64748b" }}>{selected.length} selected | {images.length} total images</p>
           <button
+            type="button"
             onClick={handleInsert}
             disabled={selected.length === 0}
             style={{ padding: "8px 20px", background: selected.length > 0 ? "#0891b2" : "#e2e8f0", color: selected.length > 0 ? "#fff" : "#94a3b8", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: selected.length > 0 ? "pointer" : "not-allowed" }}
@@ -143,6 +148,8 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
       <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleUpload(e.target.files)} style={{ display: "none" }} />
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 // ─── SINGLE IMAGE UPLOAD (opens modal) ───
@@ -165,12 +172,13 @@ export default function ImageUpload({ value, onChange, label }: ImageUploadProps
         <div className="relative group">
           <img src={value} alt="Selected" className="w-full h-40 object-cover rounded-xl border border-slate-200" />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-3">
-            <button onClick={() => setModalOpen(true)} className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1"><Upload size={12} /> Change</button>
-            <button onClick={() => onChange("")} className="px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1"><X size={12} /> Remove</button>
+            <button type="button" onClick={() => setModalOpen(true)} className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1"><Upload size={12} /> Change</button>
+            <button type="button" onClick={() => onChange("")} className="px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1"><X size={12} /> Remove</button>
           </div>
         </div>
       ) : (
         <button
+          type="button"
           onClick={() => setModalOpen(true)}
           className="w-full border-2 border-dashed border-slate-200 hover:border-cyan-400 rounded-xl p-6 text-center cursor-pointer transition-colors hover:bg-slate-50 flex flex-col items-center gap-2"
         >
@@ -205,13 +213,14 @@ export function MultiImageUpload({ images, onChange, label }: MultiImageUploadPr
           {images.map((url, i) => (
             <div key={i} className="relative group">
               <img src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />
-              <button onClick={() => onChange(images.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
+              <button type="button" onClick={() => onChange(images.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
             </div>
           ))}
         </div>
       )}
 
       <button
+        type="button"
         onClick={() => setModalOpen(true)}
         className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 flex items-center gap-1 hover:bg-slate-200"
       >

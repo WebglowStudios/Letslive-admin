@@ -519,12 +519,7 @@ export default function EditPackagePage() {
                           </div>
                         </div>
                         <div>
-                          <ListInput label="Images (URLs)" items={day.images} onChange={(items) => updateItinerary(i, "images", items)} placeholder="Paste image URL" />
-                          {day.images.length > 0 && (
-                            <div className="flex gap-2 mt-2 flex-wrap">
-                              {day.images.map((url, j) => (<img key={j} src={url} alt="" className="w-14 h-10 object-cover rounded border border-slate-200" />))}
-                            </div>
-                          )}
+                          <MultiImageUpload images={day.images} onChange={(items) => updateItinerary(i, "images", items)} label="Images" folder="packages" />
                         </div>
                       </div>
                     ))}
@@ -553,12 +548,7 @@ export default function EditPackagePage() {
                         <input type="text" value={activity.duration} onChange={(e) => updateActivity(i, "duration", e.target.value)} placeholder="Duration (e.g. 2 hours)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         <ListInput label="Details" items={activity.details} onChange={(items) => updateActivity(i, "details", items)} placeholder="Add detail" />
                         <div>
-                          <ListInput label="Images (URLs)" items={activity.images} onChange={(items) => updateActivity(i, "images", items)} placeholder="Paste image URL" />
-                          {activity.images.length > 0 && (
-                            <div className="flex gap-2 mt-2 flex-wrap">
-                              {activity.images.map((url, j) => (<img key={j} src={url} alt="" className="w-14 h-10 object-cover rounded border border-slate-200" />))}
-                            </div>
-                          )}
+                          <MultiImageUpload images={activity.images} onChange={(items) => updateActivity(i, "images", items)} label="Images" folder="packages" />
                         </div>
                       </div>
                     ))}
@@ -621,12 +611,7 @@ export default function EditPackagePage() {
                         <textarea value={transfer.description} onChange={(e) => updateTransfer(i, "description", e.target.value)} placeholder="Transfer description..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
                         <ListInput label="Details" items={transfer.details} onChange={(items) => updateTransfer(i, "details", items)} placeholder="Add detail" />
                         <div>
-                          <ListInput label="Images (URLs)" items={transfer.images} onChange={(items) => updateTransfer(i, "images", items)} placeholder="Paste image URL" />
-                          {transfer.images.length > 0 && (
-                            <div className="flex gap-2 mt-2 flex-wrap">
-                              {transfer.images.map((url, j) => (<img key={j} src={url} alt="" className="w-14 h-10 object-cover rounded border border-slate-200" />))}
-                            </div>
-                          )}
+                          <MultiImageUpload images={transfer.images} onChange={(items) => updateTransfer(i, "images", items)} label="Images" folder="packages" />
                         </div>
                       </div>
                     ))}
