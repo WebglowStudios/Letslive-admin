@@ -7,6 +7,7 @@ import { Plus, Search, Trash2, Edit, Eye } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+import { useRole } from "@/hooks/usePermission";
 
 export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -14,6 +15,7 @@ export default function DestinationsPage() {
   const canCreate = usePermission("destinations.create");
   const canEdit = usePermission("destinations.edit");
   const canDelete = usePermission("destinations.delete");
+  const role = useRole();
 
   useEffect(() => {
     fetchDestinations();
@@ -21,7 +23,7 @@ export default function DestinationsPage() {
 
   async function fetchDestinations() {
     try {
-      const res = await api.get("/destinations?limit=50");
+      const res = await api.get("/destinations?limit=50&admin=true");
       setDestinations(res?.data || []);
     } catch {
       setDestinations([]);
@@ -46,6 +48,15 @@ export default function DestinationsPage() {
       setDestinations((prev) => prev.map((d) => d._id === id ? { ...d, isFeatured: !current } : d));
     } catch {
       alert("Failed to update");
+    }
+  }
+
+  async function handleApprovalChange(id: string, status: string) {
+    try {
+      await api.put(`/destinations/${id}`, { approvalStatus: status });
+      setDestinations((prev) => prev.map((d) => d._id === id ? { ...d, approvalStatus: status } : d));
+    } catch {
+      alert("Failed to update approval status");
     }
   }
 
@@ -74,7 +85,7 @@ export default function DestinationsPage() {
                   <th className="px-6 py-3">Destination</th>
                   <th className="px-6 py-3">Region</th>
                   <th className="px-6 py-3">Packages</th>
-                  <th className="px-6 py-3">Rating</th>
+                  <th className="px-6 py-3">Approval</th>
                   <th className="px-6 py-3">Featured</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Actions</th>
@@ -101,7 +112,31 @@ export default function DestinationsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{d.region || d.country || "—"}</td>
                       <td className="px-6 py-4 text-sm text-slate-600 font-medium">{d.packageCount}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">⭐ {d.rating}</td>
+                      <td className="px-6 py-4">
+                        {role === "admin" ? (
+                          <select
+                            value={d.approvalStatus || "pending"}
+                            onChange={(e) => handleApprovalChange(d._id, e.target.value)}
+                            className={`px-2 py-1 rounded-lg text-xs font-semibold border-none outline-none cursor-pointer ${
+                              d.approvalStatus === "approved" ? "bg-emerald-100 text-emerald-700" :
+                              d.approvalStatus === "rejected" ? "bg-red-100 text-red-700" :
+                              "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            d.approvalStatus === "approved" ? "bg-emerald-100 text-emerald-700" :
+                            d.approvalStatus === "rejected" ? "bg-red-100 text-red-700" :
+                            "bg-amber-100 text-amber-700"
+                          }`}>
+                            {(d.approvalStatus || "pending").charAt(0).toUpperCase() + (d.approvalStatus || "pending").slice(1)}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         <button
                           onClick={() => toggleFeatured(d._id, d.isFeatured)}

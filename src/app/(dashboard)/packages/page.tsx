@@ -8,6 +8,7 @@ import { Plus, Search, Trash2, Edit, Eye, Download } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+import { useRole } from "@/hooks/usePermission";
 import { generatePackagePdf } from "@/lib/generatePackagePdf";
 
 export default function PackagesPage() {
@@ -16,6 +17,7 @@ export default function PackagesPage() {
   const canCreate = usePermission("packages.create");
   const canEdit = usePermission("packages.edit");
   const canDelete = usePermission("packages.delete");
+  const role = useRole();
 
   useEffect(() => {
     fetchPackages();
@@ -23,7 +25,7 @@ export default function PackagesPage() {
 
   async function fetchPackages() {
     try {
-      const res = await api.get("/packages?limit=50");
+      const res = await api.get("/packages?limit=50&admin=true");
       setPackages(res?.data || []);
     } catch {
       setPackages([]);
@@ -69,6 +71,15 @@ export default function PackagesPage() {
     }
   }
 
+  async function handleApprovalChange(id: string, status: string) {
+    try {
+      await api.put(`/packages/${id}`, { approvalStatus: status });
+      setPackages((prev) => prev.map((p) => p._id === id ? { ...p, approvalStatus: status } : p));
+    } catch {
+      alert("Failed to update approval status");
+    }
+  }
+
   return (
     <RoleGuard permission="packages.view">
       <div className="space-y-6">
@@ -93,7 +104,7 @@ export default function PackagesPage() {
                   <th className="px-6 py-3">Destination</th>
                   <th className="px-6 py-3">Duration</th>
                   <th className="px-6 py-3">Price</th>
-                  <th className="px-6 py-3">Rating</th>
+                  <th className="px-6 py-3">Approval</th>
                   <th className="px-6 py-3">Featured</th>
                   <th className="px-6 py-3">Actions</th>
                 </tr>
@@ -115,7 +126,31 @@ export default function PackagesPage() {
                         <td className="px-6 py-4 text-sm text-slate-500">{dest?.name || "—"}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{p.duration?.nights}N/{p.duration?.days}D</td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-700">{formatCurrency(p.price)}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">⭐ {p.rating} ({p.reviewCount})</td>
+                        <td className="px-6 py-4">
+                          {role === "admin" ? (
+                            <select
+                              value={p.approvalStatus || "pending"}
+                              onChange={(e) => handleApprovalChange(p._id, e.target.value)}
+                              className={`px-2 py-1 rounded-lg text-xs font-semibold border-none outline-none cursor-pointer ${
+                                p.approvalStatus === "approved" ? "bg-emerald-100 text-emerald-700" :
+                                p.approvalStatus === "rejected" ? "bg-red-100 text-red-700" :
+                                "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="approved">Approved</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                          ) : (
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              p.approvalStatus === "approved" ? "bg-emerald-100 text-emerald-700" :
+                              p.approvalStatus === "rejected" ? "bg-red-100 text-red-700" :
+                              "bg-amber-100 text-amber-700"
+                            }`}>
+                              {(p.approvalStatus || "pending").charAt(0).toUpperCase() + (p.approvalStatus || "pending").slice(1)}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4">
                           <button
                             onClick={() => toggleFeatured(p._id, p.isFeatured)}

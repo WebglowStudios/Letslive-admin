@@ -30,6 +30,7 @@ export interface Destination {
   visaType?: string;
   isActive: boolean;
   isFeatured: boolean;
+  approvalStatus?: string;
   createdAt: string;
 }
 
@@ -51,6 +52,7 @@ export interface Package {
   badge?: string;
   isActive: boolean;
   isFeatured: boolean;
+  approvalStatus?: string;
   createdAt: string;
 }
 
