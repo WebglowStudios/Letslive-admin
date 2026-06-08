@@ -102,16 +102,7 @@ export default function LoginPage() {
             Only authorized staff can access this panel.
           </p>
 
-          {/* Demo credentials */}
-          <div className="mt-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <p className="text-xs font-semibold text-slate-500 mb-2">Demo Credentials (password: admin123)</p>
-            <div className="space-y-1 text-xs text-slate-500">
-              <p><span className="font-medium text-slate-700">Admin:</span> admin@letslivetours.in</p>
-              <p><span className="font-medium text-slate-700">Manager:</span> manager@letslivetours.in</p>
-              <p><span className="font-medium text-slate-700">Staff:</span> staff@letslivetours.in</p>
-              <p><span className="font-medium text-slate-700">Guest:</span> guest@letslivetours.in</p>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

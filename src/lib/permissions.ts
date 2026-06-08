@@ -66,7 +66,7 @@ const rolePermissions: Record<Role, Permission[]> = {
   staff: [
     "dashboard.view",
     "bookings.view", "bookings.update",
-    "destinations.view", "destinations.edit",
+    "destinations.view", "destinations.create", "destinations.edit",
     "packages.view", "packages.create", "packages.edit",
     "reviews.view",
     "enquiries.view", "enquiries.respond",
