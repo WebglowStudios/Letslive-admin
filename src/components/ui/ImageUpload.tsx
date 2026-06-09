@@ -49,6 +49,7 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -88,6 +89,27 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
       }
     } catch { alert("Upload failed"); }
     finally { setUploading(false); }
+  }
+
+  async function handleDelete(publicId: string) {
+    if (!confirm('Delete this image from Cloudinary? This cannot be undone.')) return;
+    setDeleting(publicId);
+    try {
+      await fetch(`${API_URL}/upload/${encodeURIComponent(publicId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      setImages((prev) => prev.filter((img) => img.publicId !== publicId));
+      setSelected((prev) => {
+        // Also deselect the deleted image's URL if it was selected
+        const deleted = images.find((i) => i.publicId === publicId);
+        return deleted ? prev.filter((url) => url !== deleted.url) : prev;
+      });
+    } catch {
+      alert('Failed to delete image');
+    } finally {
+      setDeleting(null);
+    }
   }
 
   function toggleSelect(url: string) {
@@ -164,20 +186,45 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
                     }}
                   >
                     <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    {/* Hover overlay */}
-                    <div
-                      className="group-hover:opacity-100"
-                      style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", opacity: 0, transition: "opacity .15s", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    {/* Zoom button — top-left corner, stops propagation so it doesn't select */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLightbox(img.url); }}
+                      style={{
+                        position: "absolute", top: 4, left: 4,
+                        width: 26, height: 26, borderRadius: "50%",
+                        background: "rgba(0,0,0,.55)", border: "none",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", opacity: 0, transition: "opacity .15s",
+                      }}
+                      className="group-hover:!opacity-100"
+                      title="Preview"
                     >
+                      <ZoomIn size={13} style={{ color: "#fff" }} />
+                    </button>
+                    {/* Delete button — top-right corner (only when not selected) */}
+                    {!isSelected && (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setLightbox(img.url); }}
-                        style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                        title="Preview"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(img.publicId); }}
+                        disabled={deleting === img.publicId}
+                        style={{
+                          position: "absolute", top: 4, right: 4,
+                          width: 26, height: 26, borderRadius: "50%",
+                          background: "rgba(220,38,38,.85)", border: "none",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: deleting === img.publicId ? "not-allowed" : "pointer",
+                          opacity: 0, transition: "opacity .15s",
+                        }}
+                        className="group-hover:!opacity-100"
+                        title="Delete from library"
                       >
-                        <ZoomIn size={14} style={{ color: "#0f172a" }} />
+                        {deleting === img.publicId
+                          ? <Loader2 size={12} style={{ color: "#fff" }} className="animate-spin" />
+                          : <Trash2 size={12} style={{ color: "#fff" }} />
+                        }
                       </button>
-                    </div>
+                    )}
                     {isSelected && (
                       <div style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "#0891b2", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Check size={12} style={{ color: "#fff" }} />
