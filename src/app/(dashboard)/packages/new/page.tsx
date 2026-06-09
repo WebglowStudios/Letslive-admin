@@ -9,6 +9,7 @@ import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
+import MealPicker from "@/components/ui/MealPicker";
 
 interface ItineraryDay {
   day: number;
@@ -429,8 +430,7 @@ export default function NewPackagePage() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Meals</label>
-                            <ListInput label="" items={day.meals} onChange={(items) => updateItinerary(i, "meals", items)} placeholder="e.g. Breakfast, Lunch" />
+                            <MealPicker meals={day.meals} onChange={(items) => updateItinerary(i, "meals", items)} />
                           </div>
                           <div>
                             <label className="text-xs font-medium text-slate-500 mb-1 block">Accommodation</label>
