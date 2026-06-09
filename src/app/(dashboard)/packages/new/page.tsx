@@ -70,6 +70,8 @@ export default function NewPackagePage() {
   const [badge, setBadge] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [flightsIncluded, setFlightsIncluded] = useState(false);
+  const [travellerCount, setTravellerCount] = useState("");
 
   // Media
   const [heroImage, setHeroImage] = useState("");
@@ -183,6 +185,8 @@ export default function NewPackagePage() {
         badge: badge || undefined,
         isFeatured,
         isActive,
+        flightsIncluded,
+        travellerCount: travellerCount || undefined,
         highlights,
         keyPoints,
         inclusions,
@@ -346,6 +350,14 @@ export default function NewPackagePage() {
                   <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Active</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Flights Included</span>
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Traveller Count</label>
+                <input type="text" value={travellerCount} onChange={(e) => setTravellerCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2-15 people, Min 2 adults, etc." />
               </div>
             </>
           )}
