@@ -224,8 +224,9 @@ export default function NewPackagePage() {
       } else {
         setError(res?.message || "Failed to create package");
       }
-    } catch {
-      setError("Failed to create package");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create package";
+      setError(msg);
     } finally {
       setLoading(false);
     }

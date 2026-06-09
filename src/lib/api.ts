@@ -45,6 +45,12 @@ async function request(endpoint: string, options: RequestInit = {}) {
     return data;
   }
 
+  // Surface backend error messages properly instead of silently returning
+  if (!res.ok) {
+    const message = data?.message || data?.error || `Request failed with status ${res.status}`;
+    throw new Error(message);
+  }
+
   return data;
 }
 

@@ -311,8 +311,9 @@ export default function EditPackagePage() {
       } else {
         setError(res?.message || "Failed to update package");
       }
-    } catch {
-      setError("Failed to update package");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update package";
+      setError(msg);
     } finally {
       setLoading(false);
     }

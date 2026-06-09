@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Upload, X, Image as ImageIcon, Loader2, Check } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2, Check, Eye, Trash2, ZoomIn } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -14,12 +14,43 @@ interface LibraryImage {
   createdAt: string;
 }
 
-// ─── MEDIA LIBRARY MODAL (rendered via portal to avoid form nesting issues) ───
-function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open: boolean; onClose: () => void; onSelect: (urls: string[]) => void; multiple?: boolean }) {
+// ─── LIGHTBOX ───
+function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  return createPortal(
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,.92)", display: "flex", alignItems: "center", justifyContent: "center" }}
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        style={{ position: "absolute", top: 20, right: 20, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: "none", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+      >
+        <X size={18} />
+      </button>
+      <img
+        src={url}
+        alt="Preview"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8, boxShadow: "0 25px 60px rgba(0,0,0,.5)" }}
+      />
+    </div>,
+    document.body
+  );
+}
+
+// ─── MEDIA LIBRARY MODAL ───
+function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (urls: string[]) => void;
+  multiple?: boolean;
+}) {
   const [images, setImages] = useState<LibraryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -46,7 +77,13 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
         const res = await fetch(`${API_URL}/upload?folder=letslivetours`, { method: "POST", body: formData, credentials: "include" });
         const json = await res.json();
         if (json.data?.url) {
-          setImages((prev) => [{ url: json.data.url, publicId: json.data.publicId, width: json.data.width, height: json.data.height, createdAt: new Date().toISOString() }, ...prev]);
+          setImages((prev) => [{
+            url: json.data.url,
+            publicId: json.data.publicId,
+            width: json.data.width,
+            height: json.data.height,
+            createdAt: new Date().toISOString(),
+          }, ...prev]);
         }
       }
     } catch { alert("Upload failed"); }
@@ -69,21 +106,33 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
   if (!open || !mounted) return null;
 
   const modalContent = (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 9999 }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {/* Backdrop */}
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)" }} />
 
       {/* Modal */}
-      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(900px, 92vw)", height: "min(620px, 85vh)", background: "#fff", borderRadius: 16, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{
+        position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+        width: "min(900px, 92vw)", height: "min(620px, 85vh)",
+        background: "#fff", borderRadius: 16, display: "flex", flexDirection: "column", overflow: "hidden",
+      }}>
         {/* Header */}
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Media Library</h2>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0891b2", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
               {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
               {uploading ? "Uploading..." : "Upload New"}
             </button>
-            <button type="button" onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "#f1f5f9", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <button type="button" onClick={onClose}
+              style={{ width: 32, height: 32, borderRadius: "50%", background: "#f1f5f9", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
               <X size={16} />
             </button>
           </div>
@@ -107,18 +156,28 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
                 return (
                   <div
                     key={img.publicId}
+                    className="group"
                     onClick={() => toggleSelect(img.url)}
                     style={{
-                      position: "relative",
-                      aspectRatio: "1",
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      cursor: "pointer",
-                      border: isSelected ? "3px solid #0891b2" : "2px solid transparent",
-                      transition: "border .15s",
+                      position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", cursor: "pointer",
+                      border: isSelected ? "3px solid #0891b2" : "2px solid transparent", transition: "border .15s",
                     }}
                   >
                     <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    {/* Hover overlay */}
+                    <div
+                      className="group-hover:opacity-100"
+                      style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.45)", opacity: 0, transition: "opacity .15s", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setLightbox(img.url); }}
+                        style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,.9)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                        title="Preview"
+                      >
+                        <ZoomIn size={14} style={{ color: "#0f172a" }} />
+                      </button>
+                    </div>
                     {isSelected && (
                       <div style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "#0891b2", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Check size={12} style={{ color: "#fff" }} />
@@ -138,7 +197,13 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
             type="button"
             onClick={handleInsert}
             disabled={selected.length === 0}
-            style={{ padding: "8px 20px", background: selected.length > 0 ? "#0891b2" : "#e2e8f0", color: selected.length > 0 ? "#fff" : "#94a3b8", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: selected.length > 0 ? "pointer" : "not-allowed" }}
+            style={{
+              padding: "8px 20px",
+              background: selected.length > 0 ? "#0891b2" : "#e2e8f0",
+              color: selected.length > 0 ? "#fff" : "#94a3b8",
+              border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700,
+              cursor: selected.length > 0 ? "pointer" : "not-allowed",
+            }}
           >
             {multiple ? `Insert ${selected.length} Image${selected.length !== 1 ? "s" : ""}` : "Select Image"}
           </button>
@@ -146,13 +211,15 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: { open
       </div>
 
       <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleUpload(e.target.files)} style={{ display: "none" }} />
+
+      {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </div>
   );
 
   return createPortal(modalContent, document.body);
 }
 
-// ─── SINGLE IMAGE UPLOAD (opens modal) ───
+// ─── SINGLE IMAGE UPLOAD ───
 
 interface ImageUploadProps {
   value: string;
@@ -163,6 +230,7 @@ interface ImageUploadProps {
 
 export default function ImageUpload({ value, onChange, label }: ImageUploadProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
 
   return (
     <div className="space-y-2">
@@ -171,9 +239,19 @@ export default function ImageUpload({ value, onChange, label }: ImageUploadProps
       {value ? (
         <div className="relative group">
           <img src={value} alt="Selected" className="w-full h-40 object-cover rounded-xl border border-slate-200" />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-3">
-            <button type="button" onClick={() => setModalOpen(true)} className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1"><Upload size={12} /> Change</button>
-            <button type="button" onClick={() => onChange("")} className="px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1"><X size={12} /> Remove</button>
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+            <button type="button" onClick={() => setLightbox(true)}
+              className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <Eye size={12} /> Preview
+            </button>
+            <button type="button" onClick={() => setModalOpen(true)}
+              className="px-3 py-2 bg-white rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <Upload size={12} /> Change
+            </button>
+            <button type="button" onClick={() => onChange("")}
+              className="px-3 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
+              <Trash2 size={12} /> Remove
+            </button>
           </div>
         </div>
       ) : (
@@ -188,11 +266,12 @@ export default function ImageUpload({ value, onChange, label }: ImageUploadProps
       )}
 
       <MediaLibraryModal open={modalOpen} onClose={() => setModalOpen(false)} onSelect={(urls) => { if (urls[0]) onChange(urls[0]); }} />
+      {lightbox && value && <Lightbox url={value} onClose={() => setLightbox(false)} />}
     </div>
   );
 }
 
-// ─── MULTI IMAGE UPLOAD (opens modal with multiple select) ───
+// ─── MULTI IMAGE UPLOAD ───
 
 interface MultiImageUploadProps {
   images: string[];
@@ -203,6 +282,7 @@ interface MultiImageUploadProps {
 
 export function MultiImageUpload({ images, onChange, label }: MultiImageUploadProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   return (
     <div className="space-y-2">
@@ -212,8 +292,26 @@ export function MultiImageUpload({ images, onChange, label }: MultiImageUploadPr
         <div className="flex gap-2 flex-wrap">
           {images.map((url, i) => (
             <div key={i} className="relative group">
-              <img src={url} alt="" className="w-16 h-12 object-cover rounded-lg border border-slate-200" />
-              <button type="button" onClick={() => onChange(images.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} /></button>
+              <img src={url} alt="" className="w-20 h-16 object-cover rounded-lg border border-slate-200" />
+              {/* Hover overlay with eye + delete */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setLightboxUrl(url)}
+                  className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                  title="Preview"
+                >
+                  <Eye size={11} className="text-slate-800" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange(images.filter((_, idx) => idx !== i))}
+                  className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                  title="Remove"
+                >
+                  <Trash2 size={11} className="text-white" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -229,6 +327,7 @@ export function MultiImageUpload({ images, onChange, label }: MultiImageUploadPr
       <span className="text-[10px] text-slate-400">{images.length} image(s)</span>
 
       <MediaLibraryModal open={modalOpen} onClose={() => setModalOpen(false)} onSelect={(urls) => onChange([...images, ...urls])} multiple />
+      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
 }
