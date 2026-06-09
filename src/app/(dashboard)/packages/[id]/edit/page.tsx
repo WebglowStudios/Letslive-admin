@@ -21,6 +21,7 @@ interface ItineraryDay {
 }
 
 interface Activity {
+  _key: number;
   title: string;
   description: string;
   duration: string;
@@ -29,6 +30,7 @@ interface Activity {
 }
 
 interface Stay {
+  _key: number;
   name: string;
   rating: string;
   nights: number;
@@ -37,6 +39,7 @@ interface Stay {
 }
 
 interface Transfer {
+  _key: number;
   title: string;
   description: string;
   details: string[];
@@ -150,7 +153,8 @@ export default function EditPackagePage() {
         );
         setActivitiesList(
           p.activities && p.activities.length > 0
-            ? p.activities.map((a: { title?: string; description?: string; duration?: string; details?: string[]; images?: string[] }) => ({
+            ? p.activities.map((a: { title?: string; description?: string; duration?: string; details?: string[]; images?: string[] }, i: number) => ({
+                _key: Date.now() + i,
                 title: a.title || "",
                 description: a.description || "",
                 duration: a.duration || "",
@@ -161,7 +165,8 @@ export default function EditPackagePage() {
         );
         setStays(
           p.stays && p.stays.length > 0
-            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; roomType?: string; amenities?: string[] }) => ({
+            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; roomType?: string; amenities?: string[] }, i: number) => ({
+                _key: Date.now() + i + 1000,
                 name: s.name || "",
                 rating: s.rating || "",
                 nights: s.nights || 0,
@@ -172,7 +177,8 @@ export default function EditPackagePage() {
         );
         setTransfers(
           p.transfers && p.transfers.length > 0
-            ? p.transfers.map((t: { title?: string; description?: string; details?: string[]; images?: string[] }) => ({
+            ? p.transfers.map((t: { title?: string; description?: string; details?: string[]; images?: string[] }, i: number) => ({
+                _key: Date.now() + i + 2000,
                 title: t.title || "",
                 description: t.description || "",
                 details: t.details || [],
@@ -204,7 +210,7 @@ export default function EditPackagePage() {
 
   // Activities helpers
   function addActivity() {
-    setActivitiesList([...activitiesList, { title: "", description: "", duration: "", details: [], images: [] }]);
+    setActivitiesList([...activitiesList, { _key: Date.now(), title: "", description: "", duration: "", details: [], images: [] }]);
   }
   function removeActivity(index: number) {
     setActivitiesList(activitiesList.filter((_, i) => i !== index));
@@ -217,7 +223,7 @@ export default function EditPackagePage() {
 
   // Stays helpers
   function addStay() {
-    setStays([...stays, { name: "", rating: "", nights: 0, roomType: "", amenities: [] }]);
+    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", amenities: [] }]);
   }
   function removeStay(index: number) {
     setStays(stays.filter((_, i) => i !== index));
@@ -230,7 +236,7 @@ export default function EditPackagePage() {
 
   // Transfers helpers
   function addTransfer() {
-    setTransfers([...transfers, { title: "", description: "", details: [], images: [] }]);
+    setTransfers([...transfers, { _key: Date.now(), title: "", description: "", details: [], images: [] }]);
   }
   function removeTransfer(index: number) {
     setTransfers(transfers.filter((_, i) => i !== index));
@@ -496,7 +502,7 @@ export default function EditPackagePage() {
                   </div>
                   <div className="space-y-4">
                     {itinerary.map((day, i) => (
-                      <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div key={day.day} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Day {day.day}</span>
                           {itinerary.length > 1 && (
@@ -539,7 +545,7 @@ export default function EditPackagePage() {
                   </div>
                   <div className="space-y-4">
                     {activitiesList.map((activity, i) => (
-                      <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div key={activity._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Activity {i + 1}</span>
                           <button type="button" onClick={() => removeActivity(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
@@ -571,7 +577,7 @@ export default function EditPackagePage() {
                   </div>
                   <div className="space-y-4">
                     {stays.map((stay, i) => (
-                      <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div key={stay._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Stay {i + 1}</span>
                           <button type="button" onClick={() => removeStay(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
@@ -603,7 +609,7 @@ export default function EditPackagePage() {
                   </div>
                   <div className="space-y-4">
                     {transfers.map((transfer, i) => (
-                      <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                      <div key={transfer._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Transfer {i + 1}</span>
                           <button type="button" onClick={() => removeTransfer(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
