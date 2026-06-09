@@ -98,7 +98,7 @@ export default function NewPackagePage() {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
 
   useEffect(() => {
-    api.get("/destinations?limit=100").then((res) => setDestinations(res?.data || [])).catch(() => {});
+    api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
   }, []);
 
   function addItineraryDay() {

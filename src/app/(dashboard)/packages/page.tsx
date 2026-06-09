@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Package } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit, Eye, Download } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download, Copy } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -77,6 +77,19 @@ export default function PackagesPage() {
       setPackages((prev) => prev.map((p) => p._id === id ? { ...p, approvalStatus: status } : p));
     } catch {
       alert("Failed to update approval status");
+    }
+  }
+
+  async function handleDuplicate(id: string, name: string) {
+    if (!confirm(`Duplicate "${name}"?`)) return;
+    try {
+      const res = await api.post(`/packages/${id}/duplicate`, {});
+      if (res?.data) {
+        setPackages((prev) => [res.data, ...prev]);
+        alert(`✅ Duplicated as "${res.data.name}" — edit it to adjust the details.`);
+      }
+    } catch {
+      alert("Failed to duplicate package");
     }
   }
 
@@ -168,6 +181,11 @@ export default function PackagesPage() {
                             <button onClick={() => handleDownloadPdf(p._id)} className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600" title="Download PDF">
                               <Download size={16} />
                             </button>
+                            {canCreate && (
+                              <button onClick={() => handleDuplicate(p._id, p.name)} className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-400 hover:text-violet-600" title="Duplicate package">
+                                <Copy size={16} />
+                              </button>
+                            )}
                             {canEdit && (
                               <Link href={`/packages/${p._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600">
                                 <Edit size={16} />
