@@ -43,6 +43,12 @@ interface Transfer {
   _key: number;
   title: string;
   description: string;
+  transferType: string;
+  vehicleType: string;
+  from: string;
+  to: string;
+  stops: string[];
+  day: number;
   details: string[];
   images: string[];
 }
@@ -182,10 +188,16 @@ export default function EditPackagePage() {
         );
         setTransfers(
           p.transfers && p.transfers.length > 0
-            ? p.transfers.map((t: { title?: string; description?: string; details?: string[]; images?: string[] }, i: number) => ({
+            ? p.transfers.map((t: { title?: string; description?: string; transferType?: string; vehicleType?: string; from?: string; to?: string; stops?: string[]; day?: number; details?: string[]; images?: string[] }, i: number) => ({
                 _key: Date.now() + i + 2000,
                 title: t.title || "",
                 description: t.description || "",
+                transferType: t.transferType || "Shared Transfer",
+                vehicleType: t.vehicleType || "",
+                from: t.from || "",
+                to: t.to || "",
+                stops: t.stops || [],
+                day: t.day || 0,
                 details: t.details || [],
                 images: t.images || [],
               }))
@@ -241,7 +253,7 @@ export default function EditPackagePage() {
 
   // Transfers helpers
   function addTransfer() {
-    setTransfers([...transfers, { _key: Date.now(), title: "", description: "", details: [], images: [] }]);
+    setTransfers([...transfers, { _key: Date.now(), title: "", description: "", transferType: "Shared Transfer", vehicleType: "", from: "", to: "", stops: [], day: 0, details: [], images: [] }]);
   }
   function removeTransfer(index: number) {
     setTransfers(transfers.filter((_, i) => i !== index));
@@ -628,8 +640,40 @@ export default function EditPackagePage() {
                           <span className="text-sm font-bold text-cyan-700">Transfer {i + 1}</span>
                           <button type="button" onClick={() => removeTransfer(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                         </div>
-                        <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Airport to Hotel)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <textarea value={transfer.description} onChange={(e) => updateTransfer(i, "description", e.target.value)} placeholder="Transfer description..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
+                        <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Arrival in Delhi | Transfer to Haridwar)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Transfer Type</label>
+                            <select value={transfer.transferType} onChange={(e) => updateTransfer(i, "transferType", e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                              <option value="Shared Transfer">Shared Transfer</option>
+                              <option value="Private Transfer">Private Transfer</option>
+                              <option value="Self Drive">Self Drive</option>
+                              <option value="Flight">Flight</option>
+                              <option value="Train">Train</option>
+                              <option value="Ferry">Ferry</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Vehicle Type</label>
+                            <input type="text" value={transfer.vehicleType} onChange={(e) => updateTransfer(i, "vehicleType", e.target.value)} placeholder="e.g. SUV, Sedan, Bus" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
+                            <input type="number" value={transfer.day || ""} onChange={(e) => updateTransfer(i, "day", Number(e.target.value) || 0)} placeholder="1" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">From (Pickup)</label>
+                            <input type="text" value={transfer.from} onChange={(e) => updateTransfer(i, "from", e.target.value)} placeholder="e.g. Airport / Hotel name" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">To (Drop)</label>
+                            <input type="text" value={transfer.to} onChange={(e) => updateTransfer(i, "to", e.target.value)} placeholder="e.g. Hotel / Station" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                        </div>
+                        <ListInput label="Stops (intermediate)" items={transfer.stops || []} onChange={(items) => updateTransfer(i, "stops", items)} placeholder="Add a stop point" />
+                        <textarea value={transfer.description} onChange={(e) => updateTransfer(i, "description", e.target.value)} placeholder="Additional notes..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
                         <ListInput label="Details" items={transfer.details} onChange={(items) => updateTransfer(i, "details", items)} placeholder="Add detail" />
                         <div>
                           <MultiImageUpload images={transfer.images} onChange={(items) => updateTransfer(i, "images", items)} label="Images" folder="packages" />
