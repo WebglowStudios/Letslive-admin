@@ -321,9 +321,15 @@ export default function EditPackagePage() {
           roomType: s.roomType,
           amenities: s.amenities,
         })),
-        transfers: transfers.filter((t) => t.title).map((t) => ({
+        transfers: transfers.filter((t) => t.title || t.from || t.to).map((t) => ({
           title: t.title,
           description: t.description,
+          transferType: t.transferType || undefined,
+          vehicleType: t.vehicleType || undefined,
+          from: t.from || undefined,
+          to: t.to || undefined,
+          stops: t.stops,
+          day: t.day || undefined,
           details: t.details,
           images: t.images,
         })),
