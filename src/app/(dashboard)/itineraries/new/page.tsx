@@ -35,6 +35,7 @@ export default function NewCustomItineraryPage() {
   const [hotelRating, setHotelRating] = useState("");
   const [price, setPrice] = useState("");
   const [heroImage, setHeroImage] = useState("");
+  const [showOnDestination, setShowOnDestination] = useState(false);
 
   // Content
   const [highlights, setHighlights] = useState<string[]>([]);
@@ -102,6 +103,7 @@ export default function NewCustomItineraryPage() {
           activities: d.activities, meals: d.meals, accommodation: d.accommodation,
         })),
         isActive: true,
+        showOnDestination,
       };
 
       const res = await api.post("/packages", payload);
@@ -197,6 +199,29 @@ export default function NewCustomItineraryPage() {
                 <option value="">No specific destination</option>
                 {destinations.map((d) => (<option key={d._id} value={d._id}>{d.name}</option>))}
               </select>
+            </div>
+            {/* Show on destination toggle — only relevant when a destination is selected */}
+            <div className={`p-4 rounded-xl border transition-colors ${showOnDestination ? "bg-cyan-50 border-cyan-200" : "bg-slate-50 border-slate-200"}`}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <div className="relative mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={showOnDestination}
+                    onChange={(e) => setShowOnDestination(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-10 h-5 rounded-full transition-colors ${showOnDestination ? "bg-cyan-600" : "bg-slate-300"}`} />
+                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showOnDestination ? "translate-x-5" : ""}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Show on destination page</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {showOnDestination
+                      ? "This itinerary will appear publicly on the selected destination page."
+                      : "Off by default — itinerary is private, accessible only via shareable link."}
+                  </p>
+                </div>
+              </label>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>

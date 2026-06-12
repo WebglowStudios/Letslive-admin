@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/utils";
 import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
+import { useRole } from "@/hooks/usePermission";
 import { generatePackagePdf } from "@/lib/generatePackagePdf";
 
 interface CustomItinerary {
@@ -18,6 +19,7 @@ interface CustomItinerary {
   destination?: { _id: string; name: string } | string;
   duration?: { nights: number; days: number };
   price?: number;
+  showOnDestination?: boolean;
   createdBy?: { _id: string; firstName: string; lastName: string };
   createdAt: string;
 }
@@ -28,6 +30,7 @@ export default function ItinerariesPage() {
   const [search, setSearch] = useState("");
   const [showMine, setShowMine] = useState(false);
   const user = useAuthStore((s) => s.user);
+  const role = useRole();
 
   useEffect(() => {
     fetchItineraries();
@@ -60,6 +63,17 @@ export default function ItinerariesPage() {
     const url = `https://letslivetours.com/itinerary/${id}`;
     navigator.clipboard.writeText(url);
     alert("Link copied to clipboard!");
+  }
+
+  async function toggleShowOnDestination(id: string, current: boolean) {
+    try {
+      await api.put(`/packages/${id}`, { showOnDestination: !current });
+      setItineraries((prev) =>
+        prev.map((it) => it._id === id ? { ...it, showOnDestination: !current } : it)
+      );
+    } catch {
+      alert("Failed to update visibility");
+    }
   }
 
   async function handleDownloadPdf(id: string) {
@@ -136,6 +150,7 @@ export default function ItinerariesPage() {
                 <th className="px-6 py-3">Itinerary</th>
                 <th className="px-6 py-3">Client</th>
                 <th className="px-6 py-3">Destination</th>
+                {role === "admin" && <th className="px-6 py-3">Show on Dest.</th>}
                 <th className="px-6 py-3">Duration</th>
                 <th className="px-6 py-3">Price</th>
                 <th className="px-6 py-3">Created By</th>
@@ -145,9 +160,9 @@ export default function ItinerariesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
+                <tr><td colSpan={role === "admin" ? 9 : 8} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-12 text-center text-sm text-slate-400">No custom itineraries found.</td></tr>
+                <tr><td colSpan={role === "admin" ? 9 : 8} className="px-6 py-12 text-center text-sm text-slate-400">No custom itineraries found.</td></tr>
               ) : (
                 filtered.map((it) => {
                   const destName = typeof it.destination === "object" ? it.destination?.name : "";
@@ -167,6 +182,17 @@ export default function ItinerariesPage() {
                         </span>
                       )}
                     </td>
+                    {role === "admin" && (
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => toggleShowOnDestination(it._id, !!it.showOnDestination)}
+                          title={it.showOnDestination ? "Visible on destination page — click to hide" : "Hidden from destination page — click to show"}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${it.showOnDestination ? "bg-cyan-600" : "bg-slate-300"}`}
+                        >
+                          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${it.showOnDestination ? "translate-x-4" : "translate-x-1"}`} />
+                        </button>
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {it.duration ? `${it.duration.nights}N/${it.duration.days}D` : "—"}
                     </td>
