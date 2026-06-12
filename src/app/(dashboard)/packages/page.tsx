@@ -66,8 +66,9 @@ export default function PackagesPage() {
       } else {
         alert("Failed to fetch package details for PDF");
       }
-    } catch {
-      alert("Failed to generate PDF");
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Failed to generate PDF. Check console for details.");
     }
   }
 
@@ -136,7 +137,13 @@ export default function PackagesPage() {
                           <p className="text-sm font-medium text-slate-700 max-w-[220px] truncate">{p.name}</p>
                           <p className="text-xs text-slate-400">{p.badge || p.category || ""}</p>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{dest?.name || "—"}</td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {dest?.name ? dest.name : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+                              <span>⚠</span> No destination
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-sm text-slate-600">{p.duration?.nights}N/{p.duration?.days}D</td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-700">{formatCurrency(p.price)}</td>
                         <td className="px-6 py-4">

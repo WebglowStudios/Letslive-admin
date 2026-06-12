@@ -168,14 +168,24 @@ export default function NewPackagePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError("");
     setSuccess("");
+
+    if (!name.trim()) {
+      setError("Please enter a package name");
+      return;
+    }
+    if (!price || Number(price) <= 0) {
+      setError("Please enter a valid price");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const payload = {
         name,
-        destination,
+        destination: destination || undefined,
         description,
         shortDescription,
         heroImage: heroImage || undefined,
@@ -294,9 +304,12 @@ export default function NewPackagePage() {
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. Maldives Luxury Overwater Villa Experience" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Destination *</label>
-                <select value={destination} onChange={(e) => setDestination(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                  <option value="">Select destination</option>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Destination
+                  <span className="ml-2 text-xs font-normal text-slate-400">(optional — package won&apos;t appear on any destination page if left blank)</span>
+                </label>
+                <select value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                  <option value="">No destination (admin-only)</option>
                   {destinations.map((d) => (<option key={d._id} value={d._id}>{d.name}</option>))}
                 </select>
               </div>

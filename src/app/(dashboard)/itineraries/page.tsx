@@ -71,8 +71,9 @@ export default function ItinerariesPage() {
       } else {
         alert("Failed to fetch itinerary details for PDF");
       }
-    } catch {
-      alert("Failed to generate PDF");
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Failed to generate PDF. Check console for details.");
     }
   }
 
@@ -159,7 +160,13 @@ export default function ItinerariesPage() {
                       <p className="text-sm text-slate-700">{it.clientName || "—"}</p>
                       <p className="text-xs text-slate-400">{it.clientEmail || ""}</p>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">{destName || "—"}</td>
+                    <td className="px-6 py-4 text-sm text-slate-500">
+                      {destName ? destName : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 text-xs font-medium">
+                          Not specified
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {it.duration ? `${it.duration.nights}N/${it.duration.days}D` : "—"}
                     </td>
