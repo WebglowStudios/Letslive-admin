@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download } from "lucide-react";
+import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download, ChevronDown, Sparkles, FileText, Crown, Compass } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { useRole } from "@/hooks/usePermission";
 import { generatePackagePdf } from "@/lib/generatePackagePdf";
+import { generatePackagePdfPremium } from "@/lib/generatePackagePdfPremium";
+import { generatePackagePdfLuxury } from "@/lib/generatePackagePdfLuxury";
+import { generatePackagePdfExplorer } from "@/lib/generatePackagePdfExplorer";
 
 interface CustomItinerary {
   _id: string;
@@ -31,6 +34,7 @@ export default function ItinerariesPage() {
   const [showMine, setShowMine] = useState(false);
   const user = useAuthStore((s) => s.user);
   const role = useRole();
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   useEffect(() => {
     fetchItineraries();
@@ -76,12 +80,20 @@ export default function ItinerariesPage() {
     }
   }
 
-  async function handleDownloadPdf(id: string) {
+  async function handleDownloadPdf(id: string, template: "classic" | "premium" | "luxury" | "explorer") {
     try {
       const res = await api.get(`/packages/${id}`);
       const pkgData = res?.data || res;
       if (pkgData) {
-        await generatePackagePdf(pkgData);
+        if (template === "premium") {
+          await generatePackagePdfPremium(pkgData);
+        } else if (template === "luxury") {
+          await generatePackagePdfLuxury(pkgData);
+        } else if (template === "explorer") {
+          await generatePackagePdfExplorer(pkgData);
+        } else {
+          await generatePackagePdf(pkgData);
+        }
       } else {
         alert("Failed to fetch itinerary details for PDF");
       }
@@ -142,8 +154,8 @@ export default function ItinerariesPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
+        <div className="overflow-x-auto min-h-[480px] pb-40">
           <table className="w-full">
             <thead>
               <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50">
@@ -211,9 +223,76 @@ export default function ItinerariesPage() {
                         <button onClick={() => copyLink(it._id)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600" title="Copy shareable link">
                           <Copy size={16} />
                         </button>
-                        <button onClick={() => handleDownloadPdf(it._id)} className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600" title="Download PDF">
-                          <Download size={16} />
-                        </button>
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={() => setActiveDropdown(activeDropdown === it._id ? null : it._id)}
+                            className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-colors flex items-center gap-0.5"
+                            title="Download PDF"
+                          >
+                            <Download size={16} />
+                            <ChevronDown size={10} className="text-slate-400" />
+                          </button>
+                          {activeDropdown === it._id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setActiveDropdown(null)} />
+                              <div className="absolute right-0 mt-1 w-56 rounded-lg bg-white border border-slate-100 shadow-lg z-20 overflow-hidden py-1">
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleDownloadPdf(it._id, "classic");
+                                  }}
+                                  className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                                >
+                                  <FileText size={14} className="text-slate-400" />
+                                  <div>
+                                    <p>Classic Layout</p>
+                                    <p className="text-[9px] text-slate-400 font-normal">Clean editorial style</p>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleDownloadPdf(it._id, "premium");
+                                  }}
+                                  className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-cyan-700 hover:bg-cyan-50/50 transition-colors border-t border-slate-50"
+                                >
+                                  <Sparkles size={14} className="text-cyan-600" />
+                                  <div>
+                                    <p className="flex items-center gap-1">Vibrant Premium <span className="text-[7px] bg-cyan-600 text-white px-1 rounded font-bold">NEW</span></p>
+                                    <p className="text-[9px] text-cyan-600/70 font-normal">Modern dark accents & grids</p>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleDownloadPdf(it._id, "luxury");
+                                  }}
+                                  className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50/50 transition-colors border-t border-slate-50"
+                                >
+                                  <Crown size={14} className="text-amber-600" />
+                                  <div>
+                                    <p className="flex items-center gap-1">Elite Luxury <span className="text-[7px] bg-amber-600 text-white px-1 rounded font-bold">VIP</span></p>
+                                    <p className="text-[9px] text-amber-600/70 font-normal">Minimalist off-white & gold</p>
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleDownloadPdf(it._id, "explorer");
+                                  }}
+                                  className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-amber-800 hover:bg-amber-50/50 transition-colors border-t border-slate-50"
+                                >
+                                  <Compass size={14} className="text-amber-700" />
+                                  <div>
+                                    <p className="flex items-center gap-1">Modern Explorer <span className="text-[7px] bg-amber-700 text-white px-1 rounded font-bold">EXPLORE</span></p>
+                                    <p className="text-[9px] text-amber-700/70 font-normal">Terracotta rust & sand journal</p>
+                                  </div>
+                                </button>
+
+                              </div>
+                            </>
+                          )}
+                        </div>
                         <Link href={`/packages/${it._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600" title="Edit">
                           <Edit size={16} />
                         </Link>
