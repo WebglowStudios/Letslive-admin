@@ -6,6 +6,8 @@ import {
   Image,
   StyleSheet,
   pdf,
+  Svg,
+  Path,
 } from "@react-pdf/renderer";
 
 // ─── Brand palette (mirrors globals.css tokens) ───────────────────────────────
@@ -23,6 +25,31 @@ const C = {
   iv2:     "#e0f5f7",   // --iv2
   line:    "#d4ecf0",   // slightly stronger than --line for print
   white:   "#ffffff",
+};
+
+// ─── SVG Icon Components (Material Icons paths at 24x24 viewBox) ──────────────
+
+const Icon = ({ d, color = C.gn3, size = 12 }: { d: string; color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d={d} fill={color} />
+  </Svg>
+);
+
+// Icon paths (Material Icons)
+const ICONS = {
+  location: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z",
+  calendar: "M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z",
+  star: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+  hotel: "M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z",
+  restaurant: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z",
+  directions: "M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z",
+  bus: "M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z",
+  activity: "M13.49 5.48c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm-3.6 13.9l1-4.4 2.1 2v6h2v-7.5l-2.1-2 .6-3c1.3 1.5 3.3 2.5 5.5 2.5v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1l-5.2 2.2v4.7h2v-3.4l1.8-.7-1.6 8.1-4.9-1-.4 2 7 1.4z",
+  check: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
+  close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+  backpack: "M17 4.14V2c0-.55-.45-1-1-1h-4c-.55 0-1 .45-1 1v2.14C8.72 4.59 7 6.47 7 8.76V20c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8.76c0-2.29-1.72-4.17-4-4.62zM13 3h-2V2h2v1zm2 10h-2v2h-2v-2H9v-2h2V9h2v2h2v2z",
+  info: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z",
+  arrowForward: "M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z",
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -216,7 +243,7 @@ const s = StyleSheet.create({
 
   // ── Content page shell ─────────────────────────────────────────────────────
   page: {
-    paddingTop: 52, paddingBottom: 56, paddingHorizontal: 44,
+    paddingTop: 44, paddingBottom: 40, paddingHorizontal: 44,
     backgroundColor: C.white,
   },
   pageHeader: {
@@ -327,7 +354,7 @@ const s = StyleSheet.create({
   dayHeader: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: C.iv2,
-    paddingVertical: 11, paddingHorizontal: 14,
+    paddingVertical: 8, paddingHorizontal: 12,
     borderBottomWidth: 1, borderBottomColor: C.line,
   },
   dayBadge: {
@@ -344,7 +371,7 @@ const s = StyleSheet.create({
   },
   dayBody: {
     backgroundColor: C.white,
-    padding: 14,
+    paddingVertical: 10, paddingHorizontal: 12,
   },
   dayDescription: {
     fontSize: 9, color: C.ink2, lineHeight: 1.6, marginBottom: 10,
@@ -568,99 +595,103 @@ const SectionTitle = ({ title }: { title: string }) => (
 // ─── Cover Page ───────────────────────────────────────────────────────────────
 const CoverPage = ({ pkg }: { pkg: PackageData }) => (
   <Page size="A4" style={{ padding: 0 }}>
-    <View style={s.coverPage}>
-      {pkg.heroImage ? <Image src={pkg.heroImage} style={s.coverHero} /> : null}
-      <View style={s.coverOverlay} />
-      <View style={s.coverTopStripe} />
-      <View style={s.coverSideBar} />
+    <View style={{ width: "100%", height: "100%", position: "relative", backgroundColor: "#1a2a2f" }}>
+      {/* Full-bleed hero image */}
+      {pkg.heroImage ? (
+        <Image src={pkg.heroImage} style={{
+          position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+          objectFit: "cover",
+        }} />
+      ) : null}
 
-      <View style={s.coverContent}>
-        {/* Brand */}
-        <View>
-          <Text style={s.coverBrand}>LETSLIVE TOURS</Text>
-          <Text style={s.coverTagline}>CURATED TRAVEL EXPERIENCES</Text>
-        </View>
+      {/* Bottom gradient overlay */}
+      <View style={{
+        position: "absolute", bottom: 0, left: 0, right: 0, height: "55%",
+        backgroundColor: "rgba(0,0,0,0.01)",
+      }} />
+      <View style={{
+        position: "absolute", bottom: 0, left: 0, right: 0, height: 320,
+        backgroundColor: "rgba(10,20,24,0.75)",
+      }} />
 
-        {/* Main content */}
-        <View style={s.coverMiddle}>
-          {(pkg.category || pkg.badge) && (
-            <View style={s.coverCategoryPill}>
-              <Text style={s.coverCategoryText}>
-                {pkg.badge || pkg.category?.toUpperCase() || ""}
-              </Text>
-            </View>
-          )}
+      {/* Bottom content */}
+      <View style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        padding: 44, paddingBottom: 36,
+      }}>
+        {/* Title */}
+        <Text style={{
+          fontSize: 34, fontFamily: "Helvetica-Bold",
+          color: C.white, lineHeight: 1.2, marginBottom: 8,
+        }}>
+          {pkg.name}
+        </Text>
 
-          <Text style={s.coverTitle}>{pkg.name}</Text>
+        {/* Reference (use slug as reference) */}
+        <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginBottom: 14 }}>
+          Reference: <Text style={{ fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.85)" }}>
+            {pkg.slug?.toUpperCase().replace(/-/g, "").slice(0, 8) || "PKG"}
+          </Text>
+        </Text>
 
+        {/* Divider line */}
+        <View style={{ height: 1.5, backgroundColor: C.cu, marginBottom: 16, width: "100%" }} />
+
+        {/* Meta rows with SVG icons */}
+        <View style={{ marginBottom: 6 }}>
           {pkg.destination?.name && (
-            <View style={s.coverDestLine}>
-              <View style={s.coverDestDot} />
-              <Text style={s.coverDestText}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill={C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
                 {pkg.destination.name}
                 {pkg.destination.country ? `, ${pkg.destination.country}` : ""}
+                {pkg.duration ? ` - ${pkg.duration.nights}N` : ""}
               </Text>
             </View>
           )}
-
-          <View style={s.coverPills}>
-            <View style={s.coverPillGold}>
-              <Text style={s.coverPillGoldText}>
-                {pkg.duration.nights}N / {pkg.duration.days}D
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+            <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+              <Path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" fill={C.cu} />
+            </Svg>
+            <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+              {pkg.duration.nights} nights / {pkg.duration.days} days
+            </Text>
+          </View>
+          {pkg.hotelRating && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill={C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                {pkg.hotelRating}
               </Text>
             </View>
-            {pkg.hotelRating ? (
-              <View style={s.coverPillOutline}>
-                <Text style={s.coverPillOutlineText}>{pkg.hotelRating}</Text>
-              </View>
-            ) : null}
-            {pkg.rating ? (
-              <View style={s.coverPillOutline}>
-                <Text style={s.coverPillOutlineText}>★ {pkg.rating}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {pkg.isCustom && pkg.clientName ? (
-            <View style={s.coverClientCard}>
-              <Text style={s.coverClientLabel}>PREPARED EXCLUSIVELY FOR</Text>
-              <Text style={s.coverClientName}>{pkg.clientName}</Text>
-              {pkg.clientEmail ? (
-                <Text style={s.coverClientDetail}>{pkg.clientEmail}</Text>
-              ) : null}
-              {pkg.clientPhone ? (
-                <Text style={s.coverClientDetail}>{pkg.clientPhone}</Text>
-              ) : null}
+          )}
+          {/* Price */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+            <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.cu, justifyContent: "center", alignItems: "center", marginRight: 8 }}>
+              <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink }}>R</Text>
             </View>
-          ) : null}
+            <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.cu }}>
+              INR {pkg.price.toLocaleString("en-IN")}
+              <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}> / {pkg.priceUnit || "person"}</Text>
+            </Text>
+          </View>
         </View>
 
-        {/* Price footer */}
-        <View style={s.coverPriceBox}>
-          <View>
-            <Text style={s.coverPriceLabel}>STARTING FROM</Text>
-            {pkg.originalPrice && pkg.originalPrice > pkg.price ? (
-              <Text style={s.coverPriceOriginal}>
-                ₹{pkg.originalPrice.toLocaleString("en-IN")}
-              </Text>
-            ) : null}
-            <Text style={s.coverPriceAmount}>
-              ₹{pkg.price.toLocaleString("en-IN")}
+        {/* Footer: prepared by */}
+        <View style={{ marginTop: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.gn3 }}>
+          {pkg.isCustom && pkg.clientName ? (
+            <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
+              Specially prepared for <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{pkg.clientName.toUpperCase()}</Text> by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>LETS LIVE TOURS</Text>
             </Text>
-            <Text style={s.coverPriceUnit}>
-              per {pkg.priceUnit || "person"}  ·  {pkg.duration.nights}N / {pkg.duration.days}D
+          ) : (
+            <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
+              Curated by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>LETS LIVE TOURS</Text>
             </Text>
-          </View>
-          {pkg.discount ? (
-            <View style={s.coverDiscountBadge}>
-              <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: C.ink }}>
-                {pkg.discount}%
-              </Text>
-              <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: C.ink, letterSpacing: 1 }}>
-                OFF
-              </Text>
-            </View>
-          ) : null}
+          )}
         </View>
       </View>
     </View>
@@ -668,32 +699,32 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => (
 );
 
 // ─── Trip at a Glance ─────────────────────────────────────────────────────────
-const TripSummaryPage = ({ pkg }: { pkg: PackageData }) => (
-  <Page size="A4" style={s.page}>
-    <PageHeader section="Trip Summary" />
-    <SectionTitle title="Trip at a Glance" />
-
-    <View style={s.glanceGrid}>
-      <View style={s.glanceCard}>
-        <Text style={s.glanceLabel}>DURATION</Text>
-        <Text style={s.glanceValue}>{pkg.duration.nights} Nights / {pkg.duration.days} Days</Text>
-      </View>
-      <View style={s.glanceCard}>
-        <Text style={s.glanceLabel}>DESTINATION</Text>
-        <Text style={s.glanceValue}>
-          {pkg.destination?.name || "—"}{pkg.destination?.country ? `, ${pkg.destination.country}` : ""}
-        </Text>
-      </View>
-      <View style={[s.glanceCard, { borderLeftColor: C.gn2 }]}>
-        <Text style={s.glanceLabel}>HOTEL CATEGORY</Text>
-        <Text style={s.glanceValue}>{pkg.hotelRating || "Standard"}</Text>
-      </View>
-      <View style={[s.glanceCard, { borderLeftColor: C.cu }]}>
-        <Text style={s.glanceLabel}>PACKAGE PRICE</Text>
-        <Text style={s.glanceValueGold}>
-          ₹{pkg.price.toLocaleString("en-IN")}
-          <Text style={{ fontSize: 8, color: C.ink3 }}> / {pkg.priceUnit || "person"}</Text>
-        </Text>
+const TripSummarySection = ({ pkg }: { pkg: PackageData }) => (
+  <View style={{ marginBottom: 20 }}>
+    <View wrap={false} style={{ marginBottom: 14 }}>
+      <SectionTitle title="Trip at a Glance" />
+      <View style={s.glanceGrid}>
+        <View style={s.glanceCard}>
+          <Text style={s.glanceLabel}>DURATION</Text>
+          <Text style={s.glanceValue}>{pkg.duration.nights} Nights / {pkg.duration.days} Days</Text>
+        </View>
+        <View style={s.glanceCard}>
+          <Text style={s.glanceLabel}>DESTINATION</Text>
+          <Text style={s.glanceValue}>
+            {pkg.destination?.name || "—"}{pkg.destination?.country ? `, ${pkg.destination.country}` : ""}
+          </Text>
+        </View>
+        <View style={[s.glanceCard, { borderLeftColor: C.gn2 }]}>
+          <Text style={s.glanceLabel}>HOTEL CATEGORY</Text>
+          <Text style={s.glanceValue}>{pkg.hotelRating || "Standard"}</Text>
+        </View>
+        <View style={[s.glanceCard, { borderLeftColor: C.cu }]}>
+          <Text style={s.glanceLabel}>PACKAGE PRICE</Text>
+          <Text style={s.glanceValueGold}>
+            INR {pkg.price.toLocaleString("en-IN")}
+            <Text style={{ fontSize: 8, color: C.ink3 }}> / {pkg.priceUnit || "person"}</Text>
+          </Text>
+        </View>
       </View>
     </View>
 
@@ -704,7 +735,7 @@ const TripSummaryPage = ({ pkg }: { pkg: PackageData }) => (
 
     {/* Quick inclusions preview */}
     {pkg.inclusions && pkg.inclusions.length > 0 ? (
-      <View style={{ marginBottom: 16 }}>
+      <View wrap={false} style={{ marginBottom: 16 }}>
         <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 8 }}>
           What&apos;s Included
         </Text>
@@ -724,7 +755,7 @@ const TripSummaryPage = ({ pkg }: { pkg: PackageData }) => (
 
     {/* Stay overview strip */}
     {pkg.stays && pkg.stays.length > 0 ? (
-      <View>
+      <View wrap={false}>
         <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 8 }}>
           Stay Overview
         </Text>
@@ -744,13 +775,11 @@ const TripSummaryPage = ({ pkg }: { pkg: PackageData }) => (
         ))}
       </View>
     ) : null}
-
-    <PageFooter />
-  </Page>
+  </View>
 );
 
 // ─── Gallery ──────────────────────────────────────────────────────────────────
-const GalleryPage = ({ pkg }: { pkg: PackageData }) => {
+const GallerySection = ({ pkg }: { pkg: PackageData }) => {
   const imgs = [
     ...(pkg.heroImage ? [pkg.heroImage] : []),
     ...(pkg.destinationImages || []),
@@ -760,8 +789,7 @@ const GalleryPage = ({ pkg }: { pkg: PackageData }) => {
   ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4);
   if (imgs.length === 0) return null;
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Gallery" />
+    <View style={{ marginBottom: 20 }} break wrap={false}>
       <SectionTitle title="Photo Gallery" />
       <View style={s.galleryGrid}>
         {imgs.map((img, i) => (
@@ -770,113 +798,379 @@ const GalleryPage = ({ pkg }: { pkg: PackageData }) => {
           </View>
         ))}
       </View>
-      <PageFooter />
-    </Page>
+    </View>
   );
 };
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
-const OverviewPage = ({ pkg }: { pkg: PackageData }) => {
+const OverviewSection = ({ pkg }: { pkg: PackageData }) => {
   const hasContent =
     pkg.description || pkg.highlights?.length || pkg.keyPoints?.length;
   if (!hasContent) return null;
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Overview" />
+    <View style={{ marginBottom: 20 }} break>
       {pkg.description && (
-        <>
+        <View wrap={false} style={{ marginBottom: 14 }}>
           <SectionTitle title="Overview" />
           <Text style={s.descText}>{pkg.description}</Text>
-        </>
+        </View>
       )}
       {pkg.highlights && pkg.highlights.length > 0 && (
-        <>
-          <SectionTitle title="Trip Highlights" />
-          {pkg.highlights.map((h, i) => (
-            <View key={i} style={s.bulletRow}>
+        <View style={{ marginBottom: 14 }}>
+          <View wrap={false}>
+            <SectionTitle title="Trip Highlights" />
+            {pkg.highlights.slice(0, 3).map((h, i) => (
+              <View key={i} style={s.bulletRow}>
+                <View style={s.bulletDot} />
+                <Text style={s.bulletText}>{h}</Text>
+              </View>
+            ))}
+          </View>
+          {pkg.highlights.slice(3).map((h, i) => (
+            <View key={i + 3} style={s.bulletRow}>
               <View style={s.bulletDot} />
               <Text style={s.bulletText}>{h}</Text>
             </View>
           ))}
-        </>
+        </View>
       )}
       {pkg.keyPoints && pkg.keyPoints.length > 0 && (
-        <View style={{ marginTop: 14 }}>
-          <SectionTitle title="Key Points" />
-          {pkg.keyPoints.map((k, i) => (
-            <View key={i} style={s.bulletRow}>
+        <View style={{ marginBottom: 14 }}>
+          <View wrap={false}>
+            <SectionTitle title="Key Points" />
+            {pkg.keyPoints.slice(0, 3).map((k, i) => (
+              <View key={i} style={s.bulletRow}>
+                <View style={s.bulletTealDot} />
+                <Text style={s.bulletText}>{k}</Text>
+              </View>
+            ))}
+          </View>
+          {pkg.keyPoints.slice(3).map((k, i) => (
+            <View key={i + 3} style={s.bulletRow}>
               <View style={s.bulletTealDot} />
               <Text style={s.bulletText}>{k}</Text>
             </View>
           ))}
         </View>
       )}
-      <PageFooter />
-    </Page>
+    </View>
   );
 };
 
 // ─── Itinerary ────────────────────────────────────────────────────────────────
-const ItineraryPages = ({ pkg }: { pkg: PackageData }) => {
+const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.itinerary || pkg.itinerary.length === 0) return null;
+
+  // Build lookup maps for transfers and activities by day
+  const transfersByDay: Record<number, Transfer[]> = {};
+  (pkg.transfers || []).forEach((t) => {
+    const d = (t as Transfer & { day?: number }).day || 0;
+    if (d > 0) {
+      if (!transfersByDay[d]) transfersByDay[d] = [];
+      transfersByDay[d].push(t);
+    }
+  });
+
+  // Activities don't have a day field, so we distribute them evenly across days
+  const allActivities = pkg.activities || [];
+  const activitiesByDay: Record<number, Activity[]> = {};
+  if (allActivities.length > 0 && pkg.itinerary.length > 0) {
+    allActivities.forEach((act, i) => {
+      const dayNum = (i % pkg.itinerary!.length) + 1;
+      if (!activitiesByDay[dayNum]) activitiesByDay[dayNum] = [];
+      activitiesByDay[dayNum].push(act);
+    });
+  }
+
+  // Collect unassigned transfers (day = 0 or no day)
+  const unassignedTransfers = (pkg.transfers || []).filter((t) => !(t as Transfer & { day?: number }).day);
+
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Itinerary" />
-      <SectionTitle title="Day-wise Itinerary" />
-      {pkg.itinerary.map((day) => (
-        <View key={day.day} style={s.dayCard} wrap={false}>
-          <View style={s.dayHeader}>
-            <View style={s.dayBadge}>
-              <Text style={s.dayBadgeText}>DAY {day.day}</Text>
+    <View style={{ marginBottom: 20 }}>
+      {/* Title block wrapped to prevent orphan header */}
+      <View wrap={false}>
+        <SectionTitle title="Day-wise Itinerary" />
+      </View>
+
+      {pkg.itinerary.map((day) => {
+        const dayTransfers = transfersByDay[day.day] || [];
+        const dayActivities = activitiesByDay[day.day] || [];
+        return (
+          <View key={day.day} style={s.dayCard}>
+            <View wrap={false} style={s.dayHeader}>
+              <View style={s.dayBadge}>
+                <Text style={s.dayBadgeText}>DAY {day.day}</Text>
+              </View>
+              <Text style={s.dayTitle}>{day.title}</Text>
             </View>
-            <Text style={s.dayTitle}>{day.title}</Text>
-          </View>
-          <View style={s.dayBody}>
-            {day.description ? (
-              <Text style={s.dayDescription}>{day.description}</Text>
-            ) : null}
-            {day.activities && day.activities.length > 0 && (
-              <>
-                <Text style={s.dayActivitiesLabel}>ACTIVITIES</Text>
-                <View style={s.dayActivitiesRow}>
-                  {day.activities.map((act, i) => (
-                    <View key={i} style={s.dayActivityChip}>
-                      <Text style={s.dayActivityChipText}>{act}</Text>
+            <View style={s.dayBody}>
+              {day.description ? (
+                <View wrap={false} style={{ marginBottom: 10 }}>
+                  <Text style={s.dayDescription}>{day.description}</Text>
+                </View>
+              ) : null}
+
+              {/* Activities from itinerary data */}
+              {day.activities && day.activities.length > 0 && (
+                <View style={{ marginBottom: 8 }}>
+                  {/* Keep header and first 2 activity chips together to prevent orphan header */}
+                  <View wrap={false}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                      <Icon d={ICONS.activity} color={C.gn3} size={11} />
+                      <Text style={s.dayActivitiesLabel}>ACTIVITIES</Text>
+                    </View>
+                    <View style={[s.dayActivitiesRow, { marginBottom: 5 }]}>
+                      {day.activities.slice(0, 2).map((act, i) => (
+                        <View key={i} style={{
+                          backgroundColor: C.iv,
+                          borderWidth: 1, borderColor: C.line,
+                          borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
+                        }}>
+                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{act}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                  {/* Remaining chips flow and wrap naturally */}
+                  {day.activities.length > 2 && (
+                    <View style={[s.dayActivitiesRow, { marginTop: 0 }]}>
+                      {day.activities.slice(2).map((act, i) => (
+                        <View key={i + 2} style={{
+                          backgroundColor: C.iv,
+                          borderWidth: 1, borderColor: C.line,
+                          borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
+                        }} wrap={false}>
+                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{act}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Detailed activities for this day */}
+              {dayActivities.length > 0 && (
+                <View style={{ marginTop: 4, marginBottom: 8 }}>
+                  {dayActivities.map((act, i) => (
+                    <View key={i} style={{ marginBottom: 6, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.gn3 }} wrap={false}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                        <Icon d={ICONS.activity} color={C.gn3} size={10} />
+                        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{act.title}</Text>
+                      </View>
+                      {act.duration ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 2 }}>
+                          <Icon d={ICONS.calendar} color={C.cu} size={8} />
+                          <Text style={{ fontSize: 7.5, color: C.cu, fontFamily: "Helvetica-Bold" }}>{act.duration}</Text>
+                        </View>
+                      ) : null}
+                      {act.description ? <Text style={{ fontSize: 8, color: C.ink2, lineHeight: 1.4 }}>{act.description}</Text> : null}
+                      {act.details?.map((d, j) => (
+                        <View key={j} style={{ flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 2 }}>
+                          <Icon d={ICONS.check} color={C.gn3} size={8} />
+                          <Text style={{ fontSize: 7.5, color: C.ink3, flex: 1 }}>{d}</Text>
+                        </View>
+                      ))}
                     </View>
                   ))}
                 </View>
-              </>
-            )}
-            {(day.meals?.length > 0 || day.accommodation) && (
-              <View style={s.dayMeta}>
-                {day.meals && day.meals.length > 0 && (
-                  <View style={s.dayMetaItem}>
-                    <Text style={s.dayMetaLabel}>MEALS:</Text>
-                    <Text style={s.dayMetaValue}>{day.meals.join(", ")}</Text>
+              )}
+
+              {/* Transfers for this day */}
+              {dayTransfers.length > 0 && (
+                <View style={{ marginTop: 4, marginBottom: 8 }}>
+                  {/* Keep header and first transfer card together to prevent orphan header */}
+                  <View wrap={false}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                      <Icon d={ICONS.bus} color={C.cu} size={11} />
+                      <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.ink3, letterSpacing: 1 }}>TRANSFERS</Text>
+                    </View>
+                    {dayTransfers.slice(0, 1).map((t, i) => (
+                      <View key={i} style={{ marginBottom: 8, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                          <Icon d={ICONS.bus} color={C.cu} size={9} />
+                          <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
+                        </View>
+                        {(t.from || t.to) && (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
+                            {t.from ? (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
+                                <Icon d={ICONS.location} color={C.gn3} size={10} />
+                                <View>
+                                  <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                                  <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                                </View>
+                              </View>
+                            ) : null}
+                            {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
+                            {t.to ? (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                                <Icon d={ICONS.location} color={C.cu} size={10} />
+                                <View>
+                                  <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                                  <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                                </View>
+                              </View>
+                            ) : null}
+                          </View>
+                        )}
+                        {t.description ? <Text style={{ fontSize: 8, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
+                      </View>
+                    ))}
+                  </View>
+                  {/* Remaining transfers flow naturally */}
+                  {dayTransfers.length > 1 && (
+                    <View>
+                      {dayTransfers.slice(1).map((t, i) => (
+                        <View key={i + 1} style={{ marginBottom: 8, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }} wrap={false}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                            <Icon d={ICONS.bus} color={C.cu} size={9} />
+                            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
+                          </View>
+                          {(t.from || t.to) && (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
+                              {t.from ? (
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
+                                  <Icon d={ICONS.location} color={C.gn3} size={10} />
+                                  <View>
+                                    <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                                    <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                                  </View>
+                                </View>
+                              ) : null}
+                              {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
+                              {t.to ? (
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                                  <Icon d={ICONS.location} color={C.cu} size={10} />
+                                  <View>
+                                    <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                                    <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                                  </View>
+                                </View>
+                              ) : null}
+                            </View>
+                          )}
+                          {t.description ? <Text style={{ fontSize: 8, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Meals & Accommodation footer */}
+              {(day.meals?.length > 0 || day.accommodation) && (
+                <View style={s.dayMeta} wrap={false}>
+                  {day.meals && day.meals.length > 0 && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Icon d={ICONS.restaurant} color={C.cu} size={10} />
+                      <Text style={s.dayMetaLabel}>MEALS:</Text>
+                      <Text style={s.dayMetaValue}>{day.meals.join(", ")}</Text>
+                    </View>
+                  )}
+                  {day.accommodation ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Icon d={ICONS.hotel} color={C.gn3} size={10} />
+                      <Text style={s.dayMetaLabel}>STAY:</Text>
+                      <Text style={s.dayMetaValue}>{day.accommodation}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+            </View>
+          </View>
+        );
+      })}
+
+      {/* Unassigned transfers shown at the end */}
+      {unassignedTransfers.length > 0 && (
+        <View style={{ marginTop: 14 }}>
+          <View wrap={false} style={{ marginBottom: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
+              <Icon d={ICONS.bus} color={C.cu} size={12} />
+              <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>General Transfers</Text>
+            </View>
+            {unassignedTransfers.slice(0, 1).map((t, i) => (
+              <View key={i} style={s.transCard} wrap={false}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                  <Icon d={ICONS.bus} color={C.cu} size={10} />
+                  <Text style={s.transTitle}>{t.title}</Text>
+                </View>
+                {(t.from || t.to) && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
+                    {t.from ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
+                        <Icon d={ICONS.location} color={C.gn3} size={10} />
+                        <View>
+                          <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                    {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
+                    {t.to ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                        <Icon d={ICONS.location} color={C.cu} size={10} />
+                        <View>
+                          <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
                 )}
-                {day.accommodation ? (
-                  <View style={s.dayMetaItem}>
-                    <Text style={s.dayMetaLabel}>STAY:</Text>
-                    <Text style={s.dayMetaValue}>{day.accommodation}</Text>
-                  </View>
-                ) : null}
+                {t.description ? <Text style={s.actDesc}>{t.description}</Text> : null}
+                {t.details?.map((d, j) => (
+                  <Text key={j} style={s.actBullet}>- {d}</Text>
+                ))}
               </View>
-            )}
+            ))}
           </View>
+          {unassignedTransfers.slice(1).map((t, i) => (
+            <View key={i + 1} style={s.transCard} wrap={false}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                <Icon d={ICONS.bus} color={C.cu} size={10} />
+                <Text style={s.transTitle}>{t.title}</Text>
+              </View>
+              {(t.from || t.to) && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
+                  {t.from ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
+                      <Icon d={ICONS.location} color={C.gn3} size={10} />
+                      <View>
+                        <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                        <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
+                  {t.to ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                      <Icon d={ICONS.location} color={C.cu} size={10} />
+                      <View>
+                        <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                        <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+              {t.description ? <Text style={s.actDesc}>{t.description}</Text> : null}
+              {t.details?.map((d, j) => (
+                <Text key={j} style={s.actBullet}>- {d}</Text>
+              ))}
+            </View>
+          ))}
         </View>
-      ))}
-      <PageFooter />
-    </Page>
+      )}
+    </View>
   );
 };
 
 // ─── Accommodation ────────────────────────────────────────────────────────────
-const AccommodationPage = ({ pkg }: { pkg: PackageData }) => {
+const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.stays || pkg.stays.length === 0) return null;
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Accommodation" />
+    <View wrap={false} style={{ marginBottom: 20 }}>
       <SectionTitle title="Accommodation" />
       <View style={s.tableWrap}>
         <View style={s.tableHead}>
@@ -896,85 +1190,17 @@ const AccommodationPage = ({ pkg }: { pkg: PackageData }) => {
           </View>
         ))}
       </View>
-      <PageFooter />
-    </Page>
-  );
-};
-
-// ─── Activities ───────────────────────────────────────────────────────────────
-const ActivitiesPage = ({ pkg }: { pkg: PackageData }) => {
-  if (!pkg.activities || pkg.activities.length === 0) return null;
-  return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Activities" />
-      <SectionTitle title="Activities" />
-      {pkg.activities.map((act, i) => (
-        <View key={i} style={s.actCard} wrap={false}>
-          <Text style={s.actTitle}>{act.title}</Text>
-          {act.duration ? (
-            <Text style={s.actDuration}>Duration: {act.duration}</Text>
-          ) : null}
-          {act.description ? <Text style={s.actDesc}>{act.description}</Text> : null}
-          {act.details?.map((d, j) => (
-            <Text key={j} style={s.actBullet}>· {d}</Text>
-          ))}
-        </View>
-      ))}
-      <PageFooter />
-    </Page>
-  );
-};
-
-// ─── Transfers ────────────────────────────────────────────────────────────────
-const TransfersPage = ({ pkg }: { pkg: PackageData }) => {
-  if (!pkg.transfers || pkg.transfers.length === 0) return null;
-  return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Transfers" />
-      <SectionTitle title="Transfers" />
-      {pkg.transfers.map((t, i) => (
-        <View key={i} style={s.transCard} wrap={false}>
-          <Text style={s.transTitle}>{t.title}</Text>
-          {(t.from || t.to) && (
-            <View style={s.transRoute}>
-              {t.from ? (
-                <View style={s.transLocation}>
-                  <Text style={s.transLocLabel}>FROM</Text>
-                  <Text style={s.transLocText}>{t.from}</Text>
-                </View>
-              ) : null}
-              {t.from && t.to ? (
-                <Text style={s.transArrow}>→</Text>
-              ) : null}
-              {t.to ? (
-                <View style={s.transLocation}>
-                  <Text style={s.transLocLabel}>TO</Text>
-                  <Text style={s.transLocText}>{t.to}</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-          {t.description ? (
-            <Text style={s.actDesc}>{t.description}</Text>
-          ) : null}
-          {t.details?.map((d, j) => (
-            <Text key={j} style={s.actBullet}>· {d}</Text>
-          ))}
-        </View>
-      ))}
-      <PageFooter />
-    </Page>
+    </View>
   );
 };
 
 // ─── Inclusions & Exclusions ──────────────────────────────────────────────────
-const InclusionsExclusionsPage = ({ pkg }: { pkg: PackageData }) => {
+const InclusionsExclusionsSection = ({ pkg }: { pkg: PackageData }) => {
   const hasInc = pkg.inclusions && pkg.inclusions.length > 0;
   const hasExc = pkg.exclusions && pkg.exclusions.length > 0;
   if (!hasInc && !hasExc) return null;
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Inclusions & Exclusions" />
+    <View wrap={false} style={{ marginBottom: 20 }}>
       <SectionTitle title="Inclusions & Exclusions" />
       <View style={s.incExcRow}>
         {hasInc && (
@@ -1000,63 +1226,79 @@ const InclusionsExclusionsPage = ({ pkg }: { pkg: PackageData }) => {
           </View>
         )}
       </View>
-      <PageFooter />
-    </Page>
+    </View>
   );
 };
 
 // ─── Know Before You Go ───────────────────────────────────────────────────────
-const KnowBeforeYouGoPage = ({ pkg }: { pkg: PackageData }) => {
+const KnowBeforeYouGoSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.knowBeforeYouGo || pkg.knowBeforeYouGo.length === 0) return null;
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Know Before You Go" />
-      <SectionTitle title="Know Before You Go" />
-      {pkg.knowBeforeYouGo.map((item, i) => (
-        <View key={i} style={s.kbygRow} wrap={false}>
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false}>
+        <SectionTitle title="Know Before You Go" />
+        {pkg.knowBeforeYouGo.slice(0, 3).map((item, i) => (
+          <View key={i} style={s.kbygRow} wrap={false}>
+            <View style={s.kbygNumBadge}>
+              <Text style={s.kbygNumText}>{i + 1}</Text>
+            </View>
+            <Text style={s.kbygText}>{item}</Text>
+          </View>
+        ))}
+      </View>
+      {pkg.knowBeforeYouGo.slice(3).map((item, i) => (
+        <View key={i + 3} style={s.kbygRow} wrap={false}>
           <View style={s.kbygNumBadge}>
-            <Text style={s.kbygNumText}>{i + 1}</Text>
+            <Text style={s.kbygNumText}>{i + 4}</Text>
           </View>
           <Text style={s.kbygText}>{item}</Text>
         </View>
       ))}
-      <PageFooter />
-    </Page>
+    </View>
   );
 };
 
 // ─── Things to Carry ──────────────────────────────────────────────────────────
-const ThingsToCarryPage = ({ pkg }: { pkg: PackageData }) => {
+const ThingsToCarrySection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.thingsToCarry || pkg.thingsToCarry.length === 0) return null;
   return (
-    <Page size="A4" style={s.page}>
-      <PageHeader section="Things to Carry" />
-      <SectionTitle title="Things to Carry" />
-      <View style={s.carryGrid}>
-        {pkg.thingsToCarry.map((item, i) => (
-          <View key={i} style={s.carryItem}>
-            <View style={s.carryDot} />
-            <Text style={s.carryText}>{item}</Text>
-          </View>
-        ))}
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false}>
+        <SectionTitle title="Things to Carry" />
+        <View style={{ flexDirection: "column" }}>
+          {pkg.thingsToCarry.slice(0, 4).map((item, i) => (
+            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 8 }}>
+              <View style={s.carryDot} />
+              <Text style={s.carryText}>{item}</Text>
+            </View>
+          ))}
+        </View>
       </View>
-      <PageFooter />
-    </Page>
+      {pkg.thingsToCarry.length > 4 && (
+        <View style={{ flexDirection: "column", marginTop: 8 }}>
+          {pkg.thingsToCarry.slice(4).map((item, i) => (
+            <View key={i + 4} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 8 }}>
+              <View style={s.carryDot} />
+              <Text style={s.carryText}>{item}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
   );
 };
 
 // ─── Pricing & CTA ────────────────────────────────────────────────────────────
-const PricingPage = ({ pkg }: { pkg: PackageData }) => (
-  <Page size="A4" style={s.page}>
-    <PageHeader section="Pricing" />
+const PricingSection = ({ pkg }: { pkg: PackageData }) => (
+  <View wrap={false} style={{ marginBottom: 20 }}>
     <SectionTitle title="Pricing" />
     <View style={s.priceCard}>
       <View style={s.priceCardTop}>
         <Text style={s.priceCardLabel}>PACKAGE PRICE</Text>
         {pkg.originalPrice && pkg.originalPrice > pkg.price ? (
-          <Text style={s.priceCardOriginal}>₹{pkg.originalPrice.toLocaleString("en-IN")}</Text>
+          <Text style={s.priceCardOriginal}>INR {pkg.originalPrice.toLocaleString("en-IN")}</Text>
         ) : null}
-        <Text style={s.priceCardAmount}>₹{pkg.price.toLocaleString("en-IN")}</Text>
+        <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
         <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"} (twin sharing)</Text>
       </View>
       {pkg.discount && pkg.discount > 0 ? (
@@ -1075,8 +1317,7 @@ const PricingPage = ({ pkg }: { pkg: PackageData }) => (
       </Text>
       <Text style={s.ctaContact}>+91 9999 999 999  ·  info@letslivetours.com</Text>
     </View>
-    <PageFooter />
-  </Page>
+  </View>
 );
 
 // ─── Document ─────────────────────────────────────────────────────────────────
@@ -1087,17 +1328,21 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
     subject={`Travel Itinerary — ${pkg.name}`}
   >
     <CoverPage pkg={pkg} />
-    <TripSummaryPage pkg={pkg} />
-    <GalleryPage pkg={pkg} />
-    <OverviewPage pkg={pkg} />
-    <ItineraryPages pkg={pkg} />
-    <AccommodationPage pkg={pkg} />
-    <ActivitiesPage pkg={pkg} />
-    <TransfersPage pkg={pkg} />
-    <InclusionsExclusionsPage pkg={pkg} />
-    <KnowBeforeYouGoPage pkg={pkg} />
-    <ThingsToCarryPage pkg={pkg} />
-    <PricingPage pkg={pkg} />
+    <Page size="A4" style={s.page}>
+      <PageHeader section="Package Details & Itinerary" />
+      
+      <TripSummarySection pkg={pkg} />
+      <GallerySection pkg={pkg} />
+      <OverviewSection pkg={pkg} />
+      <ItinerarySection pkg={pkg} />
+      <AccommodationSection pkg={pkg} />
+      <InclusionsExclusionsSection pkg={pkg} />
+      <KnowBeforeYouGoSection pkg={pkg} />
+      <ThingsToCarrySection pkg={pkg} />
+      <PricingSection pkg={pkg} />
+      
+      <PageFooter />
+    </Page>
   </Document>
 );
 
