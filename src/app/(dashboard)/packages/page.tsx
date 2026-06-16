@@ -14,7 +14,7 @@ import { generatePackagePdfPremium } from "@/lib/generatePackagePdfPremium";
 import { generatePackagePdfLuxury } from "@/lib/generatePackagePdfLuxury";
 import { generatePackagePdfExplorer } from "@/lib/generatePackagePdfExplorer";
 
-const PER_PAGE = 5;
+const PER_PAGE = 50;
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[]>([]);
