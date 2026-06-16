@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Package } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronDown, Sparkles, FileText, Crown, Compass, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronDown, Sparkles, FileText, Crown, Compass, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -17,6 +18,10 @@ import { generatePackagePdfExplorer } from "@/lib/generatePackagePdfExplorer";
 const PER_PAGE = 50;
 
 export default function PackagesPage() {
+  const searchParams = useSearchParams();
+  const destinationFilter = searchParams.get("destination") || "";
+  const destNameFilter = searchParams.get("destName") || "";
+
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,6 +41,9 @@ export default function PackagesPage() {
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search.trim())}`;
       }
+      if (destinationFilter) {
+        url += `&destination=${encodeURIComponent(destinationFilter)}`;
+      }
       const res = await api.get(url);
       setPackages(res?.data || []);
       setTotalPages(res?.pages || 1);
@@ -47,7 +55,7 @@ export default function PackagesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [destinationFilter]);
 
   useEffect(() => {
     fetchPackages(currentPage, searchQuery);
@@ -161,10 +169,21 @@ export default function PackagesPage() {
 
         {/* Info bar */}
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">
-            {totalCount} package{totalCount !== 1 ? "s" : ""} total
-            {searchQuery && ` matching "${searchQuery}"`}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-slate-500">
+              {totalCount} package{totalCount !== 1 ? "s" : ""} total
+              {searchQuery && ` matching "${searchQuery}"`}
+            </p>
+            {destinationFilter && (
+              <Link
+                href="/packages"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition-colors"
+              >
+                Filtered: {destNameFilter || "destination"}
+                <X size={12} />
+              </Link>
+            )}
+          </div>
           <p className="text-xs text-slate-400">
             Page {currentPage} of {totalPages}
           </p>

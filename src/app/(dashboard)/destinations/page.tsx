@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { Plus, Search, Trash2, Edit, Eye } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, PackageIcon } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -12,6 +12,7 @@ import { useRole } from "@/hooks/usePermission";
 export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const canCreate = usePermission("destinations.create");
   const canEdit = usePermission("destinations.edit");
   const canDelete = usePermission("destinations.delete");
@@ -23,7 +24,7 @@ export default function DestinationsPage() {
 
   async function fetchDestinations() {
     try {
-      const res = await api.get("/destinations?limit=50&admin=true");
+      const res = await api.get("/destinations?limit=100&admin=true");
       setDestinations(res?.data || []);
     } catch {
       setDestinations([]);
@@ -60,14 +61,36 @@ export default function DestinationsPage() {
     }
   }
 
+  const filteredDestinations = destinations.filter((d) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      d.name.toLowerCase().includes(q) ||
+      (d.slug && d.slug.toLowerCase().includes(q)) ||
+      (d.region && d.region.toLowerCase().includes(q)) ||
+      (d.country && d.country.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <RoleGuard permission="destinations.view">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-72">
+          <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-80">
             <Search size={16} className="text-slate-400" />
-            <input type="text" placeholder="Search destinations..." className="bg-transparent border-none outline-none text-sm w-full" />
+            <input
+              type="text"
+              placeholder="Search destinations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm w-full"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+                <span className="text-xs font-bold">✕</span>
+              </button>
+            )}
           </div>
           {canCreate && (
             <Link href="/destinations/new" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors">
@@ -75,6 +98,12 @@ export default function DestinationsPage() {
             </Link>
           )}
         </div>
+
+        {searchQuery && (
+          <p className="text-xs text-slate-500">
+            {filteredDestinations.length} of {destinations.length} destinations matching &quot;{searchQuery}&quot;
+          </p>
+        )}
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -94,10 +123,10 @@ export default function DestinationsPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
-                ) : destinations.length === 0 ? (
+                ) : filteredDestinations.length === 0 ? (
                   <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">No destinations found</td></tr>
                 ) : (
-                  destinations.map((d) => (
+                  filteredDestinations.map((d) => (
                     <tr key={d._id} className="hover:bg-slate-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -111,7 +140,16 @@ export default function DestinationsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{d.region || d.country || "—"}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600 font-medium">{d.packageCount}</td>
+                      <td className="px-6 py-4">
+                        <Link
+                          href={`/packages?destination=${d._id}&destName=${encodeURIComponent(d.name)}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-semibold transition-colors"
+                          title={`View packages in ${d.name}`}
+                        >
+                          <PackageIcon size={12} />
+                          {d.packageCount || 0}
+                        </Link>
+                      </td>
                       <td className="px-6 py-4">
                         {role === "admin" ? (
                           <select
