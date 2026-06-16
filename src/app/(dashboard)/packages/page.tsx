@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { Package } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronDown, Sparkles, FileText, Crown, Compass } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronDown, Sparkles, FileText, Crown, Compass, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -14,36 +14,61 @@ import { generatePackagePdfPremium } from "@/lib/generatePackagePdfPremium";
 import { generatePackagePdfLuxury } from "@/lib/generatePackagePdfLuxury";
 import { generatePackagePdfExplorer } from "@/lib/generatePackagePdfExplorer";
 
+const PER_PAGE = 5;
+
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const canCreate = usePermission("packages.create");
   const canEdit = usePermission("packages.edit");
   const canDelete = usePermission("packages.delete");
   const role = useRole();
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchPackages();
-  }, []);
-
-  async function fetchPackages() {
+  const fetchPackages = useCallback(async (page: number, search: string) => {
+    setLoading(true);
     try {
-      const res = await api.get("/packages?limit=50&admin=true");
+      let url = `/packages?limit=${PER_PAGE}&page=${page}&admin=true`;
+      if (search.trim()) {
+        url += `&search=${encodeURIComponent(search.trim())}`;
+      }
+      const res = await api.get(url);
       setPackages(res?.data || []);
+      setTotalPages(res?.pages || 1);
+      setTotalCount(res?.total || 0);
     } catch {
       setPackages([]);
+      setTotalPages(1);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchPackages(currentPage, searchQuery);
+  }, [currentPage, fetchPackages]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      fetchPackages(1, searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchPackages]);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this package?")) return;
     try {
       const res = await api.del(`/packages/${id}`);
       if (res?.status === "success" || res === undefined) {
-        setPackages((prev) => prev.filter((p) => p._id !== id));
+        // Refetch current page
+        fetchPackages(currentPage, searchQuery);
       } else {
         alert("Failed to delete");
       }
@@ -98,7 +123,8 @@ export default function PackagesPage() {
     try {
       const res = await api.post(`/packages/${id}/duplicate`, {});
       if (res?.data) {
-        setPackages((prev) => [res.data, ...prev]);
+        fetchPackages(1, searchQuery);
+        setCurrentPage(1);
         alert(`✅ Duplicated as "${res.data.name}" — edit it to adjust the details.`);
       }
     } catch {
@@ -109,10 +135,22 @@ export default function PackagesPage() {
   return (
     <RoleGuard permission="packages.view">
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-72">
+          <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-80">
             <Search size={16} className="text-slate-400" />
-            <input type="text" placeholder="Search packages..." className="bg-transparent border-none outline-none text-sm w-full" />
+            <input
+              type="text"
+              placeholder="Search packages by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm w-full"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+                <span className="text-xs font-bold">✕</span>
+              </button>
+            )}
           </div>
           {canCreate && (
             <Link href="/packages/new" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors">
@@ -121,8 +159,20 @@ export default function PackagesPage() {
           )}
         </div>
 
+        {/* Info bar */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            {totalCount} package{totalCount !== 1 ? "s" : ""} total
+            {searchQuery && ` matching "${searchQuery}"`}
+          </p>
+          <p className="text-xs text-slate-400">
+            Page {currentPage} of {totalPages}
+          </p>
+        </div>
+
+        {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
-          <div className="overflow-x-auto min-h-[480px] pb-40">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50">
@@ -211,10 +261,7 @@ export default function PackagesPage() {
                                   <div className="fixed inset-0 z-10" onClick={() => setActiveDropdown(null)} />
                                   <div className="absolute right-0 mt-1 w-56 rounded-lg bg-white border border-slate-100 shadow-lg z-20 overflow-hidden py-1">
                                     <button
-                                      onClick={() => {
-                                        setActiveDropdown(null);
-                                        handleDownloadPdf(p._id, "classic");
-                                      }}
+                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "classic"); }}
                                       className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                                     >
                                       <FileText size={14} className="text-slate-400" />
@@ -224,10 +271,7 @@ export default function PackagesPage() {
                                       </div>
                                     </button>
                                     <button
-                                      onClick={() => {
-                                        setActiveDropdown(null);
-                                        handleDownloadPdf(p._id, "premium");
-                                      }}
+                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "premium"); }}
                                       className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-cyan-700 hover:bg-cyan-50/50 transition-colors border-t border-slate-50"
                                     >
                                       <Sparkles size={14} className="text-cyan-600" />
@@ -237,10 +281,7 @@ export default function PackagesPage() {
                                       </div>
                                     </button>
                                     <button
-                                      onClick={() => {
-                                        setActiveDropdown(null);
-                                        handleDownloadPdf(p._id, "luxury");
-                                      }}
+                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "luxury"); }}
                                       className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50/50 transition-colors border-t border-slate-50"
                                     >
                                       <Crown size={14} className="text-amber-600" />
@@ -250,10 +291,7 @@ export default function PackagesPage() {
                                       </div>
                                     </button>
                                     <button
-                                      onClick={() => {
-                                        setActiveDropdown(null);
-                                        handleDownloadPdf(p._id, "explorer");
-                                      }}
+                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "explorer"); }}
                                       className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-amber-800 hover:bg-amber-50/50 transition-colors border-t border-slate-50"
                                     >
                                       <Compass size={14} className="text-amber-700" />
@@ -262,7 +300,6 @@ export default function PackagesPage() {
                                         <p className="text-[9px] text-amber-700/70 font-normal">Terracotta rust & sand journal</p>
                                       </div>
                                     </button>
-
                                   </div>
                                 </>
                               )}
@@ -292,6 +329,41 @@ export default function PackagesPage() {
             </table>
           </div>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 pt-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                  page === currentPage
+                    ? "bg-cyan-600 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </RoleGuard>
   );

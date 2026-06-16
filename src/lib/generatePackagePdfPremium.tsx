@@ -110,7 +110,7 @@ const s = StyleSheet.create({
   coverTopImgOverlay: {
     position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 10,
-    borderWidth: 1.5, borderColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1.5, borderColor: C.accent,
   },
   coverBottomInfoBlock: {
     flex: 1,
@@ -160,7 +160,7 @@ const s = StyleSheet.create({
   },
   coverPricePill: {
     backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1, borderColor: C.accent,
     borderRadius: 18,
     paddingVertical: 4, paddingHorizontal: 12,
     alignSelf: "flex-start",
@@ -170,7 +170,7 @@ const s = StyleSheet.create({
   },
   coverClientCard: {
     backgroundColor: "rgba(255, 255, 255, 0.04)",
-    borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1, borderColor: C.accent,
     borderRadius: 10, padding: 12,
     borderLeftWidth: 3, borderLeftColor: C.accent,
     marginTop: 10,
@@ -199,7 +199,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 46, paddingTop: 16,
   },
   headerLine: {
-    height: 2, backgroundColor: C.primary, marginBottom: 6,
+    height: 2, backgroundColor: C.accent, marginBottom: 6,
   },
   headerInner: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
@@ -215,7 +215,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 46, paddingBottom: 16,
   },
   footerLine: {
-    height: 1, backgroundColor: C.primaryLight, marginBottom: 6,
+    height: 1, backgroundColor: C.accentLight, marginBottom: 6,
   },
   footerInner: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
@@ -253,7 +253,7 @@ const s = StyleSheet.create({
   },
   sidebarStatBlock: {
     marginBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomWidth: 1, borderBottomColor: C.accent,
     paddingBottom: 10,
   },
   sidebarStatLabel: {
@@ -276,7 +276,7 @@ const s = StyleSheet.create({
   },
   incChip: {
     backgroundColor: C.tealLight,
-    borderWidth: 1, borderColor: "rgba(15, 118, 110, 0.12)",
+    borderWidth: 1, borderColor: C.border,
     borderRadius: 5, paddingVertical: 4.5, paddingHorizontal: 10,
   },
   incChipText: {
@@ -446,13 +446,13 @@ const s = StyleSheet.create({
   incCol: {
     flex: 1, borderRadius: 8, padding: 14,
     backgroundColor: C.tealLight,
-    borderWidth: 1, borderColor: "rgba(15, 118, 110, 0.15)",
+    borderWidth: 1, borderColor: C.border,
     borderLeftWidth: 3, borderLeftColor: C.teal,
   },
   excCol: {
     flex: 1, borderRadius: 8, padding: 14,
     backgroundColor: C.roseLight,
-    borderWidth: 1, borderColor: "rgba(190, 18, 60, 0.15)",
+    borderWidth: 1, borderColor: "#fecdd3",
     borderLeftWidth: 3, borderLeftColor: C.rose,
   },
   incExcHeading: {
