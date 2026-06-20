@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
+import TemplateControls from "@/components/ui/TemplateControls";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
 import MealPicker from "@/components/ui/MealPicker";
 
@@ -606,11 +607,17 @@ export default function NewPackagePage() {
           {/* === CONTENT (Lists) === */}
           {activeTab === "content" && (
             <div className="space-y-6">
+              <TemplateControls label="Key Points" category="keyPoints" items={keyPoints} onChange={setKeyPoints} />
               <ListInput label="Key Points (short labels for the checkmark box)" items={keyPoints} onChange={setKeyPoints} placeholder="e.g. Burj Khalifa At the Top" />
+              <TemplateControls label="Trip Highlights" category="highlights" items={highlights} onChange={setHighlights} />
               <ListInput label="Trip Highlights (detailed bullet points)" items={highlights} onChange={setHighlights} placeholder="e.g. Stand atop the world's tallest building and witness Dubai's skyline at sunset" />
+              <TemplateControls label="Inclusions" category="inclusions" items={inclusions} onChange={setInclusions} />
               <ListInput label="Inclusions" items={inclusions} onChange={setInclusions} placeholder="e.g. Return flights included" />
+              <TemplateControls label="Exclusions" category="exclusions" items={exclusions} onChange={setExclusions} />
               <ListInput label="Exclusions" items={exclusions} onChange={setExclusions} placeholder="e.g. Visa fees not included" />
+              <TemplateControls label="Know Before You Go" category="knowBeforeYouGo" items={knowBeforeYouGo} onChange={setKnowBeforeYouGo} />
               <ListInput label="Know Before You Go" items={knowBeforeYouGo} onChange={setKnowBeforeYouGo} placeholder="e.g. Valid passport required (6 months validity)" />
+              <TemplateControls label="Things to Carry" category="thingsToCarry" items={thingsToCarry} onChange={setThingsToCarry} />
               <ListInput label="Things to Carry" items={thingsToCarry} onChange={setThingsToCarry} placeholder="e.g. Sunscreen SPF 50+" />
             </div>
           )}

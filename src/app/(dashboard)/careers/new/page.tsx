@@ -20,9 +20,11 @@ export default function NewCareerPage() {
     type: "full-time",
     experience: "",
     description: "",
-    requirements: "",
     isActive: true,
   });
+  const [requirements, setRequirements] = useState<string[]>([""]);
+  const [responsibilities, setResponsibilities] = useState<string[]>([""]);
+  const [benefits, setBenefits] = useState<string[]>([""]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value, type } = e.target;
@@ -42,9 +44,9 @@ export default function NewCareerPage() {
     try {
       const payload = {
         ...form,
-        requirements: form.requirements
-          ? form.requirements.split("\n").map((s) => s.trim()).filter(Boolean)
-          : [],
+        requirements: requirements.map(s => s.trim()).filter(Boolean),
+        responsibilities: responsibilities.map(s => s.trim()).filter(Boolean),
+        benefits: benefits.map(s => s.trim()).filter(Boolean),
       };
 
       const res = await api.post("/careers", payload);
@@ -169,15 +171,78 @@ export default function NewCareerPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Requirements (one per line)</label>
-            <textarea
-              name="requirements"
-              value={form.requirements}
-              onChange={handleChange}
-              rows={5}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
-              placeholder={"Bachelor's degree in relevant field\n3+ years experience\nExcellent communication skills"}
-            />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Requirements</label>
+            <div className="space-y-2">
+              {requirements.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => { const arr = [...requirements]; arr[i] = e.target.value; setRequirements(arr); }}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder={`Requirement ${i + 1}`}
+                  />
+                  {requirements.length > 1 && (
+                    <button type="button" onClick={() => setRequirements(requirements.filter((_, idx) => idx !== i))} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <span className="text-lg leading-none">−</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={() => setRequirements([...requirements, ""])} className="flex items-center gap-1.5 text-sm font-medium text-cyan-600 hover:text-cyan-700 mt-1">
+                <span className="text-lg leading-none">+</span> Add requirement
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Responsibilities</label>
+            <div className="space-y-2">
+              {responsibilities.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => { const arr = [...responsibilities]; arr[i] = e.target.value; setResponsibilities(arr); }}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder={`Responsibility ${i + 1}`}
+                  />
+                  {responsibilities.length > 1 && (
+                    <button type="button" onClick={() => setResponsibilities(responsibilities.filter((_, idx) => idx !== i))} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <span className="text-lg leading-none">−</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={() => setResponsibilities([...responsibilities, ""])} className="flex items-center gap-1.5 text-sm font-medium text-cyan-600 hover:text-cyan-700 mt-1">
+                <span className="text-lg leading-none">+</span> Add responsibility
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Benefits</label>
+            <div className="space-y-2">
+              {benefits.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(e) => { const arr = [...benefits]; arr[i] = e.target.value; setBenefits(arr); }}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder={`Benefit ${i + 1}`}
+                  />
+                  {benefits.length > 1 && (
+                    <button type="button" onClick={() => setBenefits(benefits.filter((_, idx) => idx !== i))} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <span className="text-lg leading-none">−</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={() => setBenefits([...benefits, ""])} className="flex items-center gap-1.5 text-sm font-medium text-cyan-600 hover:text-cyan-700 mt-1">
+                <span className="text-lg leading-none">+</span> Add benefit
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-6">
