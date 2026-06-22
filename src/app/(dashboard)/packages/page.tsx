@@ -5,15 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Package } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronDown, Sparkles, FileText, Crown, Compass, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronLeft, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
 import { useRole } from "@/hooks/usePermission";
 import { generatePackagePdf } from "@/lib/generatePackagePdf";
-import { generatePackagePdfPremium } from "@/lib/generatePackagePdfPremium";
-import { generatePackagePdfLuxury } from "@/lib/generatePackagePdfLuxury";
-import { generatePackagePdfExplorer } from "@/lib/generatePackagePdfExplorer";
 
 const PER_PAGE = 50;
 
@@ -32,7 +29,7 @@ export default function PackagesPage() {
   const canEdit = usePermission("packages.edit");
   const canDelete = usePermission("packages.delete");
   const role = useRole();
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
 
   const fetchPackages = useCallback(async (page: number, search: string) => {
     setLoading(true);
@@ -94,20 +91,12 @@ export default function PackagesPage() {
     }
   }
 
-  async function handleDownloadPdf(id: string, template: "classic" | "premium" | "luxury" | "explorer") {
+  async function handleDownloadPdf(id: string) {
     try {
       const res = await api.get(`/packages/${id}`);
       const pkgData = res?.data || res;
       if (pkgData) {
-        if (template === "premium") {
-          await generatePackagePdfPremium(pkgData);
-        } else if (template === "luxury") {
-          await generatePackagePdfLuxury(pkgData);
-        } else if (template === "explorer") {
-          await generatePackagePdfExplorer(pkgData);
-        } else {
-          await generatePackagePdf(pkgData);
-        }
+        await generatePackagePdf(pkgData);
       } else {
         alert("Failed to fetch package details for PDF");
       }
@@ -266,63 +255,13 @@ export default function PackagesPage() {
                             <a href={`https://letslivetours.com/packages/${p.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="View on site">
                               <Eye size={16} />
                             </a>
-                            <div className="relative inline-block text-left">
-                              <button
-                                onClick={() => setActiveDropdown(activeDropdown === p._id ? null : p._id)}
-                                className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-colors flex items-center gap-0.5"
-                                title="Download PDF"
-                              >
-                                <Download size={16} />
-                                <ChevronDown size={10} className="text-slate-400" />
-                              </button>
-                              {activeDropdown === p._id && (
-                                <>
-                                  <div className="fixed inset-0 z-10" onClick={() => setActiveDropdown(null)} />
-                                  <div className="absolute right-0 mt-1 w-56 rounded-lg bg-white border border-slate-100 shadow-lg z-20 overflow-hidden py-1">
-                                    <button
-                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "classic"); }}
-                                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                                    >
-                                      <FileText size={14} className="text-slate-400" />
-                                      <div>
-                                        <p>Classic Layout</p>
-                                        <p className="text-[9px] text-slate-400 font-normal">Clean editorial style</p>
-                                      </div>
-                                    </button>
-                                    <button
-                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "premium"); }}
-                                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-cyan-700 hover:bg-cyan-50/50 transition-colors border-t border-slate-50"
-                                    >
-                                      <Sparkles size={14} className="text-cyan-600" />
-                                      <div>
-                                        <p className="flex items-center gap-1">Vibrant Premium <span className="text-[7px] bg-cyan-600 text-white px-1 rounded font-bold">NEW</span></p>
-                                        <p className="text-[9px] text-cyan-600/70 font-normal">Modern dark accents & grids</p>
-                                      </div>
-                                    </button>
-                                    <button
-                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "luxury"); }}
-                                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50/50 transition-colors border-t border-slate-50"
-                                    >
-                                      <Crown size={14} className="text-amber-600" />
-                                      <div>
-                                        <p className="flex items-center gap-1">Elite Luxury <span className="text-[7px] bg-amber-600 text-white px-1 rounded font-bold">VIP</span></p>
-                                        <p className="text-[9px] text-amber-600/70 font-normal">Minimalist off-white & gold</p>
-                                      </div>
-                                    </button>
-                                    <button
-                                      onClick={() => { setActiveDropdown(null); handleDownloadPdf(p._id, "explorer"); }}
-                                      className="flex items-center gap-2.5 w-full px-3 py-2 text-left text-xs font-semibold text-amber-800 hover:bg-amber-50/50 transition-colors border-t border-slate-50"
-                                    >
-                                      <Compass size={14} className="text-amber-700" />
-                                      <div>
-                                        <p className="flex items-center gap-1">Modern Explorer <span className="text-[7px] bg-amber-700 text-white px-1 rounded font-bold">EXPLORE</span></p>
-                                        <p className="text-[9px] text-amber-700/70 font-normal">Terracotta rust & sand journal</p>
-                                      </div>
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => handleDownloadPdf(p._id)}
+                              className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-colors"
+                              title="Download PDF"
+                            >
+                              <Download size={16} />
+                            </button>
                             {canCreate && (
                               <button onClick={() => handleDuplicate(p._id, p.name)} className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-400 hover:text-violet-600" title="Duplicate package">
                                 <Copy size={16} />

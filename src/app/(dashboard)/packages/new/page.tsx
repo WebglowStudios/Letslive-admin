@@ -49,6 +49,7 @@ interface Transfer {
   from: string;
   to: string;
   stops: string[];
+  legs: { from: string; to: string; stops: string[]; transferType: string; vehicleType: string }[];
   day: number;
   details: string[];
   images: string[];
@@ -156,7 +157,7 @@ export default function NewPackagePage() {
 
   // Transfers helpers
   function addTransfer() {
-    setTransfers([...transfers, { _key: Date.now(), title: "", description: "", transferType: "Shared Transfer", vehicleType: "", from: "", to: "", stops: [], day: 0, details: [], images: [] }]);
+    setTransfers([...transfers, { _key: Date.now(), title: "", description: "", transferType: "Shared Transfer", vehicleType: "", from: "", to: "", stops: [], legs: [{ from: "", to: "", stops: [], transferType: "Shared Transfer", vehicleType: "" }], day: 0, details: [], images: [] }]);
   }
   function removeTransfer(index: number) {
     setTransfers(transfers.filter((_, i) => i !== index));
@@ -234,14 +235,21 @@ export default function NewPackagePage() {
           roomType: s.roomType,
           amenities: s.amenities,
         })),
-        transfers: transfers.filter((t) => t.title || t.from || t.to).map((t) => ({
+        transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({
           title: t.title,
           description: t.description,
-          transferType: t.transferType || undefined,
-          vehicleType: t.vehicleType || undefined,
-          from: t.from || undefined,
-          to: t.to || undefined,
+          transferType: t.legs[0]?.transferType || t.transferType || undefined,
+          vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined,
+          from: t.legs[0]?.from || t.from || undefined,
+          to: t.legs[t.legs.length - 1]?.to || t.to || undefined,
           stops: t.stops,
+          legs: t.legs.filter(l => l.from || l.to).map(l => ({
+            from: l.from,
+            to: l.to,
+            stops: l.stops.length > 0 ? l.stops : undefined,
+            transferType: l.transferType || undefined,
+            vehicleType: l.vehicleType || undefined,
+          })),
           day: t.day || undefined,
           details: t.details,
           images: t.images,
@@ -555,39 +563,153 @@ export default function NewPackagePage() {
                           <span className="text-sm font-bold text-cyan-700">Transfer {i + 1}</span>
                           <button type="button" onClick={() => removeTransfer(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                         </div>
-                        <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Arrival in Delhi | Transfer to Haridwar)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Transfer Type</label>
-                            <select value={transfer.transferType} onChange={(e) => updateTransfer(i, "transferType", e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                              <option value="Shared Transfer">Shared Transfer</option>
-                              <option value="Private Transfer">Private Transfer</option>
-                              <option value="Self Drive">Self Drive</option>
-                              <option value="Flight">Flight</option>
-                              <option value="Train">Train</option>
-                              <option value="Ferry">Ferry</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Vehicle Type</label>
-                            <input type="text" value={transfer.vehicleType} onChange={(e) => updateTransfer(i, "vehicleType", e.target.value)} placeholder="e.g. SUV, Sedan, Bus" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
-                            <input type="number" value={transfer.day || ""} onChange={(e) => updateTransfer(i, "day", Number(e.target.value) || 0)} placeholder="1" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                          </div>
+                        <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Day 2 — Sightseeing & Intercity)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        <div>
+                          <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
+                          <input type="number" value={transfer.day || ""} onChange={(e) => updateTransfer(i, "day", Number(e.target.value) || 0)} placeholder="1" className="w-32 px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">From (Pickup)</label>
-                            <input type="text" value={transfer.from} onChange={(e) => updateTransfer(i, "from", e.target.value)} placeholder="e.g. Airport / Hotel name" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+
+                        {/* Legs (multiple from → to) */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-slate-600">Route Legs</label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...transfers];
+                                updated[i] = { ...updated[i], legs: [...updated[i].legs, { from: "", to: "", stops: [], transferType: "Shared Transfer", vehicleType: "" }] };
+                                setTransfers(updated);
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-semibold hover:bg-slate-200"
+                            >
+                              <Plus size={11} /> Add Leg
+                            </button>
                           </div>
-                          <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">To (Drop)</label>
-                            <input type="text" value={transfer.to} onChange={(e) => updateTransfer(i, "to", e.target.value)} placeholder="e.g. Hotel / Station" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                          </div>
+                          {transfer.legs.map((leg, li) => (
+                            <div key={li} className="border border-slate-100 rounded-lg p-2.5 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-slate-400 w-4 flex-shrink-0">{li + 1}.</span>
+                                <input
+                                  type="text"
+                                  value={leg.from}
+                                  onChange={(e) => {
+                                    const updated = [...transfers];
+                                    const legs = [...updated[i].legs];
+                                    legs[li] = { ...legs[li], from: e.target.value };
+                                    updated[i] = { ...updated[i], legs };
+                                    setTransfers(updated);
+                                  }}
+                                  placeholder="From"
+                                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                />
+                                <span className="text-slate-300 text-xs">→</span>
+                                <input
+                                  type="text"
+                                  value={leg.to}
+                                  onChange={(e) => {
+                                    const updated = [...transfers];
+                                    const legs = [...updated[i].legs];
+                                    legs[li] = { ...legs[li], to: e.target.value };
+                                    updated[i] = { ...updated[i], legs };
+                                    setTransfers(updated);
+                                  }}
+                                  placeholder="To"
+                                  className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                />
+                                {transfer.legs.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...transfers];
+                                      const legs = updated[i].legs.filter((_, idx) => idx !== li);
+                                      updated[i] = { ...updated[i], legs };
+                                      setTransfers(updated);
+                                    }}
+                                    className="p-1 text-red-400 hover:text-red-600 flex-shrink-0"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                              {/* Transfer type & vehicle per leg */}
+                              <div className="pl-6 flex items-center gap-2">
+                                <select
+                                  value={leg.transferType}
+                                  onChange={(e) => {
+                                    const updated = [...transfers];
+                                    const legs = [...updated[i].legs];
+                                    legs[li] = { ...legs[li], transferType: e.target.value };
+                                    updated[i] = { ...updated[i], legs };
+                                    setTransfers(updated);
+                                  }}
+                                  className="px-2 py-1.5 border border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                >
+                                  <option value="Shared Transfer">Shared</option>
+                                  <option value="Private Transfer">Private</option>
+                                  <option value="Self Drive">Self Drive</option>
+                                  <option value="Flight">Flight</option>
+                                  <option value="Train">Train</option>
+                                  <option value="Ferry">Ferry</option>
+                                  <option value="Walk">Walk</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  value={leg.vehicleType}
+                                  onChange={(e) => {
+                                    const updated = [...transfers];
+                                    const legs = [...updated[i].legs];
+                                    legs[li] = { ...legs[li], vehicleType: e.target.value };
+                                    updated[i] = { ...updated[i], legs };
+                                    setTransfers(updated);
+                                  }}
+                                  placeholder="Vehicle (e.g. SUV, Sedan)"
+                                  className="flex-1 px-2 py-1.5 border border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                />
+                              </div>
+                              {/* Stops within this leg */}
+                              <div className="pl-6">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {leg.stops.map((stop, si) => (
+                                    <span key={si} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded text-[11px] text-slate-600">
+                                      {stop}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...transfers];
+                                          const legs = [...updated[i].legs];
+                                          legs[li] = { ...legs[li], stops: legs[li].stops.filter((_, idx) => idx !== si) };
+                                          updated[i] = { ...updated[i], legs };
+                                          setTransfers(updated);
+                                        }}
+                                        className="text-slate-400 hover:text-red-500 ml-0.5"
+                                      >×</button>
+                                    </span>
+                                  ))}
+                                  <input
+                                    type="text"
+                                    placeholder="+ stop"
+                                    className="w-24 px-2 py-1 border border-dashed border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        const val = (e.target as HTMLInputElement).value.trim();
+                                        if (!val) return;
+                                        const updated = [...transfers];
+                                        const legs = [...updated[i].legs];
+                                        legs[li] = { ...legs[li], stops: [...legs[li].stops, val] };
+                                        updated[i] = { ...updated[i], legs };
+                                        setTransfers(updated);
+                                        (e.target as HTMLInputElement).value = "";
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-[10px] text-slate-400">Each leg is a separate from → to journey. Press Enter in the stop field to add intermediate stops within a leg.</p>
                         </div>
-                        <ListInput label="Stops (intermediate)" items={transfer.stops || []} onChange={(items) => updateTransfer(i, "stops", items)} placeholder="Add a stop point" />
+
                         <textarea value={transfer.description} onChange={(e) => updateTransfer(i, "description", e.target.value)} placeholder="Additional notes..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
                         <ListInput label="Details" items={transfer.details} onChange={(items) => updateTransfer(i, "details", items)} placeholder="Add detail" />
                         <div>
