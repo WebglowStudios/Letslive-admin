@@ -9,6 +9,30 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+// ─── AUTH-AWARE FETCH WRAPPER ───
+// Handles 401 by attempting token refresh before giving up.
+// This prevents the "upload logs you out" bug when the 15-min JWT expires mid-session.
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const res = await fetch(url, { ...options, credentials: "include" });
+
+  if (res.status === 401) {
+    // Attempt silent token refresh
+    const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+
+    if (refreshRes.ok) {
+      // Retry original request with fresh token
+      return fetch(url, { ...options, credentials: "include" });
+    }
+    // Refresh failed — return original 401 response (caller handles it)
+  }
+
+  return res;
+}
+
 interface LibraryImage {
   url: string;
   publicId: string;
@@ -94,7 +118,7 @@ function CreateFolderDialog({ open, onClose, onCreated, currentPath }: {
     if (!name.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/upload/folders`, {
+      const res = await authFetch(`${API_URL}/upload/folders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -172,8 +196,8 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
     setLoading(true);
     try {
       const [imagesRes, foldersRes] = await Promise.all([
-        fetch(`${API_URL}/upload/library?folder=${encodeURIComponent(folder)}&limit=200`, { credentials: "include" }),
-        fetch(`${API_URL}/upload/folders?parent=${encodeURIComponent(folder)}`, { credentials: "include" }),
+        authFetch(`${API_URL}/upload/library?folder=${encodeURIComponent(folder)}&limit=200`, { credentials: "include" }),
+        authFetch(`${API_URL}/upload/folders?parent=${encodeURIComponent(folder)}`, { credentials: "include" }),
       ]);
       const imagesJson = await imagesRes.json();
       const foldersJson = await foldersRes.json();
@@ -221,7 +245,7 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
 
     setDeletingFolder(true);
     try {
-      const res = await fetch(`${API_URL}/upload/folders?path=${encodeURIComponent(currentPath)}`, {
+      const res = await authFetch(`${API_URL}/upload/folders?path=${encodeURIComponent(currentPath)}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -245,7 +269,7 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
       for (const file of Array.from(files)) {
         const formData = new FormData();
         formData.append("image", file);
-        const res = await fetch(`${API_URL}/upload?folder=${encodeURIComponent(currentPath)}`, {
+        const res = await authFetch(`${API_URL}/upload?folder=${encodeURIComponent(currentPath)}`, {
           method: "POST",
           body: formData,
           credentials: "include",
@@ -271,7 +295,7 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
     if (!confirm('Delete this image from Cloudinary? This cannot be undone.')) return;
     setDeleting(publicId);
     try {
-      await fetch(`${API_URL}/upload/${encodeURIComponent(publicId)}`, {
+      await authFetch(`${API_URL}/upload/${encodeURIComponent(publicId)}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -314,7 +338,7 @@ function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
 
     setMoving(true);
     try {
-      const res = await fetch(`${API_URL}/upload/move`, {
+      const res = await authFetch(`${API_URL}/upload/move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
