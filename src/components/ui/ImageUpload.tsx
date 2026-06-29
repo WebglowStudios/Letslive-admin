@@ -167,7 +167,7 @@ function CreateFolderDialog({ open, onClose, onCreated, currentPath }: {
 
 // ─── MEDIA LIBRARY MODAL ───
 
-function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
+export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
   open: boolean;
   onClose: () => void;
   onSelect: (urls: string[]) => void;
