@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { User } from "@/types";
-import { Plus, Search, UserX, Shield } from "lucide-react";
+import { Plus, Search, Trash2, KeyRound, Check } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -12,6 +12,10 @@ import { usePermission } from "@/hooks/usePermission";
 export default function StaffPage() {
   const [staff, setStaff] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
   const canCreate = usePermission("staff.create");
   const canEdit = usePermission("staff.edit");
 
@@ -33,19 +37,33 @@ export default function StaffPage() {
   async function updateRole(id: string, role: string) {
     try {
       await api.put(`/admin/staff/${id}`, { role });
-      fetchStaff();
+      setStaff((prev) => prev.map((m) => m._id === id ? { ...m, role: role as User["role"] } : m));
     } catch {
       alert("Failed to update role");
     }
   }
 
-  async function deactivateUser(id: string) {
-    if (!confirm("Deactivate this staff member?")) return;
+  async function deleteUser(id: string, name: string) {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
     try {
-      await api.put(`/admin/staff/${id}`, { isActive: false });
-      fetchStaff();
+      await api.del(`/admin/staff/${id}`);
+      setStaff((prev) => prev.filter((m) => m._id !== id));
     } catch {
-      alert("Failed to deactivate");
+      alert("Failed to delete user");
+    }
+  }
+
+  async function resetPassword(id: string) {
+    if (!newPassword || newPassword.length < 8) {
+      alert("Password must be at least 8 characters.");
+      return;
+    }
+    try {
+      await api.put(`/admin/staff/${id}`, { password: newPassword });
+      setResetSuccess(id);
+      setTimeout(() => { setResetId(null); setNewPassword(""); setResetSuccess(""); }, 2000);
+    } catch {
+      alert("Failed to reset password");
     }
   }
 
@@ -56,10 +74,15 @@ export default function StaffPage() {
     guest: "bg-slate-100 text-slate-600",
   };
 
-  const statusColors: Record<string, string> = {
-    active: "bg-emerald-100 text-emerald-700",
-    inactive: "bg-red-100 text-red-700",
-  };
+  const filtered = staff.filter((m) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      `${m.firstName} ${m.lastName}`.toLowerCase().includes(q) ||
+      m.email.toLowerCase().includes(q) ||
+      m.role.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <RoleGuard permission="staff.view">
@@ -67,14 +90,22 @@ export default function StaffPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-72">
             <Search size={16} className="text-slate-400" />
-            <input type="text" placeholder="Search staff..." className="bg-transparent border-none outline-none text-sm w-full" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, email, or role..."
+              className="bg-transparent border-none outline-none text-sm w-full"
+            />
           </div>
           {canCreate && (
             <Link href="/staff/new" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors">
-              <Plus size={16} /> Invite Staff
+              <Plus size={16} /> Create User
             </Link>
           )}
         </div>
+
+        <p className="text-xs text-slate-400">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</p>
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -84,56 +115,94 @@ export default function StaffPage() {
                   <th className="px-6 py-3">Name</th>
                   <th className="px-6 py-3">Email</th>
                   <th className="px-6 py-3">Role</th>
-                  <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Joined</th>
                   {canEdit && <th className="px-6 py-3">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
-                ) : staff.length === 0 ? (
-                  <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">No staff members found</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">No users found</td></tr>
                 ) : (
-                  staff.map((member) => (
+                  filtered.map((member) => (
                     <tr key={member._id} className="hover:bg-slate-50">
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-slate-700">{member.firstName} {member.lastName}</p>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{member.email}</td>
                       <td className="px-6 py-4">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${roleColors[member.role] || ""}`}>
-                          {member.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${member.isActive ? statusColors.active : statusColors.inactive}`}>
-                          {member.isActive ? "Active" : "Inactive"}
-                        </span>
+                        {canEdit ? (
+                          <select
+                            value={member.role}
+                            onChange={(e) => updateRole(member._id, e.target.value)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border-none outline-none cursor-pointer ${roleColors[member.role] || "bg-slate-100 text-slate-600"}`}
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                            <option value="staff">Staff</option>
+                            <option value="guest">Guest</option>
+                          </select>
+                        ) : (
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${roleColors[member.role] || ""}`}>
+                            {member.role}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{formatDate(member.createdAt)}</td>
                       {canEdit && (
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={member.role}
-                              onChange={(e) => updateRole(member._id, e.target.value)}
-                              className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
-                            >
-                              <option value="admin">Admin</option>
-                              <option value="manager">Manager</option>
-                              <option value="staff">Staff</option>
-                              <option value="guest">Guest</option>
-                            </select>
-                            {member.isActive && (
+                          <div className="flex items-center gap-1.5">
+                            {/* Reset Password */}
+                            {resetId === member._id ? (
+                              <div className="flex items-center gap-1.5">
+                                {resetSuccess === member._id ? (
+                                  <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                                    <Check size={14} /> Updated
+                                  </span>
+                                ) : (
+                                  <>
+                                    <input
+                                      type="text"
+                                      value={newPassword}
+                                      onChange={(e) => setNewPassword(e.target.value)}
+                                      placeholder="New password (8+ chars)"
+                                      className="w-36 px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                      autoFocus
+                                      onKeyDown={(e) => e.key === "Enter" && resetPassword(member._id)}
+                                    />
+                                    <button
+                                      onClick={() => resetPassword(member._id)}
+                                      className="px-2.5 py-1.5 bg-cyan-600 text-white rounded-lg text-[11px] font-bold hover:bg-cyan-700 transition-colors"
+                                    >
+                                      Set
+                                    </button>
+                                    <button
+                                      onClick={() => { setResetId(null); setNewPassword(""); }}
+                                      className="px-2 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-bold hover:bg-slate-200 transition-colors"
+                                    >
+                                      ✕
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
                               <button
-                                onClick={() => deactivateUser(member._id)}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600"
-                                title="Deactivate"
+                                onClick={() => { setResetId(member._id); setNewPassword(""); }}
+                                className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors"
+                                title="Reset Password"
                               >
-                                <UserX size={16} />
+                                <KeyRound size={15} />
                               </button>
                             )}
+                            {/* Delete */}
+                            <button
+                              onClick={() => deleteUser(member._id, `${member.firstName} ${member.lastName}`)}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                              title="Delete permanently"
+                            >
+                              <Trash2 size={15} />
+                            </button>
                           </div>
                         </td>
                       )}
