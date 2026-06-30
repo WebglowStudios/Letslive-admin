@@ -38,6 +38,10 @@ interface Stay {
   nights: number;
   roomType: string;
   amenities: string[];
+  checkIn: string;
+  checkOut: string;
+  address: string;
+  confirmationNo: string;
 }
 
 interface Transfer {
@@ -83,6 +87,7 @@ export default function EditPackagePage() {
   const [badge, setBadge] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [isCustom, setIsCustom] = useState(false);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
 
@@ -113,6 +118,13 @@ export default function EditPackagePage() {
   // Transfers
   const [transfers, setTransfers] = useState<Transfer[]>([]);
 
+  // Travel dates
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Flights
+  const [flights, setFlights] = useState<{ _key: number; day: number; airline: string; flightNumber: string; from: string; to: string; departure: string; arrival: string; pnr: string; class: string; notes: string }[]>([]);
+
   useEffect(() => {
     api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
     fetchPackage();
@@ -138,6 +150,7 @@ export default function EditPackagePage() {
         setBadge(p.badge || "");
         setIsFeatured(p.isFeatured || false);
         setIsActive(p.isActive ?? true);
+        setIsCustom(p.isCustom || false);
         setFlightsIncluded(p.flightsIncluded || false);
         setTravellerCount(p.travellerCount || "");
         setHeroImage(p.heroImage || "");
@@ -178,13 +191,17 @@ export default function EditPackagePage() {
         );
         setStays(
           p.stays && p.stays.length > 0
-            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; roomType?: string; amenities?: string[] }, i: number) => ({
+            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string }, i: number) => ({
                 _key: Date.now() + i + 1000,
                 name: s.name || "",
                 rating: s.rating || "",
                 nights: s.nights || 0,
                 roomType: s.roomType || "",
                 amenities: s.amenities || [],
+                checkIn: s.checkIn || "",
+                checkOut: s.checkOut || "",
+                address: s.address || "",
+                confirmationNo: s.confirmationNo || "",
               }))
             : []
         );
@@ -206,6 +223,17 @@ export default function EditPackagePage() {
                 details: t.details || [],
                 images: t.images || [],
               }))
+            : []
+        );
+        // Travel dates
+        if (p.travelDates) {
+          setStartDate(p.travelDates.startDate ? new Date(p.travelDates.startDate).toISOString().split('T')[0] : "");
+          setEndDate(p.travelDates.endDate ? new Date(p.travelDates.endDate).toISOString().split('T')[0] : "");
+        }
+        // Flights
+        setFlights(
+          p.flights && p.flights.length > 0
+            ? p.flights.map((f: any, i: number) => ({ _key: Date.now() + i + 5000, day: f.day || 0, airline: f.airline || "", flightNumber: f.flightNumber || "", from: f.from || "", to: f.to || "", departure: f.departure || "", arrival: f.arrival || "", pnr: f.pnr || "", class: f.class || "", notes: f.notes || "" }))
             : []
         );
       }
@@ -245,7 +273,7 @@ export default function EditPackagePage() {
 
   // Stays helpers
   function addStay() {
-    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", amenities: [] }]);
+    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", amenities: [], checkIn: "", checkOut: "", address: "", confirmationNo: "" }]);
   }
   function removeStay(index: number) {
     setStays(stays.filter((_, i) => i !== index));
@@ -325,6 +353,10 @@ export default function EditPackagePage() {
           nights: Number(s.nights) || 0,
           roomType: s.roomType,
           amenities: s.amenities,
+          checkIn: s.checkIn || undefined,
+          checkOut: s.checkOut || undefined,
+          address: s.address || undefined,
+          confirmationNo: s.confirmationNo || undefined,
         })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({
           title: t.title,
@@ -344,6 +376,19 @@ export default function EditPackagePage() {
           day: t.day || undefined,
           details: t.details,
           images: t.images,
+        })),
+        travelDates: (startDate || endDate) ? { startDate: startDate || undefined, endDate: endDate || undefined } : undefined,
+        flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({
+          day: f.day || undefined,
+          airline: f.airline,
+          flightNumber: f.flightNumber,
+          from: f.from,
+          to: f.to,
+          departure: f.departure,
+          arrival: f.arrival,
+          pnr: f.pnr || undefined,
+          class: f.class || undefined,
+          notes: f.notes || undefined,
         })),
       };
 
@@ -441,6 +486,18 @@ export default function EditPackagePage() {
                   <input type="number" value={durationDays} onChange={(e) => setDurationDays(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
               </div>
+              {isCustom && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Travel Start Date</label>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Travel End Date</label>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+              </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Hotel Rating</label>
@@ -527,6 +584,7 @@ export default function EditPackagePage() {
                   { id: "activities", label: "Activities" },
                   { id: "stay", label: "Stay" },
                   { id: "transfers", label: "Transfers" },
+                  ...(isCustom ? [{ id: "flights", label: "Flights" }] : []),
                 ].map((sub) => (
                   <button
                     key={sub.id}
@@ -636,6 +694,22 @@ export default function EditPackagePage() {
                           <input type="text" value={stay.roomType} onChange={(e) => updateStay(i, "roomType", e.target.value)} placeholder="Room type" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         </div>
                         <ListInput label="Amenities" items={stay.amenities} onChange={(items) => updateStay(i, "amenities", items)} placeholder="Add amenity (e.g. Pool, Spa)" />
+                        {isCustom && (
+                        <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Check-in</label>
+                            <input type="date" value={stay.checkIn} onChange={(e) => updateStay(i, "checkIn", e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Check-out</label>
+                            <input type="date" value={stay.checkOut} onChange={(e) => updateStay(i, "checkOut", e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                        </div>
+                        <input type="text" value={stay.address} onChange={(e) => updateStay(i, "address", e.target.value)} placeholder="Hotel address (optional)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        <input type="text" value={stay.confirmationNo} onChange={(e) => updateStay(i, "confirmationNo", e.target.value)} placeholder="Booking confirmation no. (optional)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        </>
+                        )}
                       </div>
                     ))}
                     {stays.length === 0 && (
@@ -817,6 +891,74 @@ export default function EditPackagePage() {
                     ))}
                     {transfers.length === 0 && (
                       <p className="text-sm text-slate-400 text-center py-6">No transfers added yet. Click &quot;Add Transfer&quot; to get started.</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Subtab: Flights */}
+              {tripDetailsSubTab === "flights" && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-slate-700">Flights / Trains</p>
+                    <button type="button" onClick={() => setFlights([...flights, { _key: Date.now(), day: 0, airline: "", flightNumber: "", from: "", to: "", departure: "", arrival: "", pnr: "", class: "", notes: "" }])} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100">
+                      <Plus size={14} /> Add Flight
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {flights.map((f, i) => (
+                      <div key={f._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-cyan-700">Flight {i + 1}</span>
+                          <button type="button" onClick={() => setFlights(flights.filter((_, idx) => idx !== i))} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
+                            <input type="number" value={f.day || ""} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], day: Number(e.target.value) || 0 }; setFlights(u); }} placeholder="1" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Airline</label>
+                            <input type="text" value={f.airline} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], airline: e.target.value }; setFlights(u); }} placeholder="IndiGo" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Flight No.</label>
+                            <input type="text" value={f.flightNumber} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], flightNumber: e.target.value }; setFlights(u); }} placeholder="6E 2142" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">From</label>
+                            <input type="text" value={f.from} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], from: e.target.value }; setFlights(u); }} placeholder="Delhi (DEL)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">To</label>
+                            <input type="text" value={f.to} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], to: e.target.value }; setFlights(u); }} placeholder="Goa (GOI)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-3">
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Departure</label>
+                            <input type="text" value={f.departure} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], departure: e.target.value }; setFlights(u); }} placeholder="06:30 AM" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Arrival</label>
+                            <input type="text" value={f.arrival} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], arrival: e.target.value }; setFlights(u); }} placeholder="09:15 AM" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Class</label>
+                            <input type="text" value={f.class} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], class: e.target.value }; setFlights(u); }} placeholder="Economy" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">PNR</label>
+                            <input type="text" value={f.pnr} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], pnr: e.target.value }; setFlights(u); }} placeholder="ABC123" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                        </div>
+                        <input type="text" value={f.notes} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], notes: e.target.value }; setFlights(u); }} placeholder="Notes (e.g. 15kg baggage included)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                      </div>
+                    ))}
+                    {flights.length === 0 && (
+                      <p className="text-sm text-slate-400 text-center py-6">No flights added yet. Click &quot;Add Flight&quot; to get started.</p>
                     )}
                   </div>
                 </>

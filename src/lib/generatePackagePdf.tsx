@@ -63,19 +63,31 @@ interface ItineraryDay {
 }
 interface Stay {
   name: string; rating: string; nights: number; roomType: string; amenities: string[];
+  checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string;
 }
 interface Activity {
   title: string; description: string; duration: string; details: string[];
 }
+interface TransferLeg {
+  from?: string; to?: string; stops?: string[];
+  transferType?: string; vehicleType?: string;
+}
 interface Transfer {
   title: string; description: string; transferType?: string; vehicleType?: string;
   from?: string; to?: string; stops?: string[]; details: string[];
+  legs?: TransferLeg[]; day?: number;
+}
+interface Flight {
+  day?: number; airline: string; flightNumber: string;
+  from: string; to: string; departure: string; arrival: string;
+  pnr?: string; class?: string; notes?: string;
 }
 interface PackageData {
   name: string; slug: string;
   destination?: { name: string; slug?: string; country?: string };
   description?: string; shortDescription?: string;
   duration: { nights: number; days: number };
+  travelDates?: { startDate?: string; endDate?: string };
   hotelRating?: string; category?: string;
   price: number; originalPrice?: number; priceUnit?: string; discount?: number;
   badge?: string; rating?: number; reviewCount?: number;
@@ -83,6 +95,7 @@ interface PackageData {
   itinerary?: ItineraryDay[];
   inclusions?: string[]; exclusions?: string[];
   stays?: Stay[]; activities?: Activity[]; transfers?: Transfer[];
+  flights?: Flight[];
   knowBeforeYouGo?: string[]; thingsToCarry?: string[];
   images?: string[]; heroImage?: string;
   destinationImages?: string[]; stayImages?: string[]; activityImages?: string[];
@@ -657,6 +670,7 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => (
             </Svg>
             <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
               {pkg.duration.nights} nights / {pkg.duration.days} days
+              {pkg.travelDates?.startDate ? ` · ${new Date(pkg.travelDates.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}${pkg.travelDates.endDate ? ` – ${new Date(pkg.travelDates.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}` : ""}
             </Text>
           </View>
           {pkg.hotelRating && (
@@ -706,7 +720,7 @@ const TripSummarySection = ({ pkg }: { pkg: PackageData }) => (
       <View style={s.glanceGrid}>
         <View style={s.glanceCard}>
           <Text style={s.glanceLabel}>DURATION</Text>
-          <Text style={s.glanceValue}>{pkg.duration.nights} Nights / {pkg.duration.days} Days</Text>
+          <Text style={s.glanceValue}>{pkg.duration.nights} Nights / {pkg.duration.days} Days{pkg.travelDates?.startDate ? `\n${new Date(pkg.travelDates.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${pkg.travelDates?.endDate ? new Date(pkg.travelDates.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}` : ""}</Text>
         </View>
         <View style={s.glanceCard}>
           <Text style={s.glanceLabel}>DESTINATION</Text>
@@ -895,13 +909,17 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
       {pkg.itinerary.map((day) => {
         const dayTransfers = transfersByDay[day.day] || [];
         const dayActivities = activitiesByDay[day.day] || [];
+        // Calculate actual date for this day if travelDates provided
+        const dayDate = pkg.travelDates?.startDate
+          ? new Date(new Date(pkg.travelDates.startDate).getTime() + (day.day - 1) * 86400000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+          : null;
         return (
           <View key={day.day} style={s.dayCard}>
             <View wrap={false} style={s.dayHeader}>
               <View style={s.dayBadge}>
                 <Text style={s.dayBadgeText}>DAY {day.day}</Text>
               </View>
-              <Text style={s.dayTitle}>{day.title}</Text>
+              <Text style={s.dayTitle}>{day.title}{dayDate ? ` — ${dayDate}` : ""}</Text>
             </View>
             <View style={s.dayBody}>
               {day.description ? (
@@ -990,7 +1008,29 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                           <Icon d={ICONS.bus} color={C.cu} size={9} />
                           <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
                         </View>
-                        {(t.from || t.to) && (
+                        {/* Multi-leg or legacy from/to */}
+                        {t.legs && t.legs.length > 0 ? (
+                          t.legs.filter(l => l.from || l.to).map((leg, li) => (
+                            <View key={li} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3, marginTop: 2 }}>
+                              {leg.transferType ? <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.ink4, marginRight: 2 }}>[{leg.transferType}{leg.vehicleType ? ` · ${leg.vehicleType}` : ""}]</Text> : null}
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1 }}>
+                                {leg.from ? (
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.iv, borderRadius: 3, padding: 4, borderWidth: 1, borderColor: C.line }}>
+                                    <Icon d={ICONS.location} color={C.gn3} size={8} />
+                                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.from}</Text>
+                                  </View>
+                                ) : null}
+                                {leg.from && leg.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={9} /> : null}
+                                {leg.to ? (
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.cuLight, borderRadius: 3, padding: 4, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                                    <Icon d={ICONS.location} color={C.cu} size={8} />
+                                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.to}</Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                            </View>
+                          ))
+                        ) : (t.from || t.to) ? (
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
                             {t.from ? (
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
@@ -1012,7 +1052,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                               </View>
                             ) : null}
                           </View>
-                        )}
+                        ) : null}
                         {t.description ? <Text style={{ fontSize: 8, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
                       </View>
                     ))}
@@ -1166,30 +1206,94 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
   );
 };
 
+// ─── Flights ──────────────────────────────────────────────────────────────────
+const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
+  if (!pkg.flights || pkg.flights.length === 0) return null;
+  return (
+    <View wrap={false} style={{ marginBottom: 20 }}>
+      <SectionTitle title="Flight / Transport Details" />
+      <View style={s.tableWrap}>
+        <View style={s.tableHead}>
+          <Text style={[s.tableHeadCell, { width: "8%" }]}>Day</Text>
+          <Text style={[s.tableHeadCell, { width: "18%" }]}>Airline</Text>
+          <Text style={[s.tableHeadCell, { width: "12%" }]}>Flight No.</Text>
+          <Text style={[s.tableHeadCell, { width: "17%" }]}>From</Text>
+          <Text style={[s.tableHeadCell, { width: "17%" }]}>To</Text>
+          <Text style={[s.tableHeadCell, { width: "14%" }]}>Depart</Text>
+          <Text style={[s.tableHeadCell, { width: "14%" }]}>Arrive</Text>
+        </View>
+        {pkg.flights.map((f, i) => (
+          <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
+            <Text style={[s.tableCell, { width: "8%" }]}>{f.day || "—"}</Text>
+            <Text style={[s.tableCell, { width: "18%", fontFamily: "Helvetica-Bold" }]}>{f.airline}</Text>
+            <Text style={[s.tableCell, { width: "12%" }]}>{f.flightNumber}</Text>
+            <Text style={[s.tableCell, { width: "17%" }]}>{f.from}</Text>
+            <Text style={[s.tableCell, { width: "17%" }]}>{f.to}</Text>
+            <Text style={[s.tableCell, { width: "14%" }]}>{f.departure}</Text>
+            <Text style={[s.tableCell, { width: "14%" }]}>{f.arrival}</Text>
+          </View>
+        ))}
+      </View>
+      {/* PNR / class notes below the table */}
+      {pkg.flights.some(f => f.pnr || f.class || f.notes) && (
+        <View style={{ marginTop: 8 }}>
+          {pkg.flights.filter(f => f.pnr || f.class || f.notes).map((f, i) => (
+            <View key={i} style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
+              <Text style={{ fontSize: 7.5, color: C.ink3 }}>
+                {f.airline} {f.flightNumber}:
+                {f.class ? ` ${f.class}` : ""}
+                {f.pnr ? ` · PNR: ${f.pnr}` : ""}
+                {f.notes ? ` · ${f.notes}` : ""}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
 // ─── Accommodation ────────────────────────────────────────────────────────────
 const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.stays || pkg.stays.length === 0) return null;
+  const hasDateInfo = pkg.stays.some(s => s.checkIn || s.checkOut);
   return (
     <View wrap={false} style={{ marginBottom: 20 }}>
       <SectionTitle title="Accommodation" />
       <View style={s.tableWrap}>
         <View style={s.tableHead}>
-          <Text style={[s.tableHeadCell, { width: "30%" }]}>Hotel</Text>
-          <Text style={[s.tableHeadCell, { width: "15%" }]}>Rating</Text>
-          <Text style={[s.tableHeadCell, { width: "15%" }]}>Nights</Text>
-          <Text style={[s.tableHeadCell, { width: "20%" }]}>Room Type</Text>
-          <Text style={[s.tableHeadCell, { width: "20%" }]}>Amenities</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "25%" : "30%" }]}>Hotel</Text>
+          <Text style={[s.tableHeadCell, { width: "12%" }]}>Rating</Text>
+          <Text style={[s.tableHeadCell, { width: "10%" }]}>Nights</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "18%" : "20%" }]}>Room Type</Text>
+          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "15%" }]}>Check-in</Text>}
+          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "15%" }]}>Check-out</Text>}
+          {!hasDateInfo && <Text style={[s.tableHeadCell, { width: "28%" }]}>Amenities</Text>}
         </View>
         {pkg.stays.map((stay, i) => (
           <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-            <Text style={[s.tableCell, { width: "30%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
-            <Text style={[s.tableCell, { width: "15%" }]}>{stay.rating}</Text>
-            <Text style={[s.tableCell, { width: "15%" }]}>{stay.nights}N</Text>
-            <Text style={[s.tableCell, { width: "20%" }]}>{stay.roomType}</Text>
-            <Text style={[s.tableCell, { width: "20%" }]}>{stay.amenities.join(", ")}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "25%" : "30%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
+            <Text style={[s.tableCell, { width: "12%" }]}>{stay.rating}</Text>
+            <Text style={[s.tableCell, { width: "10%" }]}>{stay.nights}N</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "18%" : "20%" }]}>{stay.roomType}</Text>
+            {hasDateInfo && <Text style={[s.tableCell, { width: "15%" }]}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
+            {hasDateInfo && <Text style={[s.tableCell, { width: "15%" }]}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
+            {!hasDateInfo && <Text style={[s.tableCell, { width: "28%" }]}>{stay.amenities.join(", ")}</Text>}
           </View>
         ))}
       </View>
+      {/* Show address/confirmation below table if available */}
+      {pkg.stays.some(s => s.address || s.confirmationNo) && (
+        <View style={{ marginTop: 8 }}>
+          {pkg.stays.filter(s => s.address || s.confirmationNo).map((stay, i) => (
+            <View key={i} style={{ marginBottom: 4 }}>
+              <Text style={{ fontSize: 7.5, color: C.ink3 }}>
+                {stay.name}:{stay.address ? ` ${stay.address}` : ""}{stay.confirmationNo ? ` · Booking Ref: ${stay.confirmationNo}` : ""}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };
@@ -1334,6 +1438,7 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       <TripSummarySection pkg={pkg} />
       <GallerySection pkg={pkg} />
       <OverviewSection pkg={pkg} />
+      <FlightsSection pkg={pkg} />
       <ItinerarySection pkg={pkg} />
       <AccommodationSection pkg={pkg} />
       <InclusionsExclusionsSection pkg={pkg} />
