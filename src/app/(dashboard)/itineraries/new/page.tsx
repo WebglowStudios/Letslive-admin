@@ -39,6 +39,13 @@ export default function NewCustomItineraryPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Payment config
+  const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
+  const [depositType, setDepositType] = useState<"percent" | "fixed">("percent");
+  const [depositValue, setDepositValue] = useState("30");
+  const [depositLabel, setDepositLabel] = useState("");
+  const [balanceDueDays, setBalanceDueDays] = useState("30");
+
   // Content
   const [highlights, setHighlights] = useState<string[]>([]);
   const [inclusions, setInclusions] = useState<string[]>([]);
@@ -136,6 +143,13 @@ export default function NewCustomItineraryPage() {
         })),
         isActive: true,
         showOnDestination,
+        paymentConfig: {
+          mode: paymentMode,
+          depositType,
+          depositValue: Number(depositValue) || 30,
+          depositLabel: depositLabel.trim() || undefined,
+          balanceDueDays: Number(balanceDueDays) || 30,
+        },
       };
 
       const res = await api.post("/packages", payload);
@@ -292,6 +306,92 @@ export default function NewCustomItineraryPage() {
               <div>
                 <ImageUpload value={heroImage} onChange={setHeroImage} label="Hero Image" folder="itineraries" />
               </div>
+            </div>
+
+            {/* Payment Configuration */}
+            <div className="border border-slate-200 rounded-xl p-4 space-y-4 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-600" />
+                <p className="text-sm font-semibold text-slate-700">Payment Configuration</p>
+              </div>
+              <p className="text-xs text-slate-400 -mt-2">Controls how this client pays when booking this custom itinerary.</p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Payment Mode</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("full")}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${paymentMode === "full" ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-500 border-slate-200 hover:border-cyan-300"}`}
+                  >
+                    Full Payment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode("partial")}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${paymentMode === "partial" ? "bg-cyan-600 text-white border-cyan-600" : "bg-white text-slate-500 border-slate-200 hover:border-cyan-300"}`}
+                  >
+                    Deposit + Balance
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">
+                  {paymentMode === "full" ? "Client pays the full amount at the time of booking." : "Client pays a deposit now and the remaining balance before travel."}
+                </p>
+              </div>
+
+              {paymentMode === "partial" && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Deposit Type</label>
+                      <select value={depositType} onChange={(e) => setDepositType(e.target.value as "percent" | "fixed")} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white">
+                        <option value="percent">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount (₹)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        {depositType === "percent" ? "Deposit %" : "Deposit Amount (₹)"}
+                      </label>
+                      <input
+                        type="number"
+                        value={depositValue}
+                        onChange={(e) => setDepositValue(e.target.value)}
+                        min="1"
+                        max={depositType === "percent" ? "99" : undefined}
+                        placeholder={depositType === "percent" ? "e.g. 30" : "e.g. 5000"}
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Balance Due (days before travel)</label>
+                      <input
+                        type="number"
+                        value={balanceDueDays}
+                        onChange={(e) => setBalanceDueDays(e.target.value)}
+                        min="1"
+                        placeholder="e.g. 30"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Deposit Label (optional)</label>
+                      <input
+                        type="text"
+                        value={depositLabel}
+                        onChange={(e) => setDepositLabel(e.target.value)}
+                        placeholder='e.g. "Book with ₹5,000"'
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="px-3 py-2 bg-cyan-50 border border-cyan-100 rounded-lg text-xs text-cyan-700">
+                    Client will pay <strong>{depositType === "percent" ? `${depositValue}%` : `₹${Number(depositValue).toLocaleString("en-IN")}`}</strong> at booking, and the balance is due <strong>{balanceDueDays} days</strong> before travel.
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}
