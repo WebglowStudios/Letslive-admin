@@ -4,14 +4,145 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { User } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, UserPlus, X, Copy, Eye, EyeOff } from "lucide-react";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+
+function generatePassword() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!";
+  let pwd = "";
+  for (let i = 0; i < 12; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  return pwd;
+}
+
+function AddCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({
+    firstName: "", lastName: "", email: "", phone: "", password: generatePassword(),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [created, setCreated] = useState<{ name: string; email: string; password: string } | null>(null);
+  const [showPwd, setShowPwd] = useState(true);
+  const [copied, setCopied] = useState("");
+
+  function copyText(text: string, key: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(""), 2000);
+  }
+
+  async function handleCreate() {
+    if (!form.firstName || !form.email || !form.password) {
+      setError("First name, email and password are required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await api.post("/admin/staff", { ...form, role: "user" });
+      setCreated({ name: `${form.firstName} ${form.lastName}`.trim(), email: form.email, password: form.password });
+      onCreated();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to create account");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-bold text-slate-800">Add Customer</h3>
+            <p className="text-xs text-slate-400">Create a customer account for a walk-in visitor</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+        </div>
+
+        {created ? (
+          <div className="p-6 space-y-4">
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+              <UserPlus size={20} className="text-emerald-600" />
+            </div>
+            <p className="text-center font-semibold text-slate-800">Account Created for {created.name}!</p>
+            {[
+              { label: "Email", value: created.email, key: "email" },
+              { label: "Password", value: created.password, key: "pwd" },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">{item.label}</p>
+                  <p className="text-sm font-mono font-medium text-slate-700">{item.value}</p>
+                </div>
+                <button onClick={() => copyText(item.value, item.key)} className="p-2 hover:bg-slate-200 rounded-lg">
+                  <Copy size={14} className={copied === item.key ? "text-emerald-600" : "text-slate-400"} />
+                </button>
+              </div>
+            ))}
+            <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-xl text-xs text-cyan-700">
+              Customer logs in at: <strong>www.letslivetours.com/login</strong>
+            </div>
+            <button onClick={onClose} className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-700">
+              Done
+            </button>
+          </div>
+        ) : (
+          <div className="p-6 space-y-4">
+            {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">First Name *</label>
+                <input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Last Name</label>
+                <input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Email *</label>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
+              <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-600">Password *</label>
+                <button type="button" onClick={() => setForm({ ...form, password: generatePassword() })} className="text-[10px] text-cyan-600 hover:text-cyan-700 font-semibold">Regenerate</button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPwd ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-cyan-500 pr-10"
+                />
+                <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded">
+                  {showPwd ? <EyeOff size={14} className="text-slate-400" /> : <Eye size={14} className="text-slate-400" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleCreate} disabled={saving} className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-xl text-sm font-semibold hover:bg-cyan-700 disabled:opacity-40 flex items-center justify-center gap-2">
+                <UserPlus size={14} /> {saving ? "Creating..." : "Create Account"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
   const canDelete = usePermission("users.delete");
 
   useEffect(() => {
@@ -20,7 +151,7 @@ export default function UsersPage() {
 
   async function fetchUsers() {
     try {
-      const res = await api.get("/users?limit=50");
+      const res = await api.get("/users?limit=100");
       setUsers(res?.data || []);
     } catch {
       setUsers([]);
@@ -59,8 +190,15 @@ export default function UsersPage() {
 
   return (
     <RoleGuard permission="users.view">
+      {showAddCustomer && (
+        <AddCustomerModal
+          onClose={() => setShowAddCustomer(false)}
+          onCreated={() => { fetchUsers(); setShowAddCustomer(false); }}
+        />
+      )}
+
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-72">
             <Search size={16} className="text-slate-400" />
             <input
@@ -71,7 +209,15 @@ export default function UsersPage() {
               className="bg-transparent border-none outline-none text-sm w-full"
             />
           </div>
-          <p className="text-xs text-slate-400">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-slate-400">{filtered.length} user{filtered.length !== 1 ? "s" : ""}</p>
+            <button
+              onClick={() => setShowAddCustomer(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors"
+            >
+              <UserPlus size={15} /> Add Customer
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -81,6 +227,7 @@ export default function UsersPage() {
                 <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50">
                   <th className="px-6 py-3">User</th>
                   <th className="px-6 py-3">Email</th>
+                  <th className="px-6 py-3">Phone</th>
                   <th className="px-6 py-3">Role</th>
                   <th className="px-6 py-3">Joined</th>
                   {canDelete && <th className="px-6 py-3">Actions</th>}
@@ -88,9 +235,9 @@ export default function UsersPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">No users found</td></tr>
+                  <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">No users found</td></tr>
                 ) : (
                   filtered.map((u) => (
                     <tr key={u._id} className="hover:bg-slate-50">
@@ -98,6 +245,7 @@ export default function UsersPage() {
                         <p className="text-sm font-medium text-slate-700">{u.firstName} {u.lastName}</p>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{u.email}</td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{u.phone || <span className="text-slate-300">—</span>}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${roleBadge[u.role] || "bg-slate-100 text-slate-600"}`}>
                           {u.role}

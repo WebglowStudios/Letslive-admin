@@ -18,6 +18,7 @@ export default function NewCustomItineraryPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [createdId, setCreatedId] = useState("");
+  const [createdSlug, setCreatedSlug] = useState("");
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [activeTab, setActiveTab] = useState("client");
 
@@ -155,7 +156,22 @@ export default function NewCustomItineraryPage() {
       const res = await api.post("/packages", payload);
       if (res?.status === "success" && res.data) {
         setCreatedId(res.data._id);
-        setSuccess("Custom itinerary created! Share the link with your client.");
+        setCreatedSlug(res.data.slug || "");
+        setSuccess("Custom itinerary created! Share the booking link with your client.");
+
+        // Auto-link the new package back to the enquiry so
+        // "Send Booking Link" works immediately without extra steps
+        if (enquiryId) {
+          try {
+            await api.put(`/enquiries/${enquiryId}`, {
+              package: res.data._id,
+              packageName: res.data.name,
+            });
+          } catch {
+            // Non-fatal — itinerary is created, link can be sent manually
+            console.warn("Could not auto-link package to enquiry");
+          }
+        }
       } else {
         setError(res?.message || "Failed to create");
       }
@@ -187,12 +203,18 @@ export default function NewCustomItineraryPage() {
       {success && (
         <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
           <p className="font-semibold">{success}</p>
-          {createdId && (
-            <div className="mt-2 flex items-center gap-2">
-              <input type="text" readOnly value={`https://letslivetours.com/itinerary/${createdId}`} className="flex-1 px-3 py-2 bg-white border border-emerald-200 rounded-lg text-xs" />
-              <button onClick={() => { navigator.clipboard.writeText(`https://letslivetours.com/itinerary/${createdId}`); }} className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1">
-                <LinkIcon size={12} /> Copy
-              </button>
+          {createdSlug && (
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-emerald-600">Booking link (share with client):</p>
+              <div className="flex items-center gap-2">
+                <input type="text" readOnly value={`https://letslivetours.com/book/${createdSlug}`} className="flex-1 px-3 py-2 bg-white border border-emerald-200 rounded-lg text-xs font-mono" />
+                <button onClick={() => { navigator.clipboard.writeText(`https://letslivetours.com/book/${createdSlug}`); }} className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-emerald-700">
+                  <LinkIcon size={12} /> Copy
+                </button>
+              </div>
+              {enquiryId && (
+                <p className="text-xs text-emerald-500">✓ Package linked to enquiry — &quot;Send Booking Link&quot; button is now ready.</p>
+              )}
             </div>
           )}
         </div>

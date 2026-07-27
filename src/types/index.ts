@@ -1,13 +1,15 @@
-export type Role = "admin" | "manager" | "staff" | "guest";
+export type Role = "admin" | "manager" | "staff" | "guest" | "user";
 
 export interface User {
   _id: string;
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   role: Role;
   avatar?: string;
   isActive: boolean;
+  isVerified?: boolean;
   createdAt: string;
 }
 
@@ -85,17 +87,54 @@ export interface Review {
   createdAt: string;
 }
 
+export interface CallLogEntry {
+  _id: string;
+  attemptedAt: string;
+  outcome: "answered" | "dnp" | "busy" | "whatsapp-sent" | "email-sent" | "callback-scheduled";
+  notes?: string;
+  by?: { firstName: string; lastName: string };
+  duration?: number;
+}
+
+export interface EnquiryNote {
+  _id?: string;
+  text: string;
+  by?: { firstName: string; lastName: string };
+  date: string;
+}
+
 export interface Enquiry {
   _id: string;
-  name: string;
+  type: "general" | "booking" | "support" | "callback" | "group-quote";
+  firstName: string;
+  lastName?: string;
   email: string;
-  phone?: string;
-  subject?: string;
-  message: string;
-  type?: string;
-  status: "new" | "in-progress" | "resolved" | "closed";
-  response?: string;
+  phone: string;
+  destination?: string;
+  travelDate?: string;
+  message?: string;
+  packageName?: string;
+  package?: string;
+  status: "new" | "assigned" | "in-progress" | "follow-up" | "converted" | "resolved" | "closed";
+  priority: "low" | "medium" | "high" | "urgent";
+  assignedTo?: { _id: string; firstName: string; lastName: string };
+  notes: EnquiryNote[];
+  source: "website" | "whatsapp" | "phone";
+  // CRM fields
+  dnpCount: number;
+  followUpDate?: string;
+  followUpNotes?: string;
+  lostReason?: string;
+  conversionValue?: number;
+  bookingRef?: { bookingId: string; totalAmount: number } | string;
+  travellerCount?: number;
+  budget?: number;
+  tags: string[];
+  channel?: string;
+  callLog: CallLogEntry[];
+  lastContactedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Career {

@@ -82,6 +82,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     "enquiries.view",
     "careers.view",
   ],
+  user: [],
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

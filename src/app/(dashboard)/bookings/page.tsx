@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Booking } from "@/types";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -99,6 +101,7 @@ export default function BookingsPage() {
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Payment</th>
                   {canUpdate && <th className="px-6 py-3">Actions</th>}
+                  <th className="px-6 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -162,6 +165,14 @@ export default function BookingsPage() {
                             </div>
                           </td>
                         )}
+                        <td className="px-6 py-4">
+                          <Link
+                            href={`/bookings/${b._id}`}
+                            className="flex items-center gap-1 text-xs text-cyan-600 hover:text-cyan-700 font-medium"
+                          >
+                            View <ExternalLink size={11} />
+                          </Link>
+                        </td>
                       </tr>
                     );
                   })

@@ -12,8 +12,11 @@ import {
   Star,
   MessageSquare,
   TrendingUp,
+  Phone,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+
 
 interface DashboardStats {
   totalBookings: number;
@@ -36,10 +39,21 @@ interface RecentBooking {
   createdAt: string;
 }
 
+interface CrmStats {
+  byStatus: Record<string, number>;
+  conversionRate: number;
+  avgDaysToConvert: number;
+  totalConversionValue: number;
+  followUpsDueToday: number;
+  total: number;
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [crmStats, setCrmStats] = useState<CrmStats | null>(null);
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [loading, setLoading] = useState(true);
+
 
   useEffect(() => {
     async function fetchData() {
@@ -70,6 +84,17 @@ export default function DashboardPage() {
         // Fetch recent bookings
         const bookingsRes = await api.get("/bookings?limit=5&sort=-createdAt");
         setRecentBookings(bookingsRes?.data?.slice(0, 5) || []);
+
+        // Fetch CRM stats (non-blocking)
+        try {
+          const crmRes = await api.get("/enquiries/stats");
+          if (crmRes?.status === "success" && crmRes.data) {
+            setCrmStats(crmRes.data);
+          }
+        } catch {
+          // CRM stats are optional — don't block dashboard
+        }
+
       } catch {
         // Fallback
       } finally {
@@ -122,7 +147,71 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* CRM Sales Pipeline Widget */}
+      {crmStats && (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Phone size={16} className="text-cyan-600" />
+              <h2 className="text-base font-semibold text-slate-900">Sales Pipeline</h2>
+              <span className="text-xs text-slate-400">This month</span>
+            </div>
+            <Link href="/enquiries" className="text-sm text-cyan-600 hover:text-cyan-700 font-medium">
+              View all →
+            </Link>
+          </div>
+          <div className="p-5">
+            {/* Stage counts */}
+            <div className="grid grid-cols-5 gap-3 mb-4">
+              {[
+                { key: "new", label: "New", color: "text-blue-600 bg-blue-50" },
+                { key: "in-progress", label: "In Progress", color: "text-amber-600 bg-amber-50" },
+                { key: "follow-up", label: "Follow-Up", color: "text-purple-600 bg-purple-50" },
+                { key: "converted", label: "Converted", color: "text-emerald-600 bg-emerald-50" },
+                { key: "closed", label: "Closed", color: "text-slate-500 bg-slate-50" },
+              ].map((stage) => (
+                <Link
+                  key={stage.key}
+                  href={`/enquiries?status=${stage.key}`}
+                  className={`rounded-xl p-3 text-center hover:opacity-80 transition-opacity ${stage.color}`}
+                >
+                  <p className="text-2xl font-bold">{crmStats.byStatus[stage.key] || 0}</p>
+                  <p className="text-[10px] font-semibold mt-0.5 uppercase tracking-wide">{stage.label}</p>
+                </Link>
+              ))}
+            </div>
+            {/* Metrics row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100">
+              <div>
+                <p className="text-xs text-slate-400">Conversion Rate</p>
+                <p className="text-lg font-bold text-slate-800">{crmStats.conversionRate}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Avg. Close Time</p>
+                <p className="text-lg font-bold text-slate-800">{crmStats.avgDaysToConvert} days</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">CRM Revenue</p>
+                <p className="text-lg font-bold text-emerald-600">{formatCurrency(crmStats.totalConversionValue)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Follow-ups Today</p>
+                <Link href="/enquiries?tab=follow-ups" className="flex items-center gap-1 group">
+                  <p className={`text-lg font-bold ${crmStats.followUpsDueToday > 0 ? "text-purple-600" : "text-slate-400"}`}>
+                    {crmStats.followUpsDueToday}
+                  </p>
+                  {crmStats.followUpsDueToday > 0 && (
+                    <ArrowRight size={14} className="text-purple-500 group-hover:translate-x-0.5 transition-transform" />
+                  )}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Recent Bookings */}
+
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900">Recent Bookings</h2>
