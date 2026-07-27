@@ -389,6 +389,7 @@ export default function EnquiryDetailPage() {
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [savingFollowUp, setSavingFollowUp] = useState(false);
+  const [followUpSaved, setFollowUpSaved] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [reassigning, setReassigning] = useState(false);
   const [tagInput, setTagInput] = useState("");
@@ -487,9 +488,12 @@ export default function EnquiryDetailPage() {
 
   async function saveFollowUp() {
     setSavingFollowUp(true);
+    setFollowUpSaved(false);
     try {
       await api.put(`/enquiries/${id}`, { followUpDate, followUpNotes });
       fetchEnquiry();
+      setFollowUpSaved(true);
+      setTimeout(() => setFollowUpSaved(false), 3000);
     } catch { alert("Failed to save follow-up"); }
     finally { setSavingFollowUp(false); }
   }
@@ -867,9 +871,13 @@ export default function EnquiryDetailPage() {
                 <button
                   onClick={saveFollowUp}
                   disabled={!followUpDate || savingFollowUp}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-purple-300 bg-purple-50 text-purple-700 rounded-xl text-sm font-semibold hover:bg-purple-100 disabled:opacity-40 transition-colors"
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 border rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 ${
+                    followUpSaved 
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" 
+                      : "border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                  }`}
                 >
-                  <Calendar size={14} /> {savingFollowUp ? "Saving..." : "Schedule"}
+                  <Calendar size={14} /> {savingFollowUp ? "Saving..." : followUpSaved ? "✓ Scheduled!" : "Schedule"}
                 </button>
               </div>
 
@@ -912,7 +920,7 @@ export default function EnquiryDetailPage() {
 
               {/* Convert to Booking */}
               {enquiry.status !== "converted" && enquiry.status !== "closed" && (
-                enquiry.package && typeof enquiry.package === "object" && (enquiry.package as { slug?: string }).slug ? (
+                enquiry.package && typeof enquiry.package === "object" && (enquiry.package as { slug?: string }).slug && (
                   <a
                     href={`https://letslivetours.com/book/${(enquiry.package as { slug?: string }).slug}`}
                     target="_blank"
@@ -921,14 +929,6 @@ export default function EnquiryDetailPage() {
                   >
                     <CheckCircle size={16} /> Open Booking Page ↗
                   </a>
-                ) : (
-                  <Link
-                    href={`/itineraries/new?enquiryId=${id}`}
-                    className="w-full flex items-center gap-3 px-4 py-3 border border-slate-200 bg-slate-50 text-slate-500 rounded-xl text-sm font-semibold hover:bg-slate-100 transition-colors"
-                    title="Create a custom itinerary first to enable booking"
-                  >
-                    <CheckCircle size={16} /> Convert to Booking (create itinerary first)
-                  </Link>
                 )
               )}
 
