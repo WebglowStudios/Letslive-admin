@@ -9,7 +9,7 @@ import {
   Phone, Mail, MapPin, Package, Calendar, Users, DollarSign,
   Tag, User, ArrowLeft, MessageSquare, PhoneCall, PhoneOff,
   MessageCircle, Clock, CheckCircle, AlertTriangle, ChevronDown,
-  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy
+  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2
 } from "lucide-react";
 
 import Link from "next/link";
@@ -544,6 +544,18 @@ export default function EnquiryDetailPage() {
   const timeline = buildTimeline();
   const fullName = `${enquiry.firstName} ${enquiry.lastName || ""}`.trim();
 
+  async function handleDelete() {
+    if (window.confirm("Are you sure you want to permanently delete this enquiry? This action cannot be undone and will permanently remove this lead from the CRM.")) {
+      try {
+        await api.del(`/enquiries/${id}`);
+        router.push("/enquiries");
+      } catch (error) {
+        console.error("Failed to delete enquiry:", error);
+        alert("Failed to delete enquiry. Please try again.");
+      }
+    }
+  }
+
   return (
     <RoleGuard permission="enquiries.view">
       {showLogCall && (
@@ -561,16 +573,28 @@ export default function EnquiryDetailPage() {
       )}
 
       <div className="space-y-5 max-w-7xl mx-auto">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => router.push("/enquiries")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
-            <ArrowLeft size={15} /> Enquiries
-          </button>
-          <span className="text-slate-300">/</span>
-          <span className="text-sm text-slate-700 font-medium">{fullName}</span>
-          <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${STATUS_COLORS[enquiry.status] || ""}`}>
-            {enquiry.status.replace("-", " ")}
-          </span>
+        {/* Breadcrumb & Actions */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => router.push("/enquiries")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
+              <ArrowLeft size={15} /> Enquiries
+            </button>
+            <span className="text-slate-300">/</span>
+            <span className="text-sm text-slate-700 font-medium">{fullName}</span>
+            <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${STATUS_COLORS[enquiry.status] || ""}`}>
+              {enquiry.status.replace("-", " ")}
+            </span>
+          </div>
+
+          {isManager && (
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 px-3 py-1.5 border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
+              title="Permanently delete this enquiry"
+            >
+              <Trash2 size={14} /> Delete Enquiry
+            </button>
+          )}
         </div>
 
         {/* 3-column layout */}
