@@ -7,7 +7,7 @@ import { User } from "@/types";
 import { Plus, Search, Trash2, KeyRound, Check } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
-import { usePermission } from "@/hooks/usePermission";
+import { usePermission, useRole } from "@/hooks/usePermission";
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<User[]>([]);
@@ -18,6 +18,7 @@ export default function StaffPage() {
   const [resetSuccess, setResetSuccess] = useState("");
   const canCreate = usePermission("staff.create");
   const canEdit = usePermission("staff.edit");
+  const currentRole = useRole();
 
   useEffect(() => {
     fetchStaff();
@@ -132,7 +133,8 @@ export default function StaffPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{member.email}</td>
                       <td className="px-6 py-4">
-                        {canEdit ? (
+                        {/* Only admin can change roles — backend also enforces this via adminOnly middleware */}
+                        {currentRole === "admin" ? (
                           <select
                             value={member.role}
                             onChange={(e) => updateRole(member._id, e.target.value)}
