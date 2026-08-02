@@ -219,7 +219,7 @@ export default function ItinerariesPage() {
                         >
                           <Download size={16} />
                         </button>
-                        <Link href={`/packages/${it._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600" title="Edit">
+                        <Link href={`/itineraries/${it._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600" title="Edit">
                           <Edit size={16} />
                         </Link>
                         <button onClick={() => handleDelete(it._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete">
