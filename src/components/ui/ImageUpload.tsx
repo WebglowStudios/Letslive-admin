@@ -165,6 +165,33 @@ function CreateFolderDialog({ open, onClose, onCreated, currentPath }: {
   );
 }
 
+// ─── PERSISTENT FOLDER STATE ───────────────────────────────────────────────
+// Module-level variables survive component remounts and page rerenders.
+// They are initialized once from localStorage and kept in sync on every navigation.
+function getPersistedPath(): string {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("media_library_last_path") || "letslivetours";
+  }
+  return "letslivetours";
+}
+
+function buildHistoryFromPath(path: string): string[] {
+  if (!path || path === "letslivetours") return ["letslivetours"];
+  const parts = path.split("/");
+  return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
+}
+
+function persistPath(path: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("media_library_last_path", path);
+  }
+}
+
+// In-memory cache so state is restored even on remount within the same session
+// (e.g. when parent form rerenders and conditionally unmounts/remounts the component)
+let _cachedPath = getPersistedPath();
+let _cachedHistory = buildHistoryFromPath(_cachedPath);
+
 // ─── MEDIA LIBRARY MODAL ───
 
 export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }: {
@@ -181,25 +208,10 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
   const [selected, setSelected] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
-  // Restore last visited folder from localStorage so the modal opens where you left off
-  const [currentPath, setCurrentPath] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("media_library_last_path") || "letslivetours";
-    }
-    return "letslivetours";
-  });
-  const [pathHistory, setPathHistory] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("media_library_last_path");
-      if (saved && saved !== "letslivetours") {
-        // Reconstruct breadcrumb history from the saved path
-        // e.g. "letslivetours/packages/gallery" → ["letslivetours", "letslivetours/packages", "letslivetours/packages/gallery"]
-        const parts = saved.split("/");
-        return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
-      }
-    }
-    return ["letslivetours"];
-  });
+  // Restore last visited folder — reads from module-level cache which survives remounts
+  // and is kept in sync with localStorage on every navigation.
+  const [currentPath, setCurrentPath] = useState<string>(() => _cachedPath);
+  const [pathHistory, setPathHistory] = useState<string[]>(() => _cachedHistory);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [draggedImage, setDraggedImage] = useState<LibraryImage | null>(null);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
@@ -210,54 +222,73 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Request counter — increments on every fetch; stale responses are discarded
+  const fetchCounterRef = useRef(0);
+
   const fetchLibrary = useCallback(async (folder: string) => {
+    const myCount = ++fetchCounterRef.current;
     setLoading(true);
     try {
       const [imagesRes, foldersRes] = await Promise.all([
         authFetch(`${API_URL}/upload/library?folder=${encodeURIComponent(folder)}&limit=200`, { credentials: "include" }),
         authFetch(`${API_URL}/upload/folders?parent=${encodeURIComponent(folder)}`, { credentials: "include" }),
       ]);
+      if (myCount !== fetchCounterRef.current) return;
       const imagesJson = await imagesRes.json();
       const foldersJson = await foldersRes.json();
       setImages(imagesJson.data || []);
       setFolders(foldersJson.data || []);
     } catch {
+      if (myCount !== fetchCounterRef.current) return;
       setImages([]);
       setFolders([]);
     }
-    finally { setLoading(false); }
+    finally {
+      if (myCount === fetchCounterRef.current) setLoading(false);
+    }
   }, []);
 
+  // When the modal opens: sync state from the module-level cache (which may have been
+  // updated by another modal instance or a previous session) and fetch the saved folder.
   useEffect(() => {
-    if (open) {
-      fetchLibrary(currentPath);
-      setSelected([]);
+    if (!open) return;
+    // Always sync from the authoritative module-level cache on open
+    setCurrentPath(_cachedPath);
+    setPathHistory([..._cachedHistory]);
+    setSelected([]);
+    fetchLibrary(_cachedPath);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // When currentPath changes (folder navigation inside open modal): fetch new folder.
+  // This effect does NOT run on open — the above effect handles that.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [open, currentPath, fetchLibrary]);
+    fetchLibrary(currentPath);
+  }, [currentPath, fetchLibrary]);
 
   function navigateTo(path: string) {
+    // Update module cache + localStorage + React state — all in sync
+    _cachedPath = path;
+    _cachedHistory = _cachedHistory.includes(path)
+      ? _cachedHistory.slice(0, _cachedHistory.indexOf(path) + 1)
+      : [..._cachedHistory, path];
+    persistPath(path);
     setCurrentPath(path);
-    // Persist last visited path so the modal reopens here next time
-    if (typeof window !== "undefined") {
-      localStorage.setItem("media_library_last_path", path);
-    }
-    setPathHistory((prev) => {
-      const idx = prev.indexOf(path);
-      if (idx >= 0) return prev.slice(0, idx + 1);
-      return [...prev, path];
-    });
+    setPathHistory(_cachedHistory);
   }
 
   function goBack() {
-    if (pathHistory.length > 1) {
-      const newHistory = pathHistory.slice(0, -1);
-      setPathHistory(newHistory);
-      const newPath = newHistory[newHistory.length - 1];
-      setCurrentPath(newPath);
-      // Persist on back navigation too
-      if (typeof window !== "undefined") {
-        localStorage.setItem("media_library_last_path", newPath);
-      }
+    if (_cachedHistory.length > 1) {
+      _cachedHistory = _cachedHistory.slice(0, -1);
+      _cachedPath = _cachedHistory[_cachedHistory.length - 1];
+      persistPath(_cachedPath);
+      setCurrentPath(_cachedPath);
+      setPathHistory([..._cachedHistory]);
     }
   }
 
