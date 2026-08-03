@@ -68,6 +68,25 @@ export default function EditCustomItineraryPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Auto-compute end date from start date + itinerary days (editable override)
+  function computeEndDate(start: string, days: string): string {
+    const d = parseInt(days, 10);
+    if (!start || !d || d <= 0) return "";
+    const date = new Date(start);
+    date.setDate(date.getDate() + d - 1);
+    return date.toISOString().split("T")[0];
+  }
+
+  function handleStartDateChange(value: string) {
+    setStartDate(value);
+    if (value && durationDays) setEndDate(computeEndDate(value, durationDays));
+  }
+
+  function handleDurationDaysChange(value: string) {
+    setDurationDays(value);
+    if (startDate && value) setEndDate(computeEndDate(startDate, value));
+  }
+
   // Payment config
   const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
   const [depositType, setDepositType] = useState<"percent" | "fixed">("percent");
@@ -334,10 +353,10 @@ export default function EditCustomItineraryPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Nights</label><input type="number" value={durationNights} onChange={(e) => setDurationNights(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Days</label><input type="number" value={durationDays} onChange={(e) => setDurationDays(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Days</label><input type="number" value={durationDays} onChange={(e) => handleDurationDaysChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Travel Start Date</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Travel Start Date</label><input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Travel End Date</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">

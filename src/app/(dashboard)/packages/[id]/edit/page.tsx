@@ -129,6 +129,29 @@ export default function EditPackagePage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Auto-compute end date from start date + itinerary days (editable override)
+  function computeEndDate(start: string, days: string): string {
+    const d = parseInt(days, 10);
+    if (!start || !d || d <= 0) return "";
+    const date = new Date(start);
+    date.setDate(date.getDate() + d - 1);
+    return date.toISOString().split("T")[0];
+  }
+
+  function handleStartDateChange(value: string) {
+    setStartDate(value);
+    if (value && durationDays) {
+      setEndDate(computeEndDate(value, durationDays));
+    }
+  }
+
+  function handleDurationDaysChange(value: string) {
+    setDurationDays(value);
+    if (startDate && value) {
+      setEndDate(computeEndDate(startDate, value));
+    }
+  }
+
   // Flights
   const [flights, setFlights] = useState<{ _key: number; day: number; airline: string; flightNumber: string; from: string; to: string; departure: string; arrival: string; pnr: string; class: string; notes: string }[]>([]);
 
@@ -506,14 +529,14 @@ export default function EditPackagePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Days *</label>
-                  <input type="number" value={durationDays} onChange={(e) => setDurationDays(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <input type="number" value={durationDays} onChange={(e) => handleDurationDaysChange(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
               </div>
               {isCustom && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Travel Start Date</label>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <input type="date" value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Travel End Date</label>
