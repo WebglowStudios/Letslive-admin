@@ -180,8 +180,26 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
   const [deleting, setDeleting] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  const [currentPath, setCurrentPath] = useState("letslivetours");
-  const [pathHistory, setPathHistory] = useState<string[]>(["letslivetours"]);
+
+  // Restore last visited folder from localStorage so the modal opens where you left off
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("media_library_last_path") || "letslivetours";
+    }
+    return "letslivetours";
+  });
+  const [pathHistory, setPathHistory] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("media_library_last_path");
+      if (saved && saved !== "letslivetours") {
+        // Reconstruct breadcrumb history from the saved path
+        // e.g. "letslivetours/packages/gallery" → ["letslivetours", "letslivetours/packages", "letslivetours/packages/gallery"]
+        const parts = saved.split("/");
+        return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
+      }
+    }
+    return ["letslivetours"];
+  });
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [draggedImage, setDraggedImage] = useState<LibraryImage | null>(null);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
@@ -219,6 +237,10 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
 
   function navigateTo(path: string) {
     setCurrentPath(path);
+    // Persist last visited path so the modal reopens here next time
+    if (typeof window !== "undefined") {
+      localStorage.setItem("media_library_last_path", path);
+    }
     setPathHistory((prev) => {
       const idx = prev.indexOf(path);
       if (idx >= 0) return prev.slice(0, idx + 1);
@@ -230,7 +252,12 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
     if (pathHistory.length > 1) {
       const newHistory = pathHistory.slice(0, -1);
       setPathHistory(newHistory);
-      setCurrentPath(newHistory[newHistory.length - 1]);
+      const newPath = newHistory[newHistory.length - 1];
+      setCurrentPath(newPath);
+      // Persist on back navigation too
+      if (typeof window !== "undefined") {
+        localStorage.setItem("media_library_last_path", newPath);
+      }
     }
   }
 
