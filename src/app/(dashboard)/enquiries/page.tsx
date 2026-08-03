@@ -40,11 +40,12 @@ const ALL_STATUSES = ["all", "new", "assigned", "in-progress", "follow-up", "con
 const ALL_CHANNELS = ["all", "website", "whatsapp", "phone", "walk-in", "instagram", "google", "referral"];
 
 // ─── Manual Lead Modal ────────────────────────────────────────────────────────
-function AddLeadModal({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onSave: () => void; staffList: { _id: string; firstName: string; lastName: string }[] }) {
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     destination: "", packageName: "", message: "",
     channel: "phone", travelDate: "", travellerCount: "", budget: "",
+    assignedTo: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -65,6 +66,7 @@ function AddLeadModal({ onClose, onSave }: { onClose: () => void; onSave: () => 
         ...form,
         travellerCount: form.travellerCount ? Number(form.travellerCount) : undefined,
         budget: form.budget ? Number(form.budget) : undefined,
+        assignedTo: form.assignedTo || undefined,
       });
       onSave();
       onClose();
@@ -140,6 +142,15 @@ function AddLeadModal({ onClose, onSave }: { onClose: () => void; onSave: () => 
             </div>
           </div>
           <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Assign To (optional)</label>
+            <select value={form.assignedTo} onChange={(e) => set("assignedTo", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+              <option value="">Unassigned — admin will assign later</option>
+              {staffList.map((s) => (
+                <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Initial Notes</label>
             <textarea value={form.message} onChange={(e) => set("message", e.target.value)} rows={3} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" placeholder="What did the customer ask about?" />
           </div>
@@ -175,6 +186,10 @@ export default function EnquiriesPage() {
   const canBulk = usePermission("bookings.update"); // manager+
   const user = useAuthStore((s) => s.user);
   const isStaffOnly = user?.role === "staff";
+  const isManager = user?.role === "admin" || user?.role === "manager";
+
+  // Staff list for quick-assign dropdown (manager+ only)
+  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
   const fetchEnquiries = useCallback(async () => {
     setLoading(true);
@@ -203,6 +218,15 @@ export default function EnquiriesPage() {
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
+  // Fetch staff list for quick-assign (manager+ only)
+  useEffect(() => {
+    if (!isManager) return;
+    api.get("/users/staff").then((res) => {
+      const list = res?.data || res || [];
+      setStaffList(Array.isArray(list) ? list : []);
+    }).catch(() => {});
+  }, [isManager]);
+
   // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 400);
@@ -222,6 +246,16 @@ export default function EnquiriesPage() {
       setSelected(new Set());
     } else {
       setSelected(new Set(enquiries.map((e) => e._id)));
+    }
+  }
+
+  async function quickAssign(enquiryId: string, staffId: string) {
+    if (!staffId) return;
+    try {
+      await api.put(`/enquiries/${enquiryId}`, { assignedTo: staffId });
+      fetchEnquiries();
+    } catch {
+      alert("Failed to assign enquiry");
     }
   }
 
@@ -250,7 +284,7 @@ export default function EnquiriesPage() {
 
   return (
     <RoleGuard permission="enquiries.view">
-      {showAddLead && <AddLeadModal onClose={() => setShowAddLead(false)} onSave={fetchEnquiries} />}
+      {showAddLead && <AddLeadModal onClose={() => setShowAddLead(false)} onSave={fetchEnquiries} staffList={staffList} />}
 
       <div className="space-y-5">
         {/* Header */}
@@ -489,6 +523,32 @@ export default function EnquiriesPage() {
                         <span className="text-[10px] text-slate-400 flex items-center gap-1">
                           <User size={10} /> {e.assignedTo.firstName} {e.assignedTo.lastName}
                         </span>
+                      )}
+                      {/* Unassigned badge + quick-assign for managers */}
+                      {!e.assignedTo && (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <User size={9} /> Unassigned
+                          </span>
+                          {isManager && staffList.length > 0 && (
+                            <div onClick={(ev) => ev.preventDefault()}>
+                              <select
+                                defaultValue=""
+                                onChange={(ev) => {
+                                  ev.stopPropagation();
+                                  const staffId = ev.target.value;
+                                  if (staffId) quickAssign(e._id, staffId);
+                                }}
+                                className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white text-slate-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyan-500 max-w-[130px]"
+                              >
+                                <option value="">Assign to...</option>
+                                {staffList.map((s) => (
+                                  <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       )}
                       <span className="text-[10px] text-slate-300 flex items-center gap-1">
                         <Clock size={10} /> {formatDate(e.createdAt)}
