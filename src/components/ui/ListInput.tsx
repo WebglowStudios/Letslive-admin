@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Plus, X, GripVertical } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
 
 interface ListInputProps {
   label: string;
@@ -12,8 +12,19 @@ interface ListInputProps {
 
 export default function ListInput({ label, items, onChange, placeholder }: ListInputProps) {
   const [inputValue, setInputValue] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const editRef = useRef<HTMLInputElement>(null);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  // Focus the edit input when it appears
+  useEffect(() => {
+    if (editingIndex !== null) {
+      editRef.current?.focus();
+      editRef.current?.select();
+    }
+  }, [editingIndex]);
 
   function addItem() {
     const trimmed = inputValue.trim();
@@ -24,17 +35,42 @@ export default function ListInput({ label, items, onChange, placeholder }: ListI
   }
 
   function removeItem(index: number) {
+    if (editingIndex === index) cancelEdit();
     onChange(items.filter((_, i) => i !== index));
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      addItem();
+  function startEdit(index: number) {
+    setEditingIndex(index);
+    setEditingValue(items[index]);
+  }
+
+  function commitEdit() {
+    if (editingIndex === null) return;
+    const trimmed = editingValue.trim();
+    if (trimmed && trimmed !== items[editingIndex]) {
+      const updated = [...items];
+      updated[editingIndex] = trimmed;
+      onChange(updated);
     }
+    cancelEdit();
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null);
+    setEditingValue("");
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+    if (e.key === "Escape") cancelEdit();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") { e.preventDefault(); addItem(); }
   }
 
   function handleDragStart(index: number) {
+    if (editingIndex !== null) return; // don't drag while editing
     dragItem.current = index;
   }
 
@@ -49,12 +85,10 @@ export default function ListInput({ label, items, onChange, placeholder }: ListI
       dragOverItem.current = null;
       return;
     }
-
     const reordered = [...items];
     const [removed] = reordered.splice(dragItem.current, 1);
     reordered.splice(dragOverItem.current, 0, removed);
     onChange(reordered);
-
     dragItem.current = null;
     dragOverItem.current = null;
   }
@@ -84,34 +118,88 @@ export default function ListInput({ label, items, onChange, placeholder }: ListI
           {items.map((item, i) => (
             <li
               key={`${item}-${i}`}
-              draggable
+              draggable={editingIndex !== i}
               onDragStart={() => handleDragStart(i)}
               onDragEnter={() => handleDragEnter(i)}
               onDragEnd={handleDragEnd}
               onDragOver={(e) => e.preventDefault()}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg group cursor-grab active:cursor-grabbing active:bg-cyan-50 active:border-cyan-200 transition-colors"
+              className={`flex items-center gap-2 px-3 py-2 border rounded-lg group transition-colors ${
+                editingIndex === i
+                  ? "bg-cyan-50 border-cyan-300"
+                  : "bg-slate-50 border-slate-200 cursor-grab active:cursor-grabbing active:bg-cyan-50 active:border-cyan-200"
+              }`}
             >
-              <span className="text-slate-300 group-hover:text-slate-500 transition-colors cursor-grab">
+              <span className={`transition-colors cursor-grab ${editingIndex === i ? "text-cyan-300" : "text-slate-300 group-hover:text-slate-500"}`}>
                 <GripVertical size={14} />
               </span>
               <span className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold shrink-0">
                 {i + 1}
               </span>
-              <span className="text-sm text-slate-700 flex-1">{item}</span>
-              <button
-                type="button"
-                onClick={() => removeItem(i)}
-                className="p-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X size={14} />
-              </button>
+
+              {editingIndex === i ? (
+                /* ── Inline edit mode ── */
+                <>
+                  <input
+                    ref={editRef}
+                    type="text"
+                    value={editingValue}
+                    onChange={(e) => setEditingValue(e.target.value)}
+                    onKeyDown={handleEditKeyDown}
+                    onBlur={commitEdit}
+                    className="flex-1 bg-white border border-cyan-400 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 min-w-0"
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); commitEdit(); }}
+                    className="p-1 text-emerald-500 hover:text-emerald-700 transition-colors shrink-0"
+                    title="Save (Enter)"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); cancelEdit(); }}
+                    className="p-1 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                    title="Cancel (Esc)"
+                  >
+                    <X size={14} />
+                  </button>
+                </>
+              ) : (
+                /* ── Display mode ── */
+                <>
+                  <span
+                    className="text-sm text-slate-700 flex-1 cursor-pointer select-none"
+                    onDoubleClick={() => startEdit(i)}
+                    title="Double-click to edit"
+                  >
+                    {item}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(i)}
+                    className="p-1 text-slate-300 hover:text-cyan-500 opacity-0 group-hover:opacity-100 transition-all"
+                    title="Edit item"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(i)}
+                    className="p-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove item"
+                  >
+                    <X size={14} />
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
       )}
-      {items.length > 1 && (
+      {items.length > 1 && editingIndex === null && (
         <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
-          <GripVertical size={10} /> Drag items to reorder
+          <GripVertical size={10} /> Drag to reorder · Double-click to edit
         </p>
       )}
     </div>
