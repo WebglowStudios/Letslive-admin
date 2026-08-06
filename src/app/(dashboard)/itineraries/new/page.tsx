@@ -144,6 +144,25 @@ export default function NewCustomItineraryPage() {
     const updated = [...itinerary]; updated[index] = { ...updated[index], [field]: value }; setItinerary(updated);
   }
 
+  // Auto-generate itinerary day blocks to match durationDays when switching to Trip Details tab
+  function handleTabChange(tabId: string) {
+    setActiveTab(tabId);
+    if (tabId === "tripdetails") {
+      const days = parseInt(durationDays, 10);
+      if (days > 0 && itinerary.length !== days) {
+        if (days > itinerary.length) {
+          const extras = Array.from({ length: days - itinerary.length }, (_, i) => ({
+            day: itinerary.length + i + 1, title: "", description: "",
+            activities: [], meals: [], accommodation: "", images: [],
+          }));
+          setItinerary((prev) => [...prev, ...extras]);
+        } else {
+          setItinerary((prev) => prev.slice(0, days).map((d, i) => ({ ...d, day: i + 1 })));
+        }
+      }
+    }
+  }
+
   // Activity helpers
   function addActivity() { setActivitiesList([...activitiesList, { _key: Date.now(), title: "", description: "", duration: "", details: [], images: [] }]); }
   function removeActivity(i: number) { setActivitiesList(activitiesList.filter((_, idx) => idx !== i)); }
@@ -254,7 +273,7 @@ export default function NewCustomItineraryPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
         {tabs.map((tab) => (
-          <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+          <button key={tab.id} type="button" onClick={() => handleTabChange(tab.id)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
             {tab.label}
           </button>
         ))}

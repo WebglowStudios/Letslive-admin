@@ -297,6 +297,24 @@ export default function EditPackagePage() {
     setItinerary(updated);
   }
 
+  function handleTabChange(tabId: string) {
+    setActiveTab(tabId);
+    if (tabId === "tripdetails") {
+      const days = parseInt(durationDays, 10);
+      if (days > 0 && itinerary.length !== days) {
+        if (days > itinerary.length) {
+          const extras = Array.from({ length: days - itinerary.length }, (_, i) => ({
+            day: itinerary.length + i + 1, title: "", description: "",
+            activities: [], meals: [], accommodation: "", images: [],
+          }));
+          setItinerary((prev) => [...prev, ...extras]);
+        } else {
+          setItinerary((prev) => prev.slice(0, days).map((d, i) => ({ ...d, day: i + 1 })));
+        }
+      }
+    }
+  }
+
   // Activities helpers
   function addActivity() {
     setActivitiesList([...activitiesList, { _key: Date.now(), title: "", description: "", duration: "", details: [], images: [] }]);
@@ -489,7 +507,7 @@ export default function EditPackagePage() {
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
           {tabs.map((tab) => (
-            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            <button key={tab.id} type="button" onClick={() => handleTabChange(tab.id)} className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
               {tab.label}
             </button>
           ))}
