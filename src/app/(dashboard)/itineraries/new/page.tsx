@@ -577,7 +577,6 @@ export default function NewCustomItineraryPage() {
                       </div>
                       <input type="text" value={stay.address} onChange={(e) => updateStay(i, "address", e.target.value)} placeholder="Hotel address (optional)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                       <input type="text" value={stay.confirmationNo} onChange={(e) => updateStay(i, "confirmationNo", e.target.value)} placeholder="Booking confirmation number (optional)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                      <ListInput label="Amenities" items={stay.amenities} onChange={(items) => updateStay(i, "amenities", items)} placeholder="Add amenity (e.g. Pool, Spa)" />
                     </div>
                   ))}
                   {stays.length === 0 && <p className="text-sm text-slate-400 text-center py-6">No stays yet. Click &quot;Add Stay&quot; to get started.</p>}

@@ -845,7 +845,6 @@ export default function EditPackagePage() {
                           <input type="number" value={stay.nights || ""} onChange={(e) => updateStay(i, "nights", Number(e.target.value) || 0)} placeholder="Nights" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                           <input type="text" value={stay.roomType} onChange={(e) => updateStay(i, "roomType", e.target.value)} placeholder="Room type" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         </div>
-                        <ListInput label="Amenities" items={stay.amenities} onChange={(items) => updateStay(i, "amenities", items)} placeholder="Add amenity (e.g. Pool, Spa)" />
                         {isCustom && (
                         <>
                         <div className="grid grid-cols-2 gap-3">

@@ -1262,23 +1262,21 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
       <SectionTitle title="Accommodation" />
       <View style={s.tableWrap}>
         <View style={s.tableHead}>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "25%" : "30%" }]}>Hotel</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "25%" : "33%" }]}>Hotel</Text>
           <Text style={[s.tableHeadCell, { width: "12%" }]}>Rating</Text>
           <Text style={[s.tableHeadCell, { width: "10%" }]}>Nights</Text>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "18%" : "20%" }]}>Room Type</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "18%" : "25%" }]}>Room Type</Text>
           {hasDateInfo && <Text style={[s.tableHeadCell, { width: "15%" }]}>Check-in</Text>}
           {hasDateInfo && <Text style={[s.tableHeadCell, { width: "15%" }]}>Check-out</Text>}
-          {!hasDateInfo && <Text style={[s.tableHeadCell, { width: "28%" }]}>Amenities</Text>}
         </View>
         {pkg.stays.map((stay, i) => (
           <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "25%" : "30%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "25%" : "33%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
             <Text style={[s.tableCell, { width: "12%" }]}>{stay.rating}</Text>
             <Text style={[s.tableCell, { width: "10%" }]}>{stay.nights}N</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "18%" : "20%" }]}>{stay.roomType}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "18%" : "25%" }]}>{stay.roomType}</Text>
             {hasDateInfo && <Text style={[s.tableCell, { width: "15%" }]}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
             {hasDateInfo && <Text style={[s.tableCell, { width: "15%" }]}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
-            {!hasDateInfo && <Text style={[s.tableCell, { width: "28%" }]}>{stay.amenities.join(", ")}</Text>}
           </View>
         ))}
       </View>
