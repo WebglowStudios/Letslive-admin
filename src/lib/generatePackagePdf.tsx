@@ -65,9 +65,6 @@ interface Stay {
   name: string; rating: string; nights: number; roomType: string; amenities: string[];
   checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string;
 }
-interface Activity {
-  title: string; description: string; duration: string; details: string[];
-}
 interface TransferLeg {
   from?: string; to?: string; stops?: string[];
   transferType?: string; vehicleType?: string;
@@ -94,7 +91,7 @@ interface PackageData {
   highlights?: string[]; keyPoints?: string[];
   itinerary?: ItineraryDay[];
   inclusions?: string[]; exclusions?: string[];
-  stays?: Stay[]; activities?: Activity[]; transfers?: Transfer[];
+  stays?: Stay[]; transfers?: Transfer[];
   flights?: Flight[];
   knowBeforeYouGo?: string[]; thingsToCarry?: string[];
   images?: string[]; heroImage?: string;
@@ -885,16 +882,6 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
     }
   });
 
-  // Activities don't have a day field, so we distribute them evenly across days
-  const allActivities = pkg.activities || [];
-  const activitiesByDay: Record<number, Activity[]> = {};
-  if (allActivities.length > 0 && pkg.itinerary.length > 0) {
-    allActivities.forEach((act, i) => {
-      const dayNum = (i % pkg.itinerary!.length) + 1;
-      if (!activitiesByDay[dayNum]) activitiesByDay[dayNum] = [];
-      activitiesByDay[dayNum].push(act);
-    });
-  }
 
   // Collect unassigned transfers (day = 0 or no day)
   const unassignedTransfers = (pkg.transfers || []).filter((t) => !(t as Transfer & { day?: number }).day);
@@ -908,7 +895,6 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
 
       {pkg.itinerary.map((day) => {
         const dayTransfers = transfersByDay[day.day] || [];
-        const dayActivities = activitiesByDay[day.day] || [];
         // Calculate actual date for this day if travelDates provided
         const dayDate = pkg.travelDates?.startDate
           ? new Date(new Date(pkg.travelDates.startDate).getTime() + (day.day - 1) * 86400000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
@@ -966,32 +952,6 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                 </View>
               )}
 
-              {/* Detailed activities for this day */}
-              {dayActivities.length > 0 && (
-                <View style={{ marginTop: 4, marginBottom: 8 }}>
-                  {dayActivities.map((act, i) => (
-                    <View key={i} style={{ marginBottom: 6, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.gn3 }} wrap={false}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                        <Icon d={ICONS.activity} color={C.gn3} size={10} />
-                        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{act.title}</Text>
-                      </View>
-                      {act.duration ? (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 2 }}>
-                          <Icon d={ICONS.calendar} color={C.cu} size={8} />
-                          <Text style={{ fontSize: 7.5, color: C.cu, fontFamily: "Helvetica-Bold" }}>{act.duration}</Text>
-                        </View>
-                      ) : null}
-                      {act.description ? <Text style={{ fontSize: 8, color: C.ink2, lineHeight: 1.4 }}>{act.description}</Text> : null}
-                      {act.details?.map((d, j) => (
-                        <View key={j} style={{ flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 2 }}>
-                          <Icon d={ICONS.check} color={C.gn3} size={8} />
-                          <Text style={{ fontSize: 7.5, color: C.ink3, flex: 1 }}>{d}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              )}
 
               {/* Transfers for this day */}
               {dayTransfers.length > 0 && (

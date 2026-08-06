@@ -15,9 +15,6 @@ interface ItineraryDay {
   day: number; title: string; description: string;
   activities: string[]; meals: string[]; accommodation: string; images: string[];
 }
-interface Activity {
-  _key: number; title: string; description: string; duration: string; details: string[]; images: string[];
-}
 interface Stay {
   _key: number; name: string; rating: string; nights: number; roomType: string;
   checkIn: string; checkOut: string; address: string; confirmationNo: string; amenities: string[];
@@ -112,7 +109,6 @@ export default function NewCustomItineraryPage() {
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([
     { day: 1, title: "", description: "", activities: [], meals: [], accommodation: "", images: [] },
   ]);
-  const [activitiesList, setActivitiesList] = useState<Activity[]>([]);
   const [stays, setStays] = useState<Stay[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [flights, setFlights] = useState<{ _key: number; day: number; airline: string; flightNumber: string; from: string; to: string; departure: string; arrival: string; pnr: string; class: string; notes: string }[]>([]);
@@ -163,13 +159,6 @@ export default function NewCustomItineraryPage() {
     }
   }
 
-  // Activity helpers
-  function addActivity() { setActivitiesList([...activitiesList, { _key: Date.now(), title: "", description: "", duration: "", details: [], images: [] }]); }
-  function removeActivity(i: number) { setActivitiesList(activitiesList.filter((_, idx) => idx !== i)); }
-  function updateActivity(i: number, field: string, value: unknown) {
-    const u = [...activitiesList]; u[i] = { ...u[i], [field]: value }; setActivitiesList(u);
-  }
-
   // Stay helpers
   function addStay() { setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", checkIn: "", checkOut: "", address: "", confirmationNo: "", amenities: [] }]); }
   function removeStay(i: number) { setStays(stays.filter((_, idx) => idx !== i)); }
@@ -216,7 +205,6 @@ export default function NewCustomItineraryPage() {
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentConfig: { mode: paymentMode, depositType, depositValue: Number(depositValue) || 30, depositLabel: depositLabel.trim() || undefined, balanceDueDays: Number(balanceDueDays) || 30 },
         itinerary: itinerary.filter((d) => d.title).map((d) => ({ day: d.day, title: d.title, description: d.description, activities: d.activities, meals: d.meals, accommodation: d.accommodation, images: d.images })),
-        activities: activitiesList.filter((a) => a.title).map((a) => ({ title: a.title, description: a.description, duration: a.duration, details: a.details, images: a.images })),
         stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
@@ -480,7 +468,6 @@ export default function NewCustomItineraryPage() {
             <div className="flex gap-2 mb-4 flex-wrap">
               {[
                 { id: "itinerary", label: "Itinerary" },
-                { id: "activities", label: "Activities" },
                 { id: "stay", label: "Stay" },
                 { id: "transfers", label: "Transfers" },
                 { id: "flights", label: "Flights" },
@@ -521,32 +508,6 @@ export default function NewCustomItineraryPage() {
                       <MultiImageUpload images={day.images} onChange={(items) => updateItinerary(i, "images", items)} label="Day Images" folder="itineraries" />
                     </div>
                   ))}
-                </div>
-              </>
-            )}
-
-            {/* Activities subtab */}
-            {tripDetailsSubTab === "activities" && (
-              <>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-700">Activities</p>
-                  <button type="button" onClick={addActivity} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100"><Plus size={14} /> Add Activity</button>
-                </div>
-                <div className="space-y-4">
-                  {activitiesList.map((activity, i) => (
-                    <div key={activity._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-cyan-700">Activity {i + 1}</span>
-                        <button type="button" onClick={() => removeActivity(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
-                      </div>
-                      <input type="text" value={activity.title} onChange={(e) => updateActivity(i, "title", e.target.value)} placeholder="Activity title" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                      <textarea value={activity.description} onChange={(e) => updateActivity(i, "description", e.target.value)} placeholder="Description..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
-                      <input type="text" value={activity.duration} onChange={(e) => updateActivity(i, "duration", e.target.value)} placeholder="Duration (e.g. 2 hours)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                      <ListInput label="Details" items={activity.details} onChange={(items) => updateActivity(i, "details", items)} placeholder="Add detail" />
-                      <MultiImageUpload images={activity.images} onChange={(items) => updateActivity(i, "images", items)} label="Images" folder="itineraries" />
-                    </div>
-                  ))}
-                  {activitiesList.length === 0 && <p className="text-sm text-slate-400 text-center py-6">No activities yet. Click &quot;Add Activity&quot; to get started.</p>}
                 </div>
               </>
             )}

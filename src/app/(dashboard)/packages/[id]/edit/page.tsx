@@ -22,15 +22,6 @@ interface ItineraryDay {
   images: string[];
 }
 
-interface Activity {
-  _key: number;
-  title: string;
-  description: string;
-  duration: string;
-  details: string[];
-  images: string[];
-}
-
 interface Stay {
   _key: number;
   name: string;
@@ -115,9 +106,6 @@ export default function EditPackagePage() {
 
   // Itinerary
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([]);
-
-  // Activities
-  const [activitiesList, setActivitiesList] = useState<Activity[]>([]);
 
   // Stays
   const [stays, setStays] = useState<Stay[]>([]);
@@ -216,18 +204,6 @@ export default function EditPackagePage() {
               }))
             : [{ day: 1, title: "", description: "", activities: [], meals: [], accommodation: "", images: [] }]
         );
-        setActivitiesList(
-          p.activities && p.activities.length > 0
-            ? p.activities.map((a: { title?: string; description?: string; duration?: string; details?: string[]; images?: string[] }, i: number) => ({
-                _key: Date.now() + i,
-                title: a.title || "",
-                description: a.description || "",
-                duration: a.duration || "",
-                details: a.details || [],
-                images: a.images || [],
-              }))
-            : []
-        );
         setStays(
           p.stays && p.stays.length > 0
             ? p.stays.map((s: { name?: string; rating?: string; nights?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string }, i: number) => ({
@@ -315,19 +291,6 @@ export default function EditPackagePage() {
     }
   }
 
-  // Activities helpers
-  function addActivity() {
-    setActivitiesList([...activitiesList, { _key: Date.now(), title: "", description: "", duration: "", details: [], images: [] }]);
-  }
-  function removeActivity(index: number) {
-    setActivitiesList(activitiesList.filter((_, i) => i !== index));
-  }
-  function updateActivity(index: number, field: string, value: unknown) {
-    const updated = [...activitiesList];
-    updated[index] = { ...updated[index], [field]: value };
-    setActivitiesList(updated);
-  }
-
   // Stays helpers
   function addStay() {
     setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", amenities: [], checkIn: "", checkOut: "", address: "", confirmationNo: "" }]);
@@ -403,13 +366,6 @@ export default function EditPackagePage() {
           meals: d.meals,
           accommodation: d.accommodation,
           images: d.images,
-        })),
-        activities: activitiesList.filter((a) => a.title).map((a) => ({
-          title: a.title,
-          description: a.description,
-          duration: a.duration,
-          details: a.details,
-          images: a.images,
         })),
         stays: stays.filter((s) => s.name).map((s) => ({
           name: s.name,
@@ -733,7 +689,6 @@ export default function EditPackagePage() {
               <div className="flex gap-2 mb-4">
                 {[
                   { id: "itinerary", label: "Itinerary" },
-                  { id: "activities", label: "Activities" },
                   { id: "stay", label: "Stay" },
                   { id: "transfers", label: "Transfers" },
                   ...(isCustom ? [{ id: "flights", label: "Flights" }] : []),
@@ -787,38 +742,6 @@ export default function EditPackagePage() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </>
-              )}
-
-              {/* Subtab: Activities */}
-              {tripDetailsSubTab === "activities" && (
-                <>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-slate-700">Activities</p>
-                    <button type="button" onClick={addActivity} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100">
-                      <Plus size={14} /> Add Activity
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {activitiesList.map((activity, i) => (
-                      <div key={activity._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-cyan-700">Activity {i + 1}</span>
-                          <button type="button" onClick={() => removeActivity(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
-                        </div>
-                        <input type="text" value={activity.title} onChange={(e) => updateActivity(i, "title", e.target.value)} placeholder="Activity title" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <textarea value={activity.description} onChange={(e) => updateActivity(i, "description", e.target.value)} placeholder="Activity description..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
-                        <input type="text" value={activity.duration} onChange={(e) => updateActivity(i, "duration", e.target.value)} placeholder="Duration (e.g. 2 hours)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <ListInput label="Details" items={activity.details} onChange={(items) => updateActivity(i, "details", items)} placeholder="Add detail" />
-                        <div>
-                          <MultiImageUpload images={activity.images} onChange={(items) => updateActivity(i, "images", items)} label="Images" folder="packages" />
-                        </div>
-                      </div>
-                    ))}
-                    {activitiesList.length === 0 && (
-                      <p className="text-sm text-slate-400 text-center py-6">No activities added yet. Click &quot;Add Activity&quot; to get started.</p>
-                    )}
                   </div>
                 </>
               )}
