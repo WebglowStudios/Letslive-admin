@@ -28,7 +28,22 @@ export default function ListInput({ label, items, onChange, placeholder }: ListI
 
   function addItem() {
     const trimmed = inputValue.trim();
-    if (trimmed && !items.includes(trimmed)) {
+    if (!trimmed) return;
+
+    // Support | separator for bulk adding multiple items at once
+    if (trimmed.includes("|")) {
+      const newItems = trimmed
+        .split("|")
+        .map((s) => s.trim())
+        .filter((s) => s && !items.includes(s));
+      if (newItems.length > 0) {
+        onChange([...items, ...newItems]);
+        setInputValue("");
+      }
+      return;
+    }
+
+    if (!items.includes(trimmed)) {
       onChange([...items, trimmed]);
       setInputValue("");
     }
@@ -102,7 +117,7 @@ export default function ListInput({ label, items, onChange, placeholder }: ListI
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder || "Type and press Enter or click +"}
+          placeholder={placeholder || "Type and press Enter · Use | to add multiple"}
           className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
         />
         <button
@@ -199,7 +214,12 @@ export default function ListInput({ label, items, onChange, placeholder }: ListI
       )}
       {items.length > 1 && editingIndex === null && (
         <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
-          <GripVertical size={10} /> Drag to reorder · Double-click to edit
+          <GripVertical size={10} /> Drag to reorder · Double-click to edit · Use <span className="font-mono font-bold">|</span> to add multiple at once
+        </p>
+      )}
+      {items.length === 0 && (
+        <p className="text-[10px] text-slate-400 mt-1">
+          Tip: use <span className="font-mono font-bold">|</span> to add multiple items at once, e.g. <span className="font-mono">Item A | Item B | Item C</span>
         </p>
       )}
     </div>
