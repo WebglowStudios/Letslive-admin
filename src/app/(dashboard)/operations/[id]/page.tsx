@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Bell } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Bell, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
@@ -12,7 +12,7 @@ interface Transport { _id: string; type: string; name: string; bookingRef: strin
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; }
-interface OpData { _id: string; operationId: string; customer: { name: string; email: string; phone: string; pax: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; package?: { _id: string; name: string; slug: string }; customer: { name: string; email: string; phone: string; pax: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -47,6 +47,7 @@ export default function OperationDetailPage() {
   const [customerPayments, setCustomerPayments] = useState<CPayment[]>([]);
   const [vendorList, setVendorList] = useState<{ _id: string; name: string; type: string }[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -63,6 +64,22 @@ export default function OperationDetailPage() {
   async function recalculate() { await api.put(`/operations/${id}/recalculate`); fetchAll(); }
   async function updateStatus(s: string) { await api.put(`/operations/${id}`, { status: s }); fetchAll(); }
   async function sendReminder(paymentId: string) { if (!confirm("Send a payment reminder email to the customer?")) return; try { await api.post(`/operations/${id}/customer-payments/${paymentId}/notify`); alert("Reminder sent successfully!"); } catch { alert("Failed to send reminder."); } }
+
+  async function importFromItinerary() {
+    if (transports.length > 0 || accommodations.length > 0 || activities.length > 0) {
+      if (!confirm("Some items already exist. The importer will skip tabs that already have data to prevent duplicates. Proceed?")) return;
+    }
+    setImporting(true);
+    try {
+      const res = await api.post(`/operations/${id}/import-itinerary`);
+      alert(res.message || "Imported successfully!");
+      fetchAll();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-3 border-cyan-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (!op) return <div className="text-center py-20 text-sm text-slate-400">Operation not found</div>;
@@ -103,7 +120,27 @@ export default function OperationDetailPage() {
       {/* TRANSPORTATION */}
       {tab === "transport" && (
         <div className="space-y-3">
-          <div className="flex justify-between items-center"><p className="text-sm font-semibold text-slate-700">{transports.length} transport(s)</p><button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "flight" }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Transport</button></div>
+          <div className="flex justify-between items-center">
+            <p className="text-sm font-semibold text-slate-700">{transports.length} transport(s)</p>
+            <div className="flex gap-2">
+              {op.package && transports.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
+              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "flight" }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Transport</button>
+            </div>
+          </div>
+          {op.package && transports.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Wand2 size={16} /></div>
+                <div>
+                  <p className="text-sm font-bold text-blue-900">Import from Itinerary</p>
+                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill transports.</p>
+                </div>
+              </div>
+              <button onClick={importFromItinerary} disabled={importing} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors">
+                {importing ? "Importing..." : "Auto-Fill"}
+              </button>
+            </div>
+          )}
           {transports.map((t, idx) => (
             <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-3 ${t.isUrgent ? "border-red-300 bg-red-50/30" : "border-slate-200"}`}>
               <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} <span className="capitalize text-slate-500">{t.type}</span> {t.isUrgent && <span className="text-red-600 ml-1">URGENT</span>}</span><div className="flex gap-2"><button onClick={() => saveItem("transports", t._id, transports[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold">{saving===t._id?"...": <><Check size={10}/> Save</>}</button><button onClick={() => delItem("transports", t._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
@@ -136,7 +173,27 @@ export default function OperationDetailPage() {
       {/* ACCOMMODATION */}
       {tab === "accommodation" && (
         <div className="space-y-3">
-          <div className="flex justify-between items-center"><p className="text-sm font-semibold text-slate-700">{accommodations.length} accommodation(s)</p><button onClick={async () => { await api.post(`/operations/${id}/accommodations`, { type: "hotel" }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Stay</button></div>
+          <div className="flex justify-between items-center">
+            <p className="text-sm font-semibold text-slate-700">{accommodations.length} accommodation(s)</p>
+            <div className="flex gap-2">
+              {op.package && accommodations.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
+              <button onClick={async () => { await api.post(`/operations/${id}/accommodations`, { type: "hotel" }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Stay</button>
+            </div>
+          </div>
+          {op.package && accommodations.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Wand2 size={16} /></div>
+                <div>
+                  <p className="text-sm font-bold text-blue-900">Import from Itinerary</p>
+                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill accommodations.</p>
+                </div>
+              </div>
+              <button onClick={importFromItinerary} disabled={importing} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors">
+                {importing ? "Importing..." : "Auto-Fill"}
+              </button>
+            </div>
+          )}
           {accommodations.map((a, idx) => (
             <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
               <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} <span className="capitalize text-slate-500">{a.type}</span></span><div className="flex gap-2"><button onClick={() => saveItem("accommodations", a._id, accommodations[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button><button onClick={() => delItem("accommodations", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
@@ -164,7 +221,27 @@ export default function OperationDetailPage() {
       {/* ACTIVITIES */}
       {tab === "activities" && (
         <div className="space-y-3">
-          <div className="flex justify-between items-center"><p className="text-sm font-semibold text-slate-700">{activities.length} activit{activities.length===1?"y":"ies"}</p><button onClick={async () => { await api.post(`/operations/${id}/activities`, {}); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Activity</button></div>
+          <div className="flex justify-between items-center">
+            <p className="text-sm font-semibold text-slate-700">{activities.length} activit{activities.length===1?"y":"ies"}</p>
+            <div className="flex gap-2">
+              {op.package && activities.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
+              <button onClick={async () => { await api.post(`/operations/${id}/activities`, {}); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Activity</button>
+            </div>
+          </div>
+          {op.package && activities.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Wand2 size={16} /></div>
+                <div>
+                  <p className="text-sm font-bold text-blue-900">Import from Itinerary</p>
+                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill activities.</p>
+                </div>
+              </div>
+              <button onClick={importFromItinerary} disabled={importing} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors">
+                {importing ? "Importing..." : "Auto-Fill"}
+              </button>
+            </div>
+          )}
           {activities.map((a, idx) => (
             <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
               <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">Activity #{idx+1}</span><div className="flex gap-2"><button onClick={() => saveItem("activities", a._id, activities[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button><button onClick={() => delItem("activities", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
