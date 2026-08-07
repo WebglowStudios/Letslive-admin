@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
@@ -618,10 +618,44 @@ export default function NewPackagePage() {
                           <span className="text-sm font-bold text-cyan-700">Transfer {i + 1}</span>
                           <button type="button" onClick={() => removeTransfer(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                         </div>
-                        <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Day 2 — Sightseeing & Intercity)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <div>
-                          <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
-                          <input type="number" value={transfer.day || ""} onChange={(e) => updateTransfer(i, "day", Number(e.target.value) || 0)} placeholder="1" className="w-32 px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                        {/* Title + Day row with auto-fetch */}
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Title</label>
+                            <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Day 2 — Sightseeing & Intercity)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          </div>
+                          <div className="flex-shrink-0">
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Day</label>
+                            <div className="flex items-center gap-1">
+                              <input type="number" value={transfer.day || ""} onChange={(e) => updateTransfer(i, "day", Number(e.target.value) || 0)} placeholder="1" className="w-20 px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                              {(() => {
+                                const matched = itinerary.find((d) => d.day === transfer.day && transfer.day > 0);
+                                return (
+                                  <button
+                                    type="button"
+                                    title={matched ? `Fetch: "${matched.title}"` : "Enter a day number to auto-fetch its itinerary title"}
+                                    disabled={!matched || !matched.title}
+                                    onClick={() => matched && matched.title && updateTransfer(i, "title", matched.title)}
+                                    className={`flex items-center gap-1 px-2.5 py-2.5 rounded-lg text-xs font-semibold border transition-all ${
+                                      matched && matched.title
+                                        ? "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100 hover:border-violet-400 cursor-pointer"
+                                        : "bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed"
+                                    }`}
+                                  >
+                                    <Wand2 size={13} />
+                                  </button>
+                                );
+                              })()}
+                            </div>
+                            {(() => {
+                              const matched = itinerary.find((d) => d.day === transfer.day && transfer.day > 0);
+                              return matched && matched.title ? (
+                                <p className="text-[10px] text-violet-500 mt-1 truncate max-w-[160px]" title={matched.title}>↑ "{matched.title}"</p>
+                              ) : transfer.day > 0 ? (
+                                <p className="text-[10px] text-slate-400 mt-1">No Day {transfer.day} itinerary found</p>
+                              ) : null;
+                            })()}
+                          </div>
                         </div>
 
                         {/* Legs (multiple from → to) */}
