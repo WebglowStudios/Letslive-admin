@@ -88,10 +88,12 @@ export default function OperationDetailPage() {
       const { generateVoucherPdf } = await import("@/lib/generateVoucherPdf");
       
       let itinerary = [];
+      let transferSummary = "";
       if (op?.package?.slug) {
         try {
           const pkgRes = await api.get(`/packages/${op.package.slug}`);
           itinerary = pkgRes.data?.itinerary || [];
+          transferSummary = pkgRes.data?.transferSummary || "";
         } catch (e) {
           console.warn("Could not fetch full package itinerary for voucher");
         }
@@ -107,7 +109,9 @@ export default function OperationDetailPage() {
         accommodations: accommodations,
         transports: transports.filter((t) => t.type !== "flight"),
         itinerary,
+        transferSummary,
       });
+
     } catch (err) {
       alert("Failed to generate voucher");
       console.error(err);

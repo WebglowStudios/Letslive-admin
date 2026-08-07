@@ -97,6 +97,7 @@ interface PackageData {
   images?: string[]; heroImage?: string;
   destinationImages?: string[]; stayImages?: string[]; activityImages?: string[];
   isCustom?: boolean; clientName?: string; clientEmail?: string; clientPhone?: string;
+  transferSummary?: string;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -1166,7 +1167,38 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
   );
 };
 
-// ─── Flights ──────────────────────────────────────────────────────────────────
+// ─── Transfer Summary (shown only when no day-wise transfers exist) ────────────
+const TransferSummarySection = ({ pkg }: { pkg: PackageData }) => {
+  // Show only if there's a summary AND no day-wise transfer array
+  if (!pkg.transferSummary || (pkg.transfers && pkg.transfers.length > 0)) return null;
+  return (
+    <View wrap={false} style={{ marginBottom: 20 }}>
+      <SectionTitle title="Transfer Details" />
+      <View
+        style={{
+          backgroundColor: C.iv,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: C.line,
+          borderLeftWidth: 3,
+          borderLeftColor: C.cu,
+          padding: 16,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          <Icon d={ICONS.bus} color={C.cu} size={12} />
+          <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn, letterSpacing: 0.3 }}>
+            Overall Transfer Arrangements
+          </Text>
+        </View>
+        <Text style={{ fontSize: 9, color: C.ink2, lineHeight: 1.7 }}>
+          {pkg.transferSummary}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.flights || pkg.flights.length === 0) return null;
   return (
@@ -1397,6 +1429,7 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       <GallerySection pkg={pkg} />
       <OverviewSection pkg={pkg} />
       <FlightsSection pkg={pkg} />
+      <TransferSummarySection pkg={pkg} />
       <ItinerarySection pkg={pkg} />
       <AccommodationSection pkg={pkg} />
       <InclusionsExclusionsSection pkg={pkg} />

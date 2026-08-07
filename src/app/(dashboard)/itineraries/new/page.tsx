@@ -113,6 +113,10 @@ export default function NewCustomItineraryPage() {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [flights, setFlights] = useState<{ _key: number; day: number; airline: string; flightNumber: string; from: string; to: string; departure: string; arrival: string; pnr: string; class: string; notes: string }[]>([]);
 
+  // Transfer mode: day-wise blocks OR overall summary
+  const [transferMode, setTransferMode] = useState<'daywise' | 'summary'>('daywise');
+  const [transferSummary, setTransferSummary] = useState('');
+
   useEffect(() => {
     api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
     if (enquiryId) {
@@ -208,6 +212,7 @@ export default function NewCustomItineraryPage() {
         stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
+        transferSummary: transferMode === 'summary' && transferSummary.trim() ? transferSummary.trim() : undefined,
       };
       const res = await api.post("/packages", payload);
       if (res?.status === "success" && res.data) {
@@ -548,12 +553,37 @@ export default function NewCustomItineraryPage() {
             {/* Transfers subtab */}
             {tripDetailsSubTab === "transfers" && (
               <>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-slate-700">Transfers</p>
-                  <button type="button" onClick={addTransfer} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100"><Plus size={14} /> Add Transfer</button>
+                {/* Mode toggle */}
+                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-1">
+                  <button
+                    type="button"
+                    onClick={() => setTransferMode('daywise')}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                      transferMode === 'daywise' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Day-wise Transfers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransferMode('summary')}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                      transferMode === 'summary' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Overall Summary
+                  </button>
                 </div>
-                <div className="space-y-4">
-                  {transfers.map((transfer, i) => (
+
+                {/* Day-wise mode */}
+                {transferMode === 'daywise' && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-700">Transfers</p>
+                      <button type="button" onClick={addTransfer} className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100"><Plus size={14} /> Add Transfer</button>
+                    </div>
+                    <div className="space-y-4">
+                      {transfers.map((transfer, i) => (
                     <div key={transfer._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-cyan-700">Transfer {i + 1}</span>
@@ -631,9 +661,36 @@ export default function NewCustomItineraryPage() {
                       <ListInput label="Details" items={transfer.details} onChange={(items) => updateTransfer(i, "details", items)} placeholder="Add detail" />
                       <MultiImageUpload images={transfer.images} onChange={(items) => updateTransfer(i, "images", items)} label="Images" folder="itineraries" />
                     </div>
-                  ))}
-                  {transfers.length === 0 && <p className="text-sm text-slate-400 text-center py-6">No transfers yet. Click &quot;Add Transfer&quot; to get started.</p>}
-                </div>
+                      ))}
+                      {transfers.length === 0 && <p className="text-sm text-slate-400 text-center py-6">No transfers yet. Click &quot;Add Transfer&quot; to get started.</p>}
+                    </div>
+                  </>
+                )}
+
+                {/* Overall Summary mode */}
+                {transferMode === 'summary' && (
+                  <div className="space-y-3">
+                    <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <p className="text-xs font-semibold text-amber-800">Overall Summary Mode</p>
+                      <p className="text-xs text-amber-700 mt-0.5">Write a general description of travel arrangements. This is shown on the itinerary page only when no day-wise transfers are added.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Transfer Summary</label>
+                      <textarea
+                        value={transferSummary}
+                        onChange={(e) => setTransferSummary(e.target.value)}
+                        rows={6}
+                        placeholder={`e.g. All transfers throughout the trip are by private air-conditioned vehicle. Airport pickup and drop are included. Intercity travel is by comfortable coach. All vehicles are well-maintained and drivers are experienced.`}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none leading-relaxed"
+                      />
+                      <p className="text-xs text-slate-400 mt-1.5">
+                        {transferSummary.trim().length > 0
+                          ? `${transferSummary.trim().length} characters`
+                          : 'Describe the general travel/transport arrangements for the entire trip.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

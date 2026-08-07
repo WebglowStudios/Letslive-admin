@@ -52,6 +52,7 @@ export interface VoucherData {
   accommodations: any[];
   transports: any[];
   itinerary: any[];
+  transferSummary?: string;
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, paymentStatus, flights, accommodations, transports, itinerary } = data;
+  const { operationId, destination, customerName, pax, paymentStatus, flights, accommodations, transports, itinerary, transferSummary } = data;
 
   return (
     <Document>
@@ -275,6 +276,19 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* OVERALL TRANSFER SUMMARY (fallback if no transports are mapped) */}
+        {transports.length === 0 && transferSummary && (
+          <View style={s.sectionWrapper} wrap={false}>
+            <View style={s.sectionHeader}>
+              <Icon d={ICONS.car} color={C.gn3} size={14} />
+              <Text style={s.sectionTitle}>OVERALL TRANSFER ARRANGEMENTS</Text>
+            </View>
+            <View style={[s.transportBox, { paddingVertical: 14 }]}>
+              <Text style={{ fontSize: 9, color: C.ink2, lineHeight: 1.6 }}>{transferSummary}</Text>
+            </View>
           </View>
         )}
 
