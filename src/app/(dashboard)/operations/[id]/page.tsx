@@ -12,7 +12,7 @@ interface Transport { _id: string; type: string; name: string; bookingRef: strin
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; }
-interface OpData { _id: string; operationId: string; package?: { _id: string; name: string; slug: string }; customer: { name: string; email: string; phone: string; pax: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { paymentStatus: string }; package?: { _id: string; name: string; slug: string }; customer: { name: string; email: string; phone: string; pax: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -48,6 +48,7 @@ export default function OperationDetailPage() {
   const [vendorList, setVendorList] = useState<{ _id: string; name: string; type: string }[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [downloadingVoucher, setDownloadingVoucher] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -81,6 +82,40 @@ export default function OperationDetailPage() {
     }
   }
 
+  async function handleDownloadVoucher() {
+    setDownloadingVoucher(true);
+    try {
+      const { generateVoucherPdf } = await import("@/lib/generateVoucherPdf");
+      
+      let itinerary = [];
+      if (op?.package?.slug) {
+        try {
+          const pkgRes = await api.get(`/packages/${op.package.slug}`);
+          itinerary = pkgRes.data?.itinerary || [];
+        } catch (e) {
+          console.warn("Could not fetch full package itinerary for voucher");
+        }
+      }
+
+      await generateVoucherPdf({
+        operationId: op?.operationId || "",
+        destination: op?.destination || "",
+        customerName: op?.customer?.name || "",
+        pax: op?.customer?.pax || 1,
+        paymentStatus: op?.booking?.paymentStatus || "pending",
+        flights: transports.filter((t) => t.type === "flight"),
+        accommodations: accommodations,
+        transports: transports.filter((t) => t.type !== "flight"),
+        itinerary,
+      });
+    } catch (err) {
+      alert("Failed to generate voucher");
+      console.error(err);
+    } finally {
+      setDownloadingVoucher(false);
+    }
+  }
+
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-3 border-cyan-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (!op) return <div className="text-center py-20 text-sm text-slate-400">Operation not found</div>;
 
@@ -101,7 +136,13 @@ export default function OperationDetailPage() {
           <div className="flex items-center gap-3"><h1 className="text-lg font-bold text-slate-800">{op.operationId}</h1><span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${op.status === "completed" ? "bg-emerald-100 text-emerald-700" : op.status === "planning" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>{op.status}</span></div>
           <p className="text-xs text-slate-400">{op.customer.name} | {op.destination} | {op.customer.pax} pax</p>
         </div>
-        <select value={op.status} onChange={(e) => updateStatus(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white"><option value="planning">Planning</option><option value="booked">Booked</option><option value="in-progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
+        <div className="flex items-center gap-2">
+          <button onClick={handleDownloadVoucher} disabled={downloadingVoucher} className="flex items-center gap-2 text-xs border border-cyan-200 text-cyan-700 hover:bg-cyan-50 px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50">
+            <Download size={14} />
+            {downloadingVoucher ? "Generating..." : "Download Voucher"}
+          </button>
+          <select value={op.status} onChange={(e) => updateStatus(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white"><option value="planning">Planning</option><option value="booked">Booked</option><option value="in-progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
+        </div>
       </div>
 
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
