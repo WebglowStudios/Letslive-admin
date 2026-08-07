@@ -370,6 +370,206 @@ function CreateAccountModal({
   );
 }
 
+// ─── Duplicate Itinerary Modal ───────────────────────────────────────────────
+function DuplicateItineraryModal({ enquiryId, onClose }: { enquiryId: string; onClose: () => void }) {
+  const router = useRouter();
+  const [standardPackages, setStandardPackages] = useState<{ _id: string; name: string }[]>([]);
+  const [customPackages, setCustomPackages] = useState<{ _id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPackage, setSelectedPackage] = useState("");
+  const [duplicating, setDuplicating] = useState(false);
+  const [activeTab, setActiveTab] = useState<"custom" | "standard">("custom");
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/packages?admin=true&limit=100"),
+      api.get("/packages/custom")
+    ])
+      .then(([stdRes, custRes]) => {
+        const stdData = stdRes?.data?.data || stdRes?.data || [];
+        const custData = custRes?.data?.data || custRes?.data || [];
+        setStandardPackages(Array.isArray(stdData) ? stdData : []);
+        setCustomPackages(Array.isArray(custData) ? custData : []);
+      })
+      .catch(() => alert("Failed to fetch packages"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleDuplicate() {
+    if (!selectedPackage) return;
+    setDuplicating(true);
+    try {
+      const res = await api.post(`/packages/${selectedPackage}/duplicate`, { enquiryId });
+      const newPackage = res?.data?.data || res?.data;
+      if (newPackage?._id) {
+        router.push(`/itineraries/${newPackage._id}/edit`);
+      } else {
+        onClose();
+        window.location.reload();
+      }
+    } catch {
+      alert("Failed to duplicate itinerary");
+      setDuplicating(false);
+    }
+  }
+
+  const currentList = activeTab === "custom" ? customPackages : standardPackages;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-bold text-slate-800">Duplicate & Link Itinerary</h3>
+            <p className="text-xs text-slate-400">Clone an existing itinerary and link it to this enquiry</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+        </div>
+        
+        {/* Tabs */}
+        <div className="flex border-b border-slate-100 px-6 mt-2">
+          <button
+            onClick={() => { setActiveTab("custom"); setSelectedPackage(""); }}
+            className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "custom" ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Custom Itineraries
+          </button>
+          <button
+            onClick={() => { setActiveTab("standard"); setSelectedPackage(""); }}
+            className={`pb-2 px-2 ml-4 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "standard" ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Standard Packages
+          </button>
+        </div>
+
+        <div className="p-5">
+          {loading ? (
+            <div className="flex justify-center py-6">
+              <div className="w-6 h-6 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : currentList.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-4">No {activeTab} itineraries found.</p>
+          ) : (
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-slate-700">Select to Duplicate</label>
+              <select
+                value={selectedPackage}
+                onChange={(e) => setSelectedPackage(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              >
+                <option value="">-- Select --</option>
+                {currentList.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button
+            onClick={handleDuplicate}
+            disabled={!selectedPackage || duplicating}
+            className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40"
+          >
+            {duplicating ? "Duplicating..." : "Duplicate Itinerary"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Send Booking Link Modal ─────────────────────────────────────────────────
+function SendBookingLinkModal({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => void }) {
+  const [sendingLinkFor, setSendingLinkFor] = useState<string | null>(null);
+  const [linkSentFor, setLinkSentFor] = useState<string | null>(null);
+
+  // Collect packages: linked itineraries + fallback to primary package if no linked itineraries
+  let packagesToList: { _id: string; name: string; slug: string }[] = [];
+  
+  if (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0) {
+    packagesToList = enquiry.linkedItineraries;
+  } else if (enquiry.package && typeof enquiry.package === 'object' && '_id' in enquiry.package) {
+    const pkg = enquiry.package as any;
+    if (pkg.slug) {
+      packagesToList = [{ _id: pkg._id, name: pkg.name || enquiry.packageName || 'Package', slug: pkg.slug }];
+    }
+  }
+
+  async function handleSendEmail(pkg: { slug: string; name: string; _id: string }) {
+    setSendingLinkFor(pkg._id);
+    setLinkSentFor(null);
+    try {
+      await api.post(`/enquiries/${enquiry._id}/send-booking-link`, { 
+        packageSlug: pkg.slug,
+        packageName: pkg.name
+      });
+      setLinkSentFor(pkg._id);
+      setTimeout(() => setLinkSentFor(null), 3000);
+    } catch {
+      alert("Failed to send booking link.");
+    } finally {
+      setSendingLinkFor(null);
+    }
+  }
+
+  function handleCopyLink(slug: string) {
+    const url = `https://letslivetours.com/book/${slug}`;
+    navigator.clipboard.writeText(url);
+    alert("Booking link copied to clipboard!");
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-bold text-slate-800">Send Booking Link</h3>
+            <p className="text-xs text-slate-400">Choose an itinerary to share with {enquiry.firstName}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
+          {packagesToList.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-4">No linked itineraries found. Please link an itinerary first.</p>
+          ) : (
+            <div className="space-y-3">
+              {packagesToList.map((pkg) => (
+                <div key={pkg._id} className="flex flex-col gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                  <p className="text-sm text-slate-800 font-semibold">{pkg.name}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleCopyLink(pkg.slug)}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-100 transition-colors"
+                    >
+                      <Copy size={14} /> Copy Link
+                    </button>
+                    <button
+                      onClick={() => handleSendEmail(pkg)}
+                      disabled={sendingLinkFor === pkg._id}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                    >
+                      <Send size={14} />
+                      {sendingLinkFor === pkg._id ? "Sending..." : linkSentFor === pkg._id ? "✓ Sent!" : "Send via Email"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EnquiryDetailPage() {
   const params = useParams();
@@ -382,6 +582,8 @@ export default function EnquiryDetailPage() {
   const [showLogCall, setShowLogCall] = useState(false);
   const [showMarkLost, setShowMarkLost] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showSendLinkModal, setShowSendLinkModal] = useState(false);
   const [sendingLink, setSendingLink] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -556,6 +758,18 @@ export default function EnquiryDetailPage() {
     }
   }
 
+  async function handleDelink(packageId: string) {
+    if (window.confirm("Are you sure you want to delink this itinerary from the enquiry?")) {
+      try {
+        await api.post(`/packages/${packageId}/delink`, {});
+        fetchEnquiry(); // Refresh the list
+      } catch (error) {
+        console.error("Failed to delink package:", error);
+        alert("Failed to delink itinerary.");
+      }
+    }
+  }
+
   return (
     <RoleGuard permission="enquiries.view">
       {showLogCall && (
@@ -570,6 +784,13 @@ export default function EnquiryDetailPage() {
           onClose={() => setShowCreateAccount(false)}
           onCreated={() => setShowCreateAccount(false)}
         />
+      )}
+
+      {showDuplicateModal && (
+        <DuplicateItineraryModal enquiryId={id} onClose={() => setShowDuplicateModal(false)} />
+      )}
+      {showSendLinkModal && enquiry && (
+        <SendBookingLinkModal enquiry={enquiry} onClose={() => setShowSendLinkModal(false)} />
       )}
 
       <div className="space-y-5 max-w-7xl mx-auto">
@@ -628,17 +849,54 @@ export default function EnquiryDetailPage() {
               </div>
 
               {/* Travel interest */}
-              {(enquiry.destination || enquiry.packageName) && (
+              {(enquiry.destination || enquiry.packageName || (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0)) && (
                 <div className="pt-3 border-t border-slate-100 space-y-2">
                   {enquiry.destination && (
                     <p className="flex items-center gap-2 text-sm text-slate-600">
                       <MapPin size={13} className="text-slate-400 shrink-0" /> {enquiry.destination}
                     </p>
                   )}
-                  {enquiry.packageName && (
-                    <p className="flex items-center gap-2 text-sm text-cyan-600 font-medium">
-                      <Package size={13} className="shrink-0" /> {enquiry.packageName}
-                    </p>
+                  
+                  {/* Linked Custom Itineraries */}
+                  {enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0 ? (
+                    <div className="space-y-2 mt-2">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Linked Itineraries</p>
+                      {enquiry.linkedItineraries.map((pkg) => (
+                        <div key={pkg._id} className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                          <p className="flex items-center gap-2 text-sm text-cyan-700 font-medium leading-tight">
+                            <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Link
+                              href={`/itineraries/${pkg._id}/edit`}
+                              className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium"
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              onClick={() => handleDelink(pkg._id)}
+                              className="flex-1 text-center text-xs bg-white border border-rose-200 text-rose-600 py-1.5 rounded-md hover:bg-rose-50 transition-colors font-medium"
+                            >
+                              Delink
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : enquiry.packageName && (
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="flex items-center gap-2 text-sm text-cyan-600 font-medium">
+                        <Package size={13} className="shrink-0" /> {enquiry.packageName}
+                      </p>
+                      {enquiry.package && typeof enquiry.package === 'object' && '_id' in enquiry.package && (
+                        <Link
+                          href={`/itineraries/${(enquiry.package as any)._id}/edit`}
+                          className="text-[10px] bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md hover:bg-cyan-100 transition-colors font-semibold"
+                        >
+                          Edit
+                        </Link>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -911,6 +1169,13 @@ export default function EnquiryDetailPage() {
               >
                 <Package size={16} /> Create Itinerary
               </Link>
+              
+              <button
+                onClick={() => setShowDuplicateModal(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-indigo-300 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-semibold hover:bg-indigo-100 transition-colors"
+              >
+                <Copy size={16} /> Duplicate & Link Itinerary
+              </button>
 
               {/* Create Customer Account */}
               <button
@@ -922,24 +1187,10 @@ export default function EnquiryDetailPage() {
 
               {/* Send Booking Link */}
               <button
-                onClick={async () => {
-                  setSendingLink(true);
-                  setLinkSent(false);
-                  try {
-                    await api.post(`/enquiries/${id}/send-booking-link`, {});
-                    setLinkSent(true);
-                    setTimeout(() => setLinkSent(false), 3000);
-                  } catch {
-                    alert("Failed to send link. Make sure a package/itinerary is linked to this enquiry first.");
-                  } finally {
-                    setSendingLink(false);
-                  }
-                }}
-                disabled={sendingLink}
-                className="w-full flex items-center gap-3 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                onClick={() => setShowSendLinkModal(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 transition-colors"
               >
-                <Send size={16} />
-                {sendingLink ? "Sending..." : linkSent ? "✓ Link Sent!" : "Send Booking Link"}
+                <Send size={16} /> Send Booking Link
               </button>
 
               {/* Convert to Booking */}
