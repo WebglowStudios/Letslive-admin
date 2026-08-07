@@ -12,7 +12,7 @@ interface Template {
 
 interface Props {
   label: string;
-  category: "inclusions" | "exclusions" | "thingsToCarry" | "keyPoints" | "knowBeforeYouGo" | "highlights";
+  category: "inclusions" | "exclusions" | "thingsToCarry" | "keyPoints" | "knowBeforeYouGo" | "highlights" | "description";
   items: string[];
   onChange: (items: string[]) => void;
 }

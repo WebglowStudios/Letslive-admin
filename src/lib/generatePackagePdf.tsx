@@ -1409,7 +1409,7 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => (
       <Text style={s.ctaSubtitle}>
         Contact us to customise dates, group size, and confirm your trip.
       </Text>
-      <Text style={s.ctaContact}>+91 9999 999 999  ·  info@letslivetours.com</Text>
+      <Text style={s.ctaContact}>+91 77700 88466  ·  info@letslivetours.com</Text>
     </View>
   </View>
 );
@@ -1426,7 +1426,7 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       <PageHeader section="Package Details & Itinerary" />
       
       <TripSummarySection pkg={pkg} />
-      <GallerySection pkg={pkg} />
+      {/* <GallerySection pkg={pkg} /> */}
       <OverviewSection pkg={pkg} />
       <FlightsSection pkg={pkg} />
       <TransferSummarySection pkg={pkg} />
