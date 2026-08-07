@@ -82,6 +82,42 @@ export default function EditPackagePage() {
   const [isCustom, setIsCustom] = useState(false);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
+  // Auto-calculation handlers
+  const handlePriceChange = (val: string) => {
+    setPrice(val);
+    const p = parseFloat(val);
+    if (!isNaN(p) && p > 0) {
+      if (originalPrice && parseFloat(originalPrice) > p) {
+        const op = parseFloat(originalPrice);
+        setDiscount(Math.round(((op - p) / op) * 100).toString());
+      } else if (discount && parseFloat(discount) > 0 && parseFloat(discount) < 100) {
+        const d = parseFloat(discount);
+        setOriginalPrice(Math.round(p / (1 - d / 100)).toString());
+      }
+    }
+  };
+
+  const handleOriginalPriceChange = (val: string) => {
+    setOriginalPrice(val);
+    const op = parseFloat(val);
+    const p = parseFloat(price);
+    if (!isNaN(op) && !isNaN(p) && op > p && p > 0) {
+      setDiscount(Math.round(((op - p) / op) * 100).toString());
+    } else if (!val || isNaN(op)) {
+      setDiscount("");
+    }
+  };
+
+  const handleDiscountChange = (val: string) => {
+    setDiscount(val);
+    const d = parseFloat(val);
+    const p = parseFloat(price);
+    if (!isNaN(d) && !isNaN(p) && d > 0 && d < 100 && p > 0) {
+      setOriginalPrice(Math.round(p / (1 - d / 100)).toString());
+    } else if (!val || isNaN(d) || d === 0) {
+      setOriginalPrice("");
+    }
+  };
 
   // Payment config
   const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
@@ -543,15 +579,15 @@ export default function EditPackagePage() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Price (₹) *</label>
-                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label>
-                  <input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <input type="number" value={originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Discount %</label>
-                  <input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <input type="number" value={discount} onChange={(e) => handleDiscountChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                 </div>
               </div>
               <div>
