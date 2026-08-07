@@ -58,6 +58,7 @@ export default function BookingsPage() {
   const statusColors: Record<string, string> = {
     pending: "bg-amber-100 text-amber-700",
     confirmed: "bg-cyan-100 text-cyan-700",
+    "staff-confirmed": "bg-indigo-100 text-indigo-700",
     "in-progress": "bg-blue-100 text-blue-700",
     completed: "bg-emerald-100 text-emerald-700",
     cancelled: "bg-red-100 text-red-700",
@@ -74,15 +75,15 @@ export default function BookingsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Filter size={16} className="text-slate-400" />
-            {["all", "pending", "confirmed", "completed", "cancelled"].map((s) => (
+            {["all", "pending", "confirmed", "staff-confirmed", "completed", "cancelled"].map((s) => (
               <button
                 key={s}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   statusFilter === s ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {s}
+                {s === 'confirmed' ? 'Guest Confirmed' : s === 'staff-confirmed' ? 'Staff Confirmed' : s.replace("-", " ")}
               </button>
             ))}
           </div>
@@ -124,9 +125,9 @@ export default function BookingsPage() {
                         <td className="px-6 py-4 text-sm text-slate-500">{formatDate(b.travelDate)}</td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-700">{formatCurrency(b.totalAmount)}</td>
                         <td className="px-6 py-4">
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${statusColors[bStatus] || ""}`}>
-                            {bStatus}
-                          </span>
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-semibold tracking-wide uppercase ${statusColors[bStatus] || "bg-slate-100 text-slate-700"}`}>
+                              {bStatus === 'confirmed' ? 'Guest Confirmed' : bStatus === 'staff-confirmed' ? 'Staff Confirmed' : bStatus}
+                            </span>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${
@@ -147,7 +148,8 @@ export default function BookingsPage() {
                                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white"
                               >
                                 <option value="pending">Pending</option>
-                                <option value="confirmed">Confirmed</option>
+                                <option value="confirmed">Guest Confirmed</option>
+                                <option value="staff-confirmed">Staff Confirmed</option>
                                 <option value="in-progress">In Progress</option>
                                 <option value="completed">Completed</option>
                                 <option value="cancelled">Cancelled</option>
