@@ -164,8 +164,8 @@ export default function NewCustomItineraryPage() {
           setClientName(`${e.firstName || ""} ${e.lastName || ""}`.trim());
           setClientEmail(e.email || "");
           setClientPhone(e.phone || "");
-          if (e.packageName) setName(`Custom: ${e.packageName}`);
-          if (e.destination) setDescription(`Custom itinerary for ${e.destination}`);
+          if (e.packageName) setName(e.packageName);
+          if (e.destination) setDescription(`Itinerary for ${e.destination}`);
           
           if (e.travellerCount) setTravellerCount(`${e.travellerCount} Pax`);
         }
