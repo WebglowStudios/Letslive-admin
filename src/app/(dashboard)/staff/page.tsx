@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { User } from "@/types";
-import { Plus, Search, Trash2, KeyRound, Check } from "lucide-react";
+import { Plus, Search, Trash2, KeyRound, Check, UserPen, X } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission, useRole } from "@/hooks/usePermission";
+import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<User[]>([]);
@@ -16,6 +17,9 @@ export default function StaffPage() {
   const [resetId, setResetId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
+  const [editProfileId, setEditProfileId] = useState<string | null>(null);
+  const [editAvatar, setEditAvatar] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const canCreate = usePermission("staff.create");
   const canEdit = usePermission("staff.edit");
   const currentRole = useRole();
@@ -65,6 +69,19 @@ export default function StaffPage() {
       setTimeout(() => { setResetId(null); setNewPassword(""); setResetSuccess(""); }, 2000);
     } catch {
       alert("Failed to reset password");
+    }
+  }
+
+  async function updateProfile(id: string) {
+    try {
+      const payload = { avatar: editAvatar, description: editDescription };
+      const res = await api.put(`/admin/staff/${id}`, payload);
+      if (res?.data) {
+        setStaff((prev) => prev.map((m) => m._id === id ? { ...m, avatar: res.data.avatar, description: res.data.description } : m));
+        setEditProfileId(null);
+      }
+    } catch {
+      alert("Failed to update profile");
     }
   }
 
@@ -127,7 +144,8 @@ export default function StaffPage() {
                   <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">No users found</td></tr>
                 ) : (
                   filtered.map((member) => (
-                    <tr key={member._id} className="hover:bg-slate-50">
+                    <Fragment key={member._id}>
+                    <tr className="hover:bg-slate-50">
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-slate-700">{member.firstName} {member.lastName}</p>
                       </td>
@@ -197,6 +215,18 @@ export default function StaffPage() {
                                 <KeyRound size={15} />
                               </button>
                             )}
+                            {/* Edit Profile */}
+                            <button
+                              onClick={() => {
+                                setEditProfileId(member._id);
+                                setEditAvatar(member.avatar || "");
+                                setEditDescription(member.description || "");
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-colors"
+                              title="Edit Profile Image & Description"
+                            >
+                              <UserPen size={15} />
+                            </button>
                             {/* Delete */}
                             <button
                               onClick={() => deleteUser(member._id, `${member.firstName} ${member.lastName}`)}
@@ -209,6 +239,48 @@ export default function StaffPage() {
                         </td>
                       )}
                     </tr>
+                    {editProfileId === member._id && (
+                      <tr key={`edit-${member._id}`} className="bg-slate-50 border-t border-slate-100">
+                        <td colSpan={5} className="px-6 py-6">
+                          <div className="flex gap-6 items-start bg-white p-4 rounded-xl border border-slate-200">
+                            <div className="flex-shrink-0 w-32">
+                              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Profile Image</label>
+                              <ImageUpload
+                                value={editAvatar}
+                                onChange={(url) => setEditAvatar(url)}
+                              />
+                            </div>
+                            <div className="flex-1 space-y-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Public Description</label>
+                                <textarea
+                                  value={editDescription}
+                                  onChange={(e) => setEditDescription(e.target.value)}
+                                  placeholder="Describe the employee's expertise (visible to customers)..."
+                                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                  rows={4}
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => updateProfile(member._id)}
+                                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-xs font-bold hover:bg-cyan-700 transition-colors"
+                                >
+                                  Save Profile
+                                </button>
+                                <button
+                                  onClick={() => setEditProfileId(null)}
+                                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                   ))
                 )}
               </tbody>
