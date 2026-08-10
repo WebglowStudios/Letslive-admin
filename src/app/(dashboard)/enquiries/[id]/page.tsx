@@ -82,6 +82,65 @@ function DnpDots({ count }: { count: number }) {
   );
 }
 
+// ─── Mark Lost Modal ───────────────────────────────────────────────────────────
+function MarkLostModal({ id, onClose, onSave }: { id: string; onClose: () => void; onSave: () => void }) {
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const reasons = [
+    { value: "no-budget", label: "No Budget" },
+    { value: "went-elsewhere", label: "Went Elsewhere / Booked Another" },
+    { value: "not-responding", label: "Not Responding (DNP)" },
+    { value: "not-interested", label: "Not Interested Anymore" },
+    { value: "timing", label: "Bad Timing / Postponed" },
+    { value: "other", label: "Other" },
+  ];
+
+  async function handleSave() {
+    if (!reason) return;
+    setSaving(true);
+    try {
+      await api.put(`/enquiries/${id}`, { status: "closed", lostReason: reason });
+      onSave();
+      onClose();
+    } catch (e: any) {
+      alert(e.response?.data?.message || "Failed to mark as lost");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-bold text-red-600 flex items-center gap-2"><AlertTriangle size={18} /> Mark as Lost</h3>
+            <p className="text-xs text-slate-500">Why are we closing this lead?</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+        </div>
+        <div className="p-5 overflow-y-auto space-y-2">
+          {reasons.map((r) => (
+            <label key={r.value} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+              reason === r.value ? "border-red-500 bg-red-50" : "border-slate-200 hover:border-slate-300"
+            }`}>
+              <input type="radio" name="lostReason" value={r.value} checked={reason === r.value} onChange={() => setReason(r.value)} className="text-red-600 focus:ring-red-500" />
+              <span className="text-sm font-semibold text-slate-700">{r.label}</span>
+            </label>
+          ))}
+        </div>
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-semibold transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={!reason || saving} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-2 transition-colors">
+            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />} Mark as Lost
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Log Call Modal ───────────────────────────────────────────────────────────
 function LogCallModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClose: () => void; onSave: () => void }) {
   const [outcome, setOutcome] = useState<string>("");
@@ -166,72 +225,6 @@ function LogCallModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClo
   );
 }
 
-// ─── Mark Lost Modal ──────────────────────────────────────────────────────────
-function MarkLostModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClose: () => void; onSave: () => void }) {
-  const [lostReason, setLostReason] = useState("not-responding");
-  const [saving, setSaving] = useState(false);
-
-  const reasons = [
-    { value: "no-budget", label: "No Budget" },
-    { value: "went-elsewhere", label: "Went Elsewhere" },
-    { value: "not-responding", label: "Not Responding" },
-    { value: "not-interested", label: "Not Interested" },
-    { value: "timing", label: "Bad Timing" },
-    { value: "other", label: "Other" },
-  ];
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await api.put(`/enquiries/${enquiryId}`, { status: "closed", lostReason });
-      onSave();
-      onClose();
-    } catch {
-      alert("Failed to close enquiry");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-bold text-slate-800">Mark as Lost</h3>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
-        </div>
-        <div className="p-5 space-y-3">
-          <p className="text-sm text-slate-500">Why is this lead being closed?</p>
-          <div className="space-y-2">
-            {reasons.map((r) => (
-              <label key={r.value} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
-                <input
-                  type="radio"
-                  name="lostReason"
-                  value={r.value}
-                  checked={lostReason === r.value}
-                  onChange={() => setLostReason(r.value)}
-                  className="accent-cyan-600"
-                />
-                <span className="text-sm text-slate-700">{r.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-40"
-          >
-            {saving ? "Closing..." : "Close Lead"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Create Customer Account Modal ───────────────────────────────────────────
 function CreateAccountModal({
@@ -839,14 +832,20 @@ export default function EnquiryDetailPage() {
       {showLogCall && (
         <LogCallModal enquiryId={id} onClose={() => setShowLogCall(false)} onSave={fetchEnquiry} />
       )}
-      {showMarkLost && (
-        <MarkLostModal enquiryId={id} onClose={() => setShowMarkLost(false)} onSave={fetchEnquiry} />
-      )}
+
       {showCreateAccount && enquiry && (
         <CreateAccountModal
           enquiry={enquiry}
           onClose={() => setShowCreateAccount(false)}
           onCreated={() => setShowCreateAccount(false)}
+        />
+      )}
+
+      {showMarkLost && (
+        <MarkLostModal
+          id={id}
+          onClose={() => setShowMarkLost(false)}
+          onSave={fetchEnquiry}
         />
       )}
 
@@ -1060,10 +1059,23 @@ export default function EnquiryDetailPage() {
                       <Mail size={14} className="text-slate-400 group-hover:text-cyan-500 shrink-0" />
                       <span className="truncate">{enquiry.email}</span>
                     </a>
-                    <a href={`tel:${enquiry.phone}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-emerald-600 transition-colors group">
-                      <Phone size={14} className="text-slate-400 group-hover:text-emerald-500 shrink-0" />
-                      {enquiry.phone}
-                    </a>
+                    <div className="flex items-center justify-between gap-2">
+                      <a href={`tel:${enquiry.phone}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-emerald-600 transition-colors group truncate">
+                        <Phone size={14} className="text-slate-400 group-hover:text-emerald-500 shrink-0" />
+                        <span className="truncate">{enquiry.phone}</span>
+                      </a>
+                      {enquiry.phone && (
+                        <a 
+                          href={`https://wa.me/${enquiry.phone.replace(/[^\d]/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Message on WhatsApp"
+                          className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-[10px] font-bold uppercase tracking-wide transition-colors shrink-0"
+                        >
+                          <MessageCircle size={12} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
                     {enquiry.channel && (
                       <p className="flex items-center gap-2 text-xs text-slate-500">
                         <ExternalLink size={12} className="text-slate-400 shrink-0" />
