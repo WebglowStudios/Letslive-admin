@@ -75,6 +75,8 @@ export default function NewPackagePage() {
   const [isActive, setIsActive] = useState(true);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
+  const [adultCount, setAdultCount] = useState("");
+  const [childCount, setChildCount] = useState("");
   // Auto-calculation handlers
   const handlePriceChange = (val: string) => {
     setPrice(val);
@@ -251,6 +253,8 @@ export default function NewPackagePage() {
         isActive,
         flightsIncluded,
         travellerCount: travellerCount || undefined,
+        adultCount: adultCount ? Number(adultCount) : undefined,
+        childCount: childCount ? Number(childCount) : undefined,
         paymentConfig: {
           mode: paymentMode,
           depositType,
@@ -447,9 +451,19 @@ export default function NewPackagePage() {
                   <span className="text-sm text-slate-700">Flights Included</span>
                 </label>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Traveller Count</label>
-                <input type="text" value={travellerCount} onChange={(e) => setTravellerCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2-15 people, Min 2 adults, etc." />
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Overall Traveller Count</label>
+                  <input type="text" value={travellerCount} onChange={(e) => setTravellerCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2-15 people" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Adults</label>
+                  <input type="number" value={adultCount} onChange={(e) => setAdultCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Children</label>
+                  <input type="number" value={childCount} onChange={(e) => setChildCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 1" />
+                </div>
               </div>
 
               {/* Payment Configuration */}

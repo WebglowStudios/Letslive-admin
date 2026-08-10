@@ -97,6 +97,7 @@ interface PackageData {
   images?: string[]; heroImage?: string;
   destinationImages?: string[]; stayImages?: string[]; activityImages?: string[];
   isCustom?: boolean; clientName?: string; clientEmail?: string; clientPhone?: string;
+  travellerCount?: string; adultCount?: number; childCount?: number;
   transferSummary?: string;
 }
 
@@ -737,6 +738,16 @@ const TripSummarySection = ({ pkg }: { pkg: PackageData }) => (
             <Text style={{ fontSize: 8, color: C.ink3 }}> / {pkg.priceUnit || "person"}</Text>
           </Text>
         </View>
+        {(pkg.travellerCount || pkg.adultCount || pkg.childCount) && (
+          <View style={[s.glanceCard, { borderLeftColor: C.gn3 }]}>
+            <Text style={s.glanceLabel}>TRAVELLERS</Text>
+            <Text style={s.glanceValue}>
+              {pkg.adultCount || pkg.childCount
+                ? `${pkg.adultCount || 0} Adult(s)${pkg.childCount ? `, ${pkg.childCount} Child(ren)` : ""}`
+                : pkg.travellerCount}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
 

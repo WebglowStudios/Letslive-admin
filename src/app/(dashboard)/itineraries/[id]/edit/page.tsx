@@ -64,6 +64,8 @@ export default function EditCustomItineraryPage() {
   const [isActive, setIsActive] = useState(true);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
+  const [adultCount, setAdultCount] = useState("");
+  const [childCount, setChildCount] = useState("");
   const [showOnDestination, setShowOnDestination] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -193,6 +195,8 @@ export default function EditCustomItineraryPage() {
       setIsActive(p.isActive ?? true);
       setFlightsIncluded(p.flightsIncluded || false);
       setTravellerCount(p.travellerCount || "");
+      setAdultCount(p.adultCount != null ? String(p.adultCount) : "");
+      setChildCount(p.childCount != null ? String(p.childCount) : "");
       setShowOnDestination(p.showOnDestination || false);
       if (p.travelDates) {
         setStartDate(p.travelDates.startDate ? new Date(p.travelDates.startDate).toISOString().split("T")[0] : "");
@@ -296,7 +300,10 @@ export default function EditCustomItineraryPage() {
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
         isFeatured, isActive, flightsIncluded,
-        travellerCount: travellerCount || undefined, showOnDestination,
+        travellerCount: travellerCount || undefined,
+        adultCount: adultCount ? Number(adultCount) : undefined,
+        childCount: childCount ? Number(childCount) : undefined,
+        showOnDestination,
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentConfig: { mode: paymentMode, depositType, depositValue: Number(depositValue) || 30, depositLabel: depositLabel.trim() || undefined, balanceDueDays: Number(balanceDueDays) || 30 },
         itinerary: itinerary.filter((d) => d.title).map((d) => ({ day: d.day, title: d.title, description: d.description, activities: d.activities, meals: d.meals, accommodation: d.accommodation, images: d.images })),
@@ -443,7 +450,11 @@ export default function EditCustomItineraryPage() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label><input type="number" value={originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Discount %</label><input type="number" value={discount} onChange={(e) => handleDiscountChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
             </div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Traveller Count</label><input type="text" value={travellerCount} onChange={(e) => setTravellerCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2 Adults" /></div>
+            <div className="grid grid-cols-3 gap-4">
+              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Overall Traveller Count</label><input type="text" value={travellerCount} onChange={(e) => setTravellerCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2 Adults" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Adults</label><input type="number" value={adultCount} onChange={(e) => setAdultCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2" /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Children</label><input type="number" value={childCount} onChange={(e) => setChildCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 1" /></div>
+            </div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Featured on homepage</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Active</span></label>
