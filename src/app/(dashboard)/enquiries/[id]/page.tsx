@@ -9,7 +9,7 @@ import {
   Phone, Mail, MapPin, Package, Calendar, Users, DollarSign,
   Tag, User, ArrowLeft, MessageSquare, PhoneCall, PhoneOff,
   MessageCircle, Clock, CheckCircle, AlertTriangle, ChevronDown,
-  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2
+  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2, Edit2
 } from "lucide-react";
 
 import Link from "next/link";
@@ -596,6 +596,69 @@ export default function EnquiryDetailPage() {
   const [reassigning, setReassigning] = useState(false);
   const [tagInput, setTagInput] = useState("");
 
+  // ── Inline customer detail editing ──
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    destination: "",
+    travelDate: "",
+    travellerCount: "",
+    budget: "",
+    packageName: "",
+    source: "",
+    channel: "",
+  });
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  function startEditingDetails() {
+    if (!enquiry) return;
+    setEditForm({
+      firstName: enquiry.firstName || "",
+      lastName: enquiry.lastName || "",
+      email: enquiry.email || "",
+      phone: enquiry.phone || "",
+      destination: enquiry.destination || "",
+      travelDate: enquiry.travelDate ? String(enquiry.travelDate).slice(0, 10) : "",
+      travellerCount: enquiry.travellerCount != null ? String(enquiry.travellerCount) : "",
+      budget: enquiry.budget != null ? String(enquiry.budget) : "",
+      packageName: enquiry.packageName || "",
+      source: enquiry.source || "",
+      channel: enquiry.channel || "",
+    });
+    setEditingDetails(true);
+  }
+
+  async function saveEditingDetails() {
+    if (!editForm.firstName.trim() || !editForm.email.trim() || !editForm.phone.trim()) {
+      alert("First name, email, and phone are required.");
+      return;
+    }
+    setSavingDetails(true);
+    try {
+      await api.put(`/enquiries/${id}`, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim() || undefined,
+        email: editForm.email.trim(),
+        phone: editForm.phone.trim(),
+        destination: editForm.destination.trim() || undefined,
+        travelDate: editForm.travelDate || undefined,
+        travellerCount: editForm.travellerCount ? Number(editForm.travellerCount) : undefined,
+        budget: editForm.budget ? Number(editForm.budget) : undefined,
+        packageName: editForm.packageName.trim() || undefined,
+        source: editForm.source || undefined,
+        channel: editForm.channel || undefined,
+      });
+      setEditingDetails(false);
+      fetchEnquiry();
+    } catch {
+      alert("Failed to save changes. Please try again.");
+    } finally {
+      setSavingDetails(false);
+    }
+  }
 
   const user = useAuthStore((s) => s.user);
   const canRespond = usePermission("enquiries.respond");
@@ -825,105 +888,268 @@ export default function EnquiryDetailPage() {
           <div className="space-y-4">
             {/* Identity card */}
             <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">{fullName}</h2>
-                <p className="text-xs text-slate-400 capitalize">{enquiry.type?.replace("-", " ")} · {enquiry.source}</p>
-              </div>
 
-              {/* Contact */}
-              <div className="space-y-2">
-                <a href={`mailto:${enquiry.email}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-cyan-600 transition-colors group">
-                  <Mail size={14} className="text-slate-400 group-hover:text-cyan-500 shrink-0" />
-                  <span className="truncate">{enquiry.email}</span>
-                </a>
-                <a href={`tel:${enquiry.phone}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-emerald-600 transition-colors group">
-                  <Phone size={14} className="text-slate-400 group-hover:text-emerald-500 shrink-0" />
-                  {enquiry.phone}
-                </a>
-                {enquiry.channel && (
-                  <p className="flex items-center gap-2 text-xs text-slate-500">
-                    <ExternalLink size={12} className="text-slate-400 shrink-0" />
-                    Via {enquiry.channel}
-                  </p>
-                )}
-              </div>
+              {editingDetails ? (
+                /* ── EDIT MODE ── */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Edit Customer Details</p>
+                    <button onClick={() => setEditingDetails(false)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400">
+                      <X size={14} />
+                    </button>
+                  </div>
 
-              {/* Travel interest */}
-              {(enquiry.destination || enquiry.packageName || (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0)) && (
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  {enquiry.destination && (
-                    <p className="flex items-center gap-2 text-sm text-slate-600">
-                      <MapPin size={13} className="text-slate-400 shrink-0" /> {enquiry.destination}
-                    </p>
-                  )}
-                  
-                  {/* Linked Custom Itineraries */}
-                  {enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0 ? (
-                    <div className="space-y-2 mt-2">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Linked Itineraries</p>
-                      {enquiry.linkedItineraries.map((pkg) => (
-                        <div key={pkg._id} className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                          <p className="flex items-center gap-2 text-sm text-cyan-700 font-medium leading-tight">
-                            <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">First Name *</label>
+                      <input
+                        value={editForm.firstName}
+                        onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Last Name</label>
+                      <input
+                        value={editForm.lastName}
+                        onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Email *</label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Phone *</label>
+                    <input
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Destination</label>
+                    <input
+                      value={editForm.destination}
+                      onChange={(e) => setEditForm({ ...editForm, destination: e.target.value })}
+                      placeholder="e.g. Maldives"
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Package Interest</label>
+                    <input
+                      value={editForm.packageName}
+                      onChange={(e) => setEditForm({ ...editForm, packageName: e.target.value })}
+                      placeholder="Package name or interest"
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Travel Date</label>
+                    <input
+                      type="date"
+                      value={editForm.travelDate}
+                      onChange={(e) => setEditForm({ ...editForm, travelDate: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Travellers</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editForm.travellerCount}
+                        onChange={(e) => setEditForm({ ...editForm, travellerCount: e.target.value })}
+                        placeholder="2"
+                        className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Budget (₹)</label>
+                      <input
+                        type="number"
+                        value={editForm.budget}
+                        onChange={(e) => setEditForm({ ...editForm, budget: e.target.value })}
+                        placeholder="50000"
+                        className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Source</label>
+                      <select
+                        value={editForm.source}
+                        onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+                      >
+                        <option value="">—</option>
+                        {["website","whatsapp","phone","walk-in","instagram","google","referral","other"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Channel</label>
+                      <select
+                        value={editForm.channel}
+                        onChange={(e) => setEditForm({ ...editForm, channel: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+                      >
+                        <option value="">—</option>
+                        {["instagram","google","referral","repeat","walk-in","website","whatsapp","phone","other"].map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setEditingDetails(false)}
+                      className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveEditingDetails}
+                      disabled={savingDetails}
+                      className="flex-1 px-3 py-2 bg-cyan-600 text-white rounded-xl text-sm font-semibold hover:bg-cyan-700 disabled:opacity-40 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Save size={13} /> {savingDetails ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ── READ MODE ── */
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">{fullName}</h2>
+                      <p className="text-xs text-slate-400 capitalize">{enquiry.type?.replace("-", " ")} · {enquiry.source}</p>
+                    </div>
+                    <button
+                      onClick={startEditingDetails}
+                      title="Edit customer details"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors shrink-0 mt-0.5"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  </div>
+
+                  {/* Contact */}
+                  <div className="space-y-2">
+                    <a href={`mailto:${enquiry.email}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-cyan-600 transition-colors group">
+                      <Mail size={14} className="text-slate-400 group-hover:text-cyan-500 shrink-0" />
+                      <span className="truncate">{enquiry.email}</span>
+                    </a>
+                    <a href={`tel:${enquiry.phone}`} className="flex items-center gap-2 text-sm text-slate-600 hover:text-emerald-600 transition-colors group">
+                      <Phone size={14} className="text-slate-400 group-hover:text-emerald-500 shrink-0" />
+                      {enquiry.phone}
+                    </a>
+                    {enquiry.channel && (
+                      <p className="flex items-center gap-2 text-xs text-slate-500">
+                        <ExternalLink size={12} className="text-slate-400 shrink-0" />
+                        Via {enquiry.channel}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Travel interest */}
+                  {(enquiry.destination || enquiry.packageName || (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0)) && (
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      {enquiry.destination && (
+                        <p className="flex items-center gap-2 text-sm text-slate-600">
+                          <MapPin size={13} className="text-slate-400 shrink-0" /> {enquiry.destination}
+                        </p>
+                      )}
+                      
+                      {/* Linked Custom Itineraries */}
+                      {enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0 ? (
+                        <div className="space-y-2 mt-2">
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Linked Itineraries</p>
+                          {enquiry.linkedItineraries.map((pkg) => (
+                            <div key={pkg._id} className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                              <p className="flex items-center gap-2 text-sm text-cyan-700 font-medium leading-tight">
+                                <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Link
+                                  href={`/itineraries/${pkg._id}/edit`}
+                                  className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium"
+                                >
+                                  Edit
+                                </Link>
+                                <button
+                                  onClick={() => handleDelink(pkg._id)}
+                                  className="flex-1 text-center text-xs bg-white border border-rose-200 text-rose-600 py-1.5 rounded-md hover:bg-rose-50 transition-colors font-medium"
+                                >
+                                  Delink
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : enquiry.packageName && (
+                        <div className="flex items-center justify-between mt-2">
+                          <p className="flex items-center gap-2 text-sm text-cyan-600 font-medium">
+                            <Package size={13} className="shrink-0" /> {enquiry.packageName}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
+                          {enquiry.package && typeof enquiry.package === 'object' && '_id' in enquiry.package && (
                             <Link
-                              href={`/itineraries/${pkg._id}/edit`}
-                              className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium"
+                              href={`/itineraries/${(enquiry.package as any)._id}/edit`}
+                              className="text-[10px] bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md hover:bg-cyan-100 transition-colors font-semibold"
                             >
                               Edit
                             </Link>
-                            <button
-                              onClick={() => handleDelink(pkg._id)}
-                              className="flex-1 text-center text-xs bg-white border border-rose-200 text-rose-600 py-1.5 rounded-md hover:bg-rose-50 transition-colors font-medium"
-                            >
-                              Delink
-                            </button>
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  ) : enquiry.packageName && (
-                    <div className="flex items-center justify-between mt-2">
-                      <p className="flex items-center gap-2 text-sm text-cyan-600 font-medium">
-                        <Package size={13} className="shrink-0" /> {enquiry.packageName}
-                      </p>
-                      {enquiry.package && typeof enquiry.package === 'object' && '_id' in enquiry.package && (
-                        <Link
-                          href={`/itineraries/${(enquiry.package as any)._id}/edit`}
-                          className="text-[10px] bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md hover:bg-cyan-100 transition-colors font-semibold"
-                        >
-                          Edit
-                        </Link>
                       )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* Trip details */}
-              <div className="pt-3 border-t border-slate-100 space-y-2">
-                {enquiry.travelDate && (
-                  <p className="flex items-center gap-2 text-xs text-slate-500">
-                    <Calendar size={12} className="shrink-0 text-slate-400" /> {formatDate(enquiry.travelDate)}
-                  </p>
-                )}
-                {enquiry.travellerCount && (
-                  <p className="flex items-center gap-2 text-xs text-slate-500">
-                    <Users size={12} className="shrink-0 text-slate-400" /> {enquiry.travellerCount} traveller{enquiry.travellerCount > 1 ? "s" : ""}
-                  </p>
-                )}
-                {enquiry.budget && (
-                  <p className="flex items-center gap-2 text-xs text-slate-500">
-                    <DollarSign size={12} className="shrink-0 text-slate-400" /> Budget: {formatCurrency(enquiry.budget)}
-                  </p>
-                )}
-                {enquiry.conversionValue && (
-                  <p className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
-                    <CheckCircle size={12} className="shrink-0" /> Converted: {formatCurrency(enquiry.conversionValue)}
-                  </p>
-                )}
-              </div>
+                  {/* Trip details — read mode */}
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    {enquiry.travelDate && (
+                      <p className="flex items-center gap-2 text-xs text-slate-500">
+                        <Calendar size={12} className="shrink-0 text-slate-400" /> {formatDate(enquiry.travelDate)}
+                      </p>
+                    )}
+                    {enquiry.travellerCount && (
+                      <p className="flex items-center gap-2 text-xs text-slate-500">
+                        <Users size={12} className="shrink-0 text-slate-400" /> {enquiry.travellerCount} traveller{enquiry.travellerCount > 1 ? "s" : ""}
+                      </p>
+                    )}
+                    {enquiry.budget && (
+                      <p className="flex items-center gap-2 text-xs text-slate-500">
+                        <DollarSign size={12} className="shrink-0 text-slate-400" /> Budget: {formatCurrency(enquiry.budget)}
+                      </p>
+                    )}
+                    {enquiry.conversionValue && (
+                      <p className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                        <CheckCircle size={12} className="shrink-0" /> Converted: {formatCurrency(enquiry.conversionValue)}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Tags — editable chip input */}
               <div className="pt-3 border-t border-slate-100">
