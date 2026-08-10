@@ -58,7 +58,6 @@ export default function NewCustomItineraryPage() {
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [discount, setDiscount] = useState("");
-  const [badge, setBadge] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
@@ -244,7 +243,6 @@ export default function NewCustomItineraryPage() {
         price: Number(price) || 0,
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
-        badge: badge || undefined,
         isFeatured, isActive, flightsIncluded,
         travellerCount: travellerCount || undefined,
         showOnDestination,
@@ -428,10 +426,6 @@ export default function NewCustomItineraryPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Discount %</label>
                 <input type="number" value={discount} onChange={(e) => handleDiscountChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="20" />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Badge</label>
-              <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Bestseller, Hot Deal, New" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Traveller Count</label>
