@@ -12,6 +12,7 @@ import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/authStore";
 import { Enquiry } from "@/types";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
@@ -106,7 +107,7 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Phone *</label>
-              <input value={form.phone} onChange={(e) => set("phone", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              <PhoneInput value={form.phone} onChange={(val) => set("phone", val)} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

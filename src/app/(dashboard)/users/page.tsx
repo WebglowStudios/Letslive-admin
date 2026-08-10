@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/utils";
 import { Search, Trash2, UserPlus, X, Copy, Eye, EyeOff } from "lucide-react";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 function generatePassword() {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$!";
@@ -106,7 +107,7 @@ function AddCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
-              <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              <PhoneInput value={form.phone} onChange={(val) => setForm({ ...form, phone: val })} />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">

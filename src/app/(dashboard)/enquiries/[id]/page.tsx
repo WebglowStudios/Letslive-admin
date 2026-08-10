@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermission } from "@/hooks/usePermission";
 import RoleGuard from "@/components/guards/RoleGuard";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -348,7 +349,7 @@ function CreateAccountModal({
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
-              <input type="tel" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              <PhoneInput value={form.phone} onChange={(val) => setForm({...form, phone: val})} />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -930,11 +931,10 @@ export default function EnquiryDetailPage() {
 
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Phone *</label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={editForm.phone}
-                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      onChange={(val) => setEditForm({ ...editForm, phone: val })}
+                      required
                     />
                   </div>
 

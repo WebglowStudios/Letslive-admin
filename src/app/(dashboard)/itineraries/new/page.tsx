@@ -11,6 +11,7 @@ import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
 import MealPicker from "@/components/ui/MealPicker";
 import TextTemplateControls from "@/components/ui/TextTemplateControls";
 import TemplateControls from "@/components/ui/TemplateControls";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 interface ItineraryDay {
   day: number; title: string; description: string;
@@ -330,7 +331,7 @@ export default function NewCustomItineraryPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Client Phone</label>
-                <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="+91 98765 43210" />
+                <PhoneInput value={clientPhone} onChange={setClientPhone} />
               </div>
             </div>
             {enquiryId && <p className="text-xs text-slate-400">Linked to enquiry: {enquiryId}</p>}

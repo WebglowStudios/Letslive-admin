@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { ArrowLeft, UserPlus, Copy, Eye, EyeOff, Shield, Crown, UserCog, Users } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 const roles = [
   {
@@ -324,14 +325,7 @@ export default function NewStaffPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Phone (optional)</label>
-              <input
-                type="tel"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                placeholder="+91 98765 43210"
-              />
+              <PhoneInput value={form.phone} onChange={(val) => setForm({ ...form, phone: val })} />
             </div>
           </div>
 
