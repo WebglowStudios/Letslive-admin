@@ -49,6 +49,7 @@ export default function EditCustomItineraryPage() {
   // Basic info
   const [name, setName] = useState("");
   const [destination, setDestination] = useState("");
+  const [customDestinationText, setCustomDestinationText] = useState("");
   const [description, setDescription] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [durationNights, setDurationNights] = useState("");
@@ -166,6 +167,7 @@ export default function EditCustomItineraryPage() {
       setClientPhone(p.clientPhone || "");
       setName(p.name || "");
       setDestination(destId || "");
+      setCustomDestinationText(p.customDestinationText || "");
       setDescription(p.description || "");
       setShortDescription(p.shortDescription || "");
       setDurationNights(p.duration?.nights ? String(p.duration.nights) : "");
@@ -273,7 +275,7 @@ export default function EditCustomItineraryPage() {
     try {
       const payload = {
         name, clientName, clientEmail: clientEmail || undefined, clientPhone: clientPhone || undefined,
-        destination: destination || undefined, description, shortDescription,
+        destination: destination || undefined, customDestinationText: (!destination && customDestinationText) ? customDestinationText.trim() : undefined, description, shortDescription,
         heroImage: heroImage || undefined, images, destinationImages, stayImages, activityImages,
         duration: { nights: Number(durationNights) || 0, days: Number(durationDays) || 0 },
         travelDates: (startDate || endDate) ? { startDate: startDate || undefined, endDate: endDate || undefined } : undefined,
@@ -369,10 +371,13 @@ export default function EditCustomItineraryPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Destination <span className="text-xs font-normal text-slate-400">(optional)</span></label>
-              <select value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                <option value="">No specific destination</option>
+              <select value={destination} onChange={(e) => { setDestination(e.target.value); if(e.target.value) setCustomDestinationText(""); }} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-3">
+                <option value="">No specific destination (Custom)</option>
                 {destinations.map((d) => (<option key={d._id} value={d._id}>{d.name}</option>))}
               </select>
+              {!destination && (
+                <input type="text" value={customDestinationText} onChange={(e) => setCustomDestinationText(e.target.value)} placeholder="Type custom destination name (optional)..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+              )}
             </div>
             <div className={`p-4 rounded-xl border transition-colors ${showOnDestination ? "bg-cyan-50 border-cyan-200" : "bg-slate-50 border-slate-200"}`}>
               <label className="flex items-start gap-3 cursor-pointer">
@@ -386,10 +391,6 @@ export default function EditCustomItineraryPage() {
                   <p className="text-xs text-slate-400 mt-0.5">{showOnDestination ? "Visible publicly on destination page." : "Private — accessible only via shareable link."}</p>
                 </div>
               </label>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Short Description</label>
-              <input type="text" value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
