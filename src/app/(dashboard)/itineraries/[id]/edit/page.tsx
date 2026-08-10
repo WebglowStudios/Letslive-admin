@@ -56,6 +56,7 @@ export default function EditCustomItineraryPage() {
   const [durationDays, setDurationDays] = useState("");
   const [hotelRating, setHotelRating] = useState("");
   const [category, setCategory] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [discount, setDiscount] = useState("");
@@ -172,7 +173,19 @@ export default function EditCustomItineraryPage() {
       setDurationNights(p.duration?.nights ? String(p.duration.nights) : "");
       setDurationDays(p.duration?.days ? String(p.duration.days) : "");
       setHotelRating(p.hotelRating || "");
-      setCategory(p.category || "");
+
+      const predefinedCategories = ["luxury", "honeymoon", "family", "adventure", "group", "budget"];
+      if (p.category && predefinedCategories.includes(p.category)) {
+        setCategory(p.category);
+        setCustomCategory("");
+      } else if (p.category) {
+        setCategory("custom");
+        setCustomCategory(p.category);
+      } else {
+        setCategory("");
+        setCustomCategory("");
+      }
+
       setPrice(p.price ? String(p.price) : "");
       setOriginalPrice(p.originalPrice ? String(p.originalPrice) : "");
       setDiscount(p.discount ? String(p.discount) : "");
@@ -277,7 +290,8 @@ export default function EditCustomItineraryPage() {
         heroImage: heroImage || undefined, images, destinationImages, stayImages, activityImages,
         duration: { nights: Number(durationNights) || 0, days: Number(durationDays) || 0 },
         travelDates: (startDate || endDate) ? { startDate: startDate || undefined, endDate: endDate || undefined } : undefined,
-        hotelRating: hotelRating || undefined, category: category || undefined,
+        hotelRating: hotelRating || undefined,
+        category: category === "custom" ? (customCategory || undefined) : (category || undefined),
         price: Number(price) || 0,
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
@@ -409,7 +423,7 @@ export default function EditCustomItineraryPage() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Hotel Rating</label><input type="text" value={hotelRating} onChange={(e) => setHotelRating(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="5-Star" /></div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-2">
                   <option value="">Select</option>
                   <option value="luxury">Luxury</option>
                   <option value="honeymoon">Honeymoon</option>
@@ -417,7 +431,11 @@ export default function EditCustomItineraryPage() {
                   <option value="adventure">Adventure</option>
                   <option value="group">Group</option>
                   <option value="budget">Budget</option>
+                  <option value="custom">Custom</option>
                 </select>
+                {category === "custom" && (
+                  <input type="text" value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="Type custom category..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                )}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
