@@ -86,6 +86,7 @@ export default function EditPackagePage() {
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
+  const [priceUnit, setPriceUnit] = useState("person");
   // Auto-calculation handlers
   const handlePriceChange = (val: string) => {
     setPrice(val);
@@ -217,6 +218,7 @@ export default function EditPackagePage() {
         }
 
         setPrice(p.price ? String(p.price) : "");
+        setPriceUnit(p.priceUnit || "person");
         setOriginalPrice(p.originalPrice ? String(p.originalPrice) : "");
         setDiscount(p.discount ? String(p.discount) : "");
         setBadge(p.badge || "");
@@ -404,6 +406,7 @@ export default function EditPackagePage() {
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
+        priceUnit,
         paymentConfig: {
           mode: paymentMode,
           depositType,
@@ -605,10 +608,18 @@ export default function EditPackagePage() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Price (₹) *</label>
                   <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Unit</label>
+                  <select value={priceUnit} onChange={(e) => setPriceUnit(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    <option value="person">Per Person</option>
+                    <option value="group">Total Group</option>
+                    <option value="couple">Per Couple</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label>
