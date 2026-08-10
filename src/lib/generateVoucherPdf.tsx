@@ -47,6 +47,8 @@ export interface VoucherData {
   destination: string;
   customerName: string;
   pax: number;
+  adults?: number;
+  children?: number;
   paymentStatus: string;
   flights: any[];
   accommodations: any[];
@@ -145,7 +147,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, paymentStatus, flights, accommodations, transports, itinerary, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, flights, accommodations, transports, itinerary, transferSummary } = data;
 
   return (
     <Document>
@@ -170,7 +172,9 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
               </View>
               <View style={s.cardCol}>
                 <Text style={s.cardLabel}>PERSONS</Text>
-                <Text style={s.cardValue}>{pax}</Text>
+                <Text style={s.cardValue}>
+                  {adults || children ? `${adults || 0}A${children ? ` / ${children}C` : ''}` : pax}
+                </Text>
               </View>
               <View style={s.cardCol}>
                 <Text style={s.cardLabel}>BOOKING ID</Text>
