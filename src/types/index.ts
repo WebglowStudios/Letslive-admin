@@ -61,6 +61,9 @@ export interface Package {
   isFeatured: boolean;
   approvalStatus?: string;
   createdAt: string;
+  paymentPolicy?: string[];
+  cancellationPolicy?: string[];
+  flightCancellationPolicy?: string[];
 }
 
 export interface Booking {

@@ -171,6 +171,9 @@ export default function NewCustomItineraryPage() {
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [knowBeforeYouGo, setKnowBeforeYouGo] = useState<string[]>([]);
   const [thingsToCarry, setThingsToCarry] = useState<string[]>([]);
+  const [paymentPolicy, setPaymentPolicy] = useState<string[]>([]);
+  const [cancellationPolicy, setCancellationPolicy] = useState<string[]>([]);
+  const [flightCancellationPolicy, setFlightCancellationPolicy] = useState<string[]>([]);
 
   // Trip details
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([
@@ -280,6 +283,7 @@ export default function NewCustomItineraryPage() {
         priceUnit,
         showOnDestination,
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
+        paymentPolicy, cancellationPolicy, flightCancellationPolicy,
         paymentConfig: { mode: paymentMode, depositType, depositValue: Number(depositValue) || 30, depositLabel: depositLabel.trim() || undefined, balanceDueDays: Number(balanceDueDays) || 30 },
         itinerary: itinerary.filter((d) => d.title).map((d) => ({ day: d.day, title: d.title, description: d.description, activities: d.activities, meals: d.meals, accommodation: d.accommodation, images: d.images })),
         stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
@@ -305,6 +309,7 @@ export default function NewCustomItineraryPage() {
     { id: "media", label: "Media" },
     { id: "tripdetails", label: "Trip Details" },
     { id: "content", label: "Inclusions & More" },
+    { id: "policies", label: "Policies" },
   ];
 
   return (
@@ -849,7 +854,17 @@ export default function NewCustomItineraryPage() {
             <TemplateControls label="Know Before You Go" category="knowBeforeYouGo" items={knowBeforeYouGo} onChange={setKnowBeforeYouGo} />
             <ListInput label="Know Before You Go" items={knowBeforeYouGo} onChange={setKnowBeforeYouGo} placeholder="e.g. Valid passport required" />
             <TemplateControls label="Things to Carry" category="thingsToCarry" items={thingsToCarry} onChange={setThingsToCarry} />
-            <ListInput label="Things to Carry" items={thingsToCarry} onChange={setThingsToCarry} placeholder="e.g. Sunscreen SPF 50+" />
+            <ListInput label="Things to Carry" items={thingsToCarry} onChange={setThingsToCarry} placeholder="e.g. Comfortable walking shoes" />
+          </div>
+        )}
+
+        {/* === POLICIES === */}
+        {activeTab === "policies" && (
+          <div className="space-y-8 bg-white p-6 rounded-xl border border-slate-200">
+            <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">Booking & Cancellation Policies</h3>
+            <ListInput label="Payment Policy" items={paymentPolicy} onChange={setPaymentPolicy} placeholder="e.g. 50% advance to confirm booking" />
+            <ListInput label="Cancellation Policy" items={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation up to 30 days before departure" />
+            <ListInput label="Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
           </div>
         )}
 
