@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
@@ -362,6 +362,14 @@ export default function EditPackagePage() {
     updated[index] = { ...updated[index], [field]: value };
     setItinerary(updated);
   }
+  function moveItineraryDay(index: number, direction: 'up' | 'down') {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === itinerary.length - 1) return;
+    const newItinerary = [...itinerary];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    [newItinerary[index], newItinerary[swapIndex]] = [newItinerary[swapIndex], newItinerary[index]];
+    setItinerary(newItinerary.map((d, i) => ({ ...d, day: i + 1 })));
+  }
 
   function handleTabChange(tabId: string) {
     setActiveTab(tabId);
@@ -393,6 +401,14 @@ export default function EditPackagePage() {
     updated[index] = { ...updated[index], [field]: value };
     setStays(updated);
   }
+  function moveStay(index: number, direction: 'up' | 'down') {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === stays.length - 1) return;
+    const newStays = [...stays];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    [newStays[index], newStays[swapIndex]] = [newStays[swapIndex], newStays[index]];
+    setStays(newStays);
+  }
 
   // Transfers helpers
   function addTransfer() {
@@ -405,6 +421,14 @@ export default function EditPackagePage() {
     const updated = [...transfers];
     updated[index] = { ...updated[index], [field]: value };
     setTransfers(updated);
+  }
+  function moveTransfer(index: number, direction: 'up' | 'down') {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === transfers.length - 1) return;
+    const newTransfers = [...transfers];
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    [newTransfers[index], newTransfers[swapIndex]] = [newTransfers[swapIndex], newTransfers[index]];
+    setTransfers(newTransfers);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -851,9 +875,13 @@ export default function EditPackagePage() {
                       <div key={day.day} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Day {day.day}</span>
-                          {itinerary.length > 1 && (
-                            <button type="button" onClick={() => removeItineraryDay(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {i > 0 && <button type="button" onClick={() => moveItineraryDay(i, 'up')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowUp size={14} /></button>}
+                            {i < itinerary.length - 1 && <button type="button" onClick={() => moveItineraryDay(i, 'down')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowDown size={14} /></button>}
+                            {itinerary.length > 1 && (
+                              <button type="button" onClick={() => removeItineraryDay(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                            )}
+                          </div>
                         </div>
                         <input type="text" value={day.title} onChange={(e) => updateItinerary(i, "title", e.target.value)} placeholder="Day title (e.g. Arrival & City Tour)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         <textarea value={day.description} onChange={(e) => updateItinerary(i, "description", e.target.value)} placeholder="What happens this day..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
@@ -893,7 +921,11 @@ export default function EditPackagePage() {
                       <div key={stay._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Stay {i + 1}</span>
-                          <button type="button" onClick={() => removeStay(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          <div className="flex items-center gap-1">
+                            {i > 0 && <button type="button" onClick={() => moveStay(i, 'up')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowUp size={14} /></button>}
+                            {i < stays.length - 1 && <button type="button" onClick={() => moveStay(i, 'down')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowDown size={14} /></button>}
+                            <button type="button" onClick={() => removeStay(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          </div>
                         </div>
                         <input type="text" value={stay.name} onChange={(e) => updateStay(i, "name", e.target.value)} placeholder="Hotel/Resort name" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         <div className="grid grid-cols-3 gap-3">
@@ -940,7 +972,11 @@ export default function EditPackagePage() {
                       <div key={transfer._key} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-cyan-700">Transfer {i + 1}</span>
-                          <button type="button" onClick={() => removeTransfer(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          <div className="flex items-center gap-1">
+                            {i > 0 && <button type="button" onClick={() => moveTransfer(i, 'up')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowUp size={14} /></button>}
+                            {i < transfers.length - 1 && <button type="button" onClick={() => moveTransfer(i, 'down')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowDown size={14} /></button>}
+                            <button type="button" onClick={() => removeTransfer(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          </div>
                         </div>
                         <input type="text" value={transfer.title} onChange={(e) => updateTransfer(i, "title", e.target.value)} placeholder="Transfer title (e.g. Day 2 — Sightseeing & Intercity)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         <div>
