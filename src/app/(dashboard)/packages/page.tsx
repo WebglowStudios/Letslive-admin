@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { Package } from "@/types";
+import { Package, Destination } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronLeft, ChevronRight, X, Filter } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -20,8 +20,12 @@ export default function PackagesPage() {
   const destNameFilter = searchParams.get("destName") || "";
 
   const [packages, setPackages] = useState<Package[]>([]);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDestination, setSelectedDestination] = useState<string>(destinationFilter || "all");
+  const [approvalFilter, setApprovalFilter] = useState<string>("all");
+  const [featuredFilter, setFeaturedFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -38,8 +42,14 @@ export default function PackagesPage() {
       if (search.trim()) {
         url += `&search=${encodeURIComponent(search.trim())}`;
       }
-      if (destinationFilter) {
-        url += `&destination=${encodeURIComponent(destinationFilter)}`;
+      if (selectedDestination !== "all") {
+        url += `&destination=${encodeURIComponent(selectedDestination)}`;
+      }
+      if (approvalFilter !== "all") {
+        url += `&approvalStatus=${encodeURIComponent(approvalFilter)}`;
+      }
+      if (featuredFilter !== "all") {
+        url += `&isFeatured=${encodeURIComponent(featuredFilter)}`;
       }
       const res = await api.get(url);
       setPackages(res?.data || []);
@@ -52,7 +62,14 @@ export default function PackagesPage() {
     } finally {
       setLoading(false);
     }
-  }, [destinationFilter]);
+  }, [selectedDestination, approvalFilter, featuredFilter]);
+
+  useEffect(() => {
+    // Fetch destinations for filter dropdown
+    api.get("/destinations?limit=100").then(res => {
+      setDestinations(res?.data || []);
+    }).catch(console.error);
+  }, []);
 
   useEffect(() => {
     fetchPackages(currentPage, searchQuery);
@@ -149,6 +166,44 @@ export default function PackagesPage() {
               </button>
             )}
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <Filter size={14} className="text-slate-400" />
+              <select
+                value={selectedDestination}
+                onChange={(e) => setSelectedDestination(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs font-semibold text-slate-600 cursor-pointer w-28"
+              >
+                <option value="all">All Destinations</option>
+                {destinations.map(d => (
+                  <option key={d._id} value={d._id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <select
+                value={approvalFilter}
+                onChange={(e) => setApprovalFilter(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs font-semibold text-slate-600 cursor-pointer w-24"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+              <select
+                value={featuredFilter}
+                onChange={(e) => setFeaturedFilter(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs font-semibold text-slate-600 cursor-pointer w-24"
+              >
+                <option value="all">Any Feature</option>
+                <option value="true">Featured</option>
+                <option value="false">Standard</option>
+              </select>
+            </div>
+          </div>
           {canCreate && (
             <Link href="/packages/new" className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors">
               <Plus size={16} /> Add Package
@@ -163,14 +218,10 @@ export default function PackagesPage() {
               {totalCount} package{totalCount !== 1 ? "s" : ""} total
               {searchQuery && ` matching "${searchQuery}"`}
             </p>
-            {destinationFilter && (
-              <Link
-                href="/packages"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition-colors"
-              >
-                Filtered: {destNameFilter || "destination"}
-                <X size={12} />
-              </Link>
+            {destNameFilter && selectedDestination === destinationFilter && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-semibold">
+                Destination: {destNameFilter}
+              </span>
             )}
           </div>
           <p className="text-xs text-slate-400">
