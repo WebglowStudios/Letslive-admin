@@ -11,6 +11,10 @@ export interface User {
   description?: string;
   isActive: boolean;
   isVerified?: boolean;
+  customPermissions?: {
+    permission: string;
+    expiresAt?: string;
+  }[];
   createdAt: string;
 }
 

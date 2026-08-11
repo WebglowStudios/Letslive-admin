@@ -1,4 +1,4 @@
-import { Role } from "@/types";
+import { Role, User } from "@/types";
 
 type Permission =
   | "dashboard.view"
@@ -36,7 +36,22 @@ type Permission =
   | "settings.edit"
   | "activity.view";
 
-const rolePermissions: Record<Role, Permission[]> = {
+export const ALL_PERMISSIONS: Permission[] = [
+  "dashboard.view",
+  "bookings.view", "bookings.update", "bookings.delete",
+  "destinations.view", "destinations.create", "destinations.edit", "destinations.delete",
+  "packages.view", "packages.create", "packages.edit", "packages.delete",
+  "users.view", "users.edit", "users.delete",
+  "staff.view", "staff.create", "staff.edit", "staff.delete",
+  "reviews.view", "reviews.approve", "reviews.delete",
+  "enquiries.view", "enquiries.respond", "enquiries.delete",
+  "careers.view", "careers.create", "careers.edit", "careers.delete",
+  "newsletter.view", "newsletter.export",
+  "settings.view", "settings.edit",
+  "activity.view"
+];
+
+export const rolePermissions: Record<Role, Permission[]> = {
   admin: [
     "dashboard.view",
     "bookings.view", "bookings.update", "bookings.delete",
@@ -85,8 +100,24 @@ const rolePermissions: Record<Role, Permission[]> = {
   user: [],
 };
 
-export function hasPermission(role: Role, permission: Permission): boolean {
-  return rolePermissions[role]?.includes(permission) ?? false;
+export function hasPermission(user: User | null, permission: Permission): boolean {
+  if (!user) return false;
+  
+  // 1. Check inherent role permissions
+  if (rolePermissions[user.role]?.includes(permission)) {
+    return true;
+  }
+  
+  // 2. Check active custom permissions
+  if (user.customPermissions) {
+    const custom = user.customPermissions.find((p) => p.permission === permission);
+    if (custom) {
+      if (!custom.expiresAt) return true;
+      if (new Date(custom.expiresAt) > new Date()) return true;
+    }
+  }
+  
+  return false;
 }
 
 export function getPermissions(role: Role): Permission[] {

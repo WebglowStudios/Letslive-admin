@@ -129,7 +129,7 @@ export default function Sidebar() {
           const visibleItems = section.items.filter((item) => {
             if (!item.permission) return true;
             if (!user) return false;
-            return hasPermission(user.role, item.permission as never);
+            return hasPermission(user, item.permission as never);
           });
 
           if (visibleItems.length === 0) return null;

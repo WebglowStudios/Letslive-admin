@@ -4,10 +4,11 @@ import { useEffect, useState, Fragment } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { User } from "@/types";
-import { Plus, Search, Trash2, KeyRound, Check, UserPen, X } from "lucide-react";
+import { Plus, Search, Trash2, KeyRound, Check, UserPen, Shield, X, Calendar } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission, useRole } from "@/hooks/usePermission";
+import { ALL_PERMISSIONS, rolePermissions, Permission } from "@/lib/permissions";
 import ImageUpload from "@/components/ui/ImageUpload";
 
 export default function StaffPage() {
@@ -20,6 +21,8 @@ export default function StaffPage() {
   const [editProfileId, setEditProfileId] = useState<string | null>(null);
   const [editAvatar, setEditAvatar] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editPermissionsId, setEditPermissionsId] = useState<string | null>(null);
+  const [editingPermissions, setEditingPermissions] = useState<{ permission: string; expiresAt?: string }[]>([]);
   const canCreate = usePermission("staff.create");
   const canEdit = usePermission("staff.edit");
   const currentRole = useRole();
@@ -84,6 +87,26 @@ export default function StaffPage() {
       alert("Failed to update profile");
     }
   }
+
+  async function updatePermissions(id: string) {
+    try {
+      const res = await api.put(`/admin/staff/${id}`, { customPermissions: editingPermissions });
+      if (res?.data) {
+        setStaff((prev) => prev.map((m) => m._id === id ? { ...m, customPermissions: res.data.customPermissions } : m));
+        setEditPermissionsId(null);
+      }
+    } catch {
+      alert("Failed to update permissions");
+    }
+  }
+
+  // Helper to group permissions by module (e.g., 'packages.view' -> 'packages')
+  const groupedPermissions = ALL_PERMISSIONS.reduce((acc, perm) => {
+    const module = perm.split(".")[0];
+    if (!acc[module]) acc[module] = [];
+    acc[module].push(perm);
+    return acc;
+  }, {} as Record<string, Permission[]>);
 
   const roleColors: Record<string, string> = {
     admin: "bg-purple-100 text-purple-700",
@@ -221,12 +244,27 @@ export default function StaffPage() {
                                 setEditProfileId(member._id);
                                 setEditAvatar(member.avatar || "");
                                 setEditDescription(member.description || "");
+                                setEditPermissionsId(null);
                               }}
                               className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 transition-colors"
                               title="Edit Profile Image & Description"
                             >
                               <UserPen size={15} />
                             </button>
+                            {/* Edit Permissions (Only Admin) */}
+                            {currentRole === "admin" && member.role !== "admin" && (
+                              <button
+                                onClick={() => {
+                                  setEditPermissionsId(member._id);
+                                  setEditingPermissions(member.customPermissions || []);
+                                  setEditProfileId(null);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Edit Custom Permissions"
+                              >
+                                <Shield size={15} />
+                              </button>
+                            )}
                             {/* Delete */}
                             <button
                               onClick={() => deleteUser(member._id, `${member.firstName} ${member.lastName}`)}
@@ -275,6 +313,97 @@ export default function StaffPage() {
                                   Cancel
                                 </button>
                               </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {editPermissionsId === member._id && (
+                      <tr key={`perms-${member._id}`} className="bg-slate-50 border-t border-slate-100">
+                        <td colSpan={5} className="px-6 py-6">
+                          <div className="bg-white p-6 rounded-xl border border-slate-200">
+                            <h3 className="text-sm font-bold text-slate-800 mb-4">Custom Permissions</h3>
+                            <p className="text-xs text-slate-500 mb-6">Assign temporary or permanent permissions beyond their base role.</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                              {Object.entries(groupedPermissions).map(([module, perms]) => (
+                                <div key={module}>
+                                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">{module}</h4>
+                                  <div className="space-y-3">
+                                    {perms.map((p) => {
+                                      const isIncludedInRole = rolePermissions[member.role]?.includes(p);
+                                      const customPerm = editingPermissions.find(cp => cp.permission === p);
+                                      const isChecked = isIncludedInRole || !!customPerm;
+
+                                      return (
+                                        <div key={p} className="flex flex-col gap-2 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                                          <div className="flex items-center justify-between">
+                                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                disabled={isIncludedInRole}
+                                                onChange={(e) => {
+                                                  if (e.target.checked) {
+                                                    setEditingPermissions([...editingPermissions, { permission: p }]);
+                                                  } else {
+                                                    setEditingPermissions(editingPermissions.filter(cp => cp.permission !== p));
+                                                  }
+                                                }}
+                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                              />
+                                              <span className={isIncludedInRole ? "text-slate-400" : "font-medium"}>
+                                                {p.split('.')[1]}
+                                              </span>
+                                            </label>
+                                            {isIncludedInRole && (
+                                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">In Role</span>
+                                            )}
+                                          </div>
+                                          
+                                          {customPerm && !isIncludedInRole && (
+                                            <div className="flex items-center gap-2 mt-1 pl-6">
+                                              <Calendar size={12} className="text-slate-400" />
+                                              <input
+                                                type="date"
+                                                value={customPerm.expiresAt ? new Date(customPerm.expiresAt).toISOString().split('T')[0] : ""}
+                                                onChange={(e) => {
+                                                  const newPerms = [...editingPermissions];
+                                                  const idx = newPerms.findIndex(cp => cp.permission === p);
+                                                  if (idx >= 0) {
+                                                    newPerms[idx] = { 
+                                                      ...newPerms[idx], 
+                                                      expiresAt: e.target.value ? new Date(e.target.value).toISOString() : undefined 
+                                                    };
+                                                    setEditingPermissions(newPerms);
+                                                  }
+                                                }}
+                                                className="text-xs px-2 py-1 border border-slate-200 rounded text-slate-600 focus:outline-none focus:border-indigo-500 bg-white"
+                                              />
+                                              <span className="text-[10px] text-slate-400">(Expires)</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
+                              <button
+                                onClick={() => updatePermissions(member._id)}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+                              >
+                                Save Permissions
+                              </button>
+                              <button
+                                onClick={() => setEditPermissionsId(null)}
+                                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                              >
+                                Cancel
+                              </button>
                             </div>
                           </div>
                         </td>
