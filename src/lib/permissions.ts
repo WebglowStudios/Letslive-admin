@@ -22,6 +22,7 @@ type Permission =
   | "staff.delete"
   | "reviews.view"
   | "reviews.approve"
+  | "reviews.edit"
   | "reviews.delete"
   | "enquiries.view"
   | "enquiries.respond"
@@ -43,7 +44,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "packages.view", "packages.create", "packages.edit", "packages.delete",
   "users.view", "users.edit", "users.delete",
   "staff.view", "staff.create", "staff.edit", "staff.delete",
-  "reviews.view", "reviews.approve", "reviews.delete",
+  "reviews.view", "reviews.approve", "reviews.edit", "reviews.delete",
   "enquiries.view", "enquiries.respond", "enquiries.delete",
   "careers.view", "careers.create", "careers.edit", "careers.delete",
   "newsletter.view", "newsletter.export",
@@ -59,7 +60,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "packages.view", "packages.create", "packages.edit", "packages.delete",
     "users.view", "users.edit", "users.delete",
     "staff.view", "staff.create", "staff.edit", "staff.delete",
-    "reviews.view", "reviews.approve", "reviews.delete",
+    "reviews.view", "reviews.approve", "reviews.edit", "reviews.delete",
     "enquiries.view", "enquiries.respond", "enquiries.delete",
     "careers.view", "careers.create", "careers.edit", "careers.delete",
     "newsletter.view", "newsletter.export",
@@ -72,7 +73,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "destinations.view", "destinations.create", "destinations.edit", "destinations.delete",
     "packages.view", "packages.create", "packages.edit", "packages.delete",
     "users.view", "users.edit",
-    "reviews.view", "reviews.approve", "reviews.delete",
+    "reviews.view", "reviews.approve", "reviews.edit", "reviews.delete",
     "enquiries.view", "enquiries.respond",
     "careers.view", "careers.create", "careers.edit", "careers.delete",
     "newsletter.view",
@@ -83,7 +84,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "bookings.view", "bookings.update",
     "destinations.view", "destinations.create", "destinations.edit",
     "packages.view", "packages.create", "packages.edit",
-    "reviews.view",
+    "reviews.view", "reviews.edit",
     "enquiries.view", "enquiries.respond",
     "careers.view",
     "activity.view",

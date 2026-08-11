@@ -80,7 +80,8 @@ export interface Booking {
 
 export interface Review {
   _id: string;
-  user: { _id: string; firstName: string; lastName: string; avatar?: string } | string;
+  user?: { _id: string; firstName: string; lastName: string; avatar?: string } | string;
+  reviewerName?: string;
   package: { _id: string; name: string; slug?: string } | string;
   destination?: { _id: string; name: string } | string;
   rating: number;
