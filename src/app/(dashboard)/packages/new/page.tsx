@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown, Download } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
@@ -12,6 +12,8 @@ import TemplateControls from "@/components/ui/TemplateControls";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
 import MealPicker from "@/components/ui/MealPicker";
 import TextTemplateControls from "@/components/ui/TextTemplateControls";
+import { DayTemplateModal } from "@/components/ui/DayTemplateModal";
+import { SaveDayTemplateModal } from "@/components/ui/SaveDayTemplateModal";
 
 interface ItineraryDay {
   day: number;
@@ -67,6 +69,12 @@ export default function NewPackagePage() {
   const [hotelRating, setHotelRating] = useState("");
   const [category, setCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
+
+  const [showDayTemplateModal, setShowDayTemplateModal] = useState(false);
+  const [loadTemplateDayIndex, setLoadTemplateDayIndex] = useState<number | null>(null);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [saveTemplateDayData, setSaveTemplateDayData] = useState<any>(null);
+
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [discount, setDiscount] = useState("");
@@ -697,7 +705,11 @@ export default function NewPackagePage() {
                     {itinerary.map((day, i) => (
                       <div key={day.day} className="border border-slate-200 rounded-xl p-4 space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-cyan-700">Day {day.day}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-cyan-700">Day {day.day}</span>
+                            <button type="button" onClick={() => { setLoadTemplateDayIndex(i); setShowDayTemplateModal(true); }} className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-md transition-colors border border-indigo-100 flex items-center gap-1"><Download size={12}/> Load Template</button>
+                            <button type="button" onClick={() => { setSaveTemplateDayData(day); setShowSaveTemplateModal(true); }} className="text-[11px] font-semibold text-teal-600 hover:text-teal-800 bg-teal-50 px-2 py-1 rounded-md transition-colors border border-teal-100 flex items-center gap-1"><Save size={12}/> Save Template</button>
+                          </div>
                           <div className="flex items-center gap-1">
                             {i > 0 && <button type="button" onClick={() => moveItineraryDay(i, 'up')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowUp size={14} /></button>}
                             {i < itinerary.length - 1 && <button type="button" onClick={() => moveItineraryDay(i, 'down')} className="p-1 text-slate-400 hover:text-cyan-600"><ArrowDown size={14} /></button>}
@@ -1119,6 +1131,30 @@ export default function NewPackagePage() {
           </div>
         </form>
       </div>
+
+      <DayTemplateModal
+        open={showDayTemplateModal}
+        onClose={() => { setShowDayTemplateModal(false); setLoadTemplateDayIndex(null); }}
+        onSelect={(template) => {
+          if (loadTemplateDayIndex !== null) {
+            updateItinerary(loadTemplateDayIndex, "title", template.title || "");
+            updateItinerary(loadTemplateDayIndex, "description", template.description || "");
+            updateItinerary(loadTemplateDayIndex, "activities", template.activities || []);
+            updateItinerary(loadTemplateDayIndex, "meals", template.meals || []);
+            updateItinerary(loadTemplateDayIndex, "accommodation", template.accommodation || "");
+            updateItinerary(loadTemplateDayIndex, "images", template.images || []);
+          }
+          setShowDayTemplateModal(false);
+          setLoadTemplateDayIndex(null);
+        }}
+      />
+      {saveTemplateDayData && (
+        <SaveDayTemplateModal
+          open={showSaveTemplateModal}
+          onClose={() => { setShowSaveTemplateModal(false); setSaveTemplateDayData(null); }}
+          dayData={saveTemplateDayData}
+        />
+      )}
     </RoleGuard>
   );
 }
