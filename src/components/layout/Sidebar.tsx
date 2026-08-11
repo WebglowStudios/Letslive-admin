@@ -22,6 +22,8 @@ import {
   TrendingUp,
   KanbanSquare,
   BadgeDollarSign,
+  Info,
+  Image,
 } from "lucide-react";
 
 import { getInitials } from "@/lib/utils";
@@ -57,6 +59,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Destinations", href: "/destinations", icon: <MapPin size={20} />, permission: "destinations.view" },
       { label: "Packages", href: "/packages", icon: <Package size={20} />, permission: "packages.view" },
+      { label: "About Page", href: "/about", icon: <Info size={20} />, permission: "settings.view" },
+      { label: "Gallery", href: "/gallery", icon: <Image size={20} />, permission: "settings.view" },
       { label: "Careers", href: "/careers", icon: <Briefcase size={20} />, permission: "careers.view" },
       { label: "Applications", href: "/applications", icon: <Briefcase size={20} />, permission: "careers.edit" },
     ],
