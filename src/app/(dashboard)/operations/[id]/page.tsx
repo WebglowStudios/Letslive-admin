@@ -89,11 +89,14 @@ export default function OperationDetailPage() {
       
       let itinerary = [];
       let transferSummary = "";
+      let hasPolicies = false;
       if (op?.package?.slug) {
         try {
           const pkgRes = await api.get(`/packages/${op.package.slug}`);
-          itinerary = pkgRes.data?.itinerary || [];
-          transferSummary = pkgRes.data?.transferSummary || "";
+          const pd = pkgRes.data;
+          itinerary = pd?.itinerary || [];
+          transferSummary = pd?.transferSummary || "";
+          hasPolicies = (pd?.paymentPolicy?.length > 0) || (pd?.cancellationPolicy?.length > 0) || (pd?.flightCancellationPolicy?.length > 0);
         } catch (e) {
           console.warn("Could not fetch full package itinerary for voucher");
         }
@@ -112,6 +115,8 @@ export default function OperationDetailPage() {
         transports: transports.filter((t) => t.type !== "flight"),
         itinerary,
         transferSummary,
+        packageSlug: op?.package?.slug || "",
+        hasPolicies,
       });
 
     } catch (err) {

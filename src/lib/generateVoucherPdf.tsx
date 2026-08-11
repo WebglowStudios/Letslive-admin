@@ -8,6 +8,7 @@ import {
   pdf,
   Svg,
   Path,
+  Link,
 } from "@react-pdf/renderer";
 
 // ─── Brand palette ────────────────────────────────────────────────────────
@@ -55,6 +56,8 @@ export interface VoucherData {
   transports: any[];
   itinerary: any[];
   transferSummary?: string;
+  packageSlug?: string;
+  hasPolicies?: boolean;
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
@@ -323,6 +326,22 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                   </View>
                 </View>
               ))}
+            </View>
+          </View>
+        )}
+
+        {/* IMPORTANT POLICIES LINK */}
+        {data.hasPolicies && data.packageSlug && (
+          <View style={s.sectionWrapper} wrap={false}>
+            <View style={s.sectionHeader}>
+              <Icon d={ICONS.check} color={C.gn3} size={14} />
+              <Text style={s.sectionTitle}>IMPORTANT POLICIES</Text>
+            </View>
+            <View style={[s.transportBox, { paddingVertical: 14 }]}>
+              <Text style={{ fontSize: 9, color: C.ink2, lineHeight: 1.6 }}>
+                For Payment, Cancellation, and Flight Cancellation policies, please refer to the detailed policies section on your package page online:{" "}
+                <Link src={`https://letslivetours.com/packages/${data.packageSlug}`} style={{ color: C.gn3, textDecoration: "none" }}>Click here to view Policies</Link>
+              </Text>
             </View>
           </View>
         )}

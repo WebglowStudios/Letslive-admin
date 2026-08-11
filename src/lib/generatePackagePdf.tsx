@@ -8,6 +8,7 @@ import {
   pdf,
   Svg,
   Path,
+  Link,
 } from "@react-pdf/renderer";
 
 // ─── Brand palette (mirrors globals.css tokens) ───────────────────────────────
@@ -98,6 +99,7 @@ interface PackageData {
   stays?: Stay[]; transfers?: Transfer[];
   flights?: Flight[];
   knowBeforeYouGo?: string[]; thingsToCarry?: string[];
+  paymentPolicy?: string[]; cancellationPolicy?: string[]; flightCancellationPolicy?: string[];
   images?: string[]; heroImage?: string;
   destinationImages?: string[]; stayImages?: string[]; activityImages?: string[];
   isCustom?: boolean; clientName?: string; clientEmail?: string; clientPhone?: string;
@@ -1413,6 +1415,31 @@ const ThingsToCarrySection = ({ pkg }: { pkg: PackageData }) => {
   );
 };
 
+// ─── Important Policies Link ──────────────────────────────────────────────────
+const PoliciesLinkSection = ({ pkg }: { pkg: PackageData }) => {
+  const hasPolicies = (pkg.paymentPolicy && pkg.paymentPolicy.length > 0) ||
+                      (pkg.cancellationPolicy && pkg.cancellationPolicy.length > 0) ||
+                      (pkg.flightCancellationPolicy && pkg.flightCancellationPolicy.length > 0);
+  if (!hasPolicies) return null;
+
+  const url = `https://letslivetours.com/packages/${pkg.slug}`;
+
+  return (
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false}>
+        <SectionTitle title="Important Policies" />
+        <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 8 }}>
+          <View style={s.carryDot} />
+          <Text style={s.carryText}>
+            For Payment, Cancellation, and Flight Cancellation policies, please refer to the detailed policies section on your package page online:{" "}
+            <Link src={url} style={{ color: C.gn3, textDecoration: "none" }}>Click here to view Policies</Link>
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 // ─── Pricing & CTA ────────────────────────────────────────────────────────────
 const PricingSection = ({ pkg }: { pkg: PackageData }) => (
   <View wrap={false} style={{ marginBottom: 20 }}>
@@ -1468,6 +1495,7 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       <InclusionsExclusionsSection pkg={pkg} />
       <KnowBeforeYouGoSection pkg={pkg} />
       <ThingsToCarrySection pkg={pkg} />
+      <PoliciesLinkSection pkg={pkg} />
       <PricingSection pkg={pkg} />
       
       <PageFooter />
