@@ -224,20 +224,34 @@ export default function NewCustomItineraryPage() {
     setItinerary(newItinerary.map((d, i) => ({ ...d, day: i + 1 })));
   }
 
-  // Auto-generate itinerary day blocks to match durationDays when switching to Trip Details tab
+  // Auto-generate itinerary and transfer day blocks to match durationDays when switching to Trip Details tab
   function handleTabChange(tabId: string) {
     setActiveTab(tabId);
     if (tabId === "tripdetails") {
       const days = parseInt(durationDays, 10);
-      if (days > 0 && itinerary.length !== days) {
-        if (days > itinerary.length) {
-          const extras = Array.from({ length: days - itinerary.length }, (_, i) => ({
-            day: itinerary.length + i + 1, title: "", description: "",
-            activities: [], meals: [], accommodation: "", images: [],
-          }));
-          setItinerary((prev) => [...prev, ...extras]);
-        } else {
-          setItinerary((prev) => prev.slice(0, days).map((d, i) => ({ ...d, day: i + 1 })));
+      if (days > 0) {
+        if (itinerary.length !== days) {
+          if (days > itinerary.length) {
+            const extras = Array.from({ length: days - itinerary.length }, (_, i) => ({
+              day: itinerary.length + i + 1, title: "", description: "",
+              activities: [], meals: [], accommodation: "", images: [],
+            }));
+            setItinerary((prev) => [...prev, ...extras]);
+          } else {
+            setItinerary((prev) => prev.slice(0, days).map((d, i) => ({ ...d, day: i + 1 })));
+          }
+        }
+        if (transfers.length !== days) {
+          if (days > transfers.length) {
+            const extraTransfers = Array.from({ length: days - transfers.length }, (_, i) => ({
+              _key: Date.now() + i, title: "", description: "", transferType: "Shared Transfer", vehicleType: "", 
+              from: "", to: "", stops: [], legs: [{ from: "", to: "", stops: [], transferType: "Shared Transfer", vehicleType: "" }], 
+              day: transfers.length + i + 1, details: [], images: []
+            }));
+            setTransfers((prev) => [...prev, ...extraTransfers]);
+          } else {
+            setTransfers((prev) => prev.slice(0, days).map((t, i) => ({ ...t, day: i + 1 })));
+          }
         }
       }
     }
@@ -786,6 +800,7 @@ export default function NewCustomItineraryPage() {
                               <select value={leg.transferType} onChange={(e) => { const u = [...transfers]; const legs = [...u[i].legs]; legs[li] = { ...legs[li], transferType: e.target.value }; u[i] = { ...u[i], legs }; setTransfers(u); }} className="px-2 py-1.5 border border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500">
                                 <option value="Shared Transfer">Shared</option>
                                 <option value="Private Transfer">Private</option>
+                                <option value="No Transfer Required">No Transfer Required</option>
                                 <option value="Self Drive">Self Drive</option>
                                 <option value="Flight">Flight</option>
                                 <option value="Train">Train</option>
