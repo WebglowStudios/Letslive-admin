@@ -922,19 +922,24 @@ export default function NewPackagePage() {
                                   <option value="Ferry">Ferry</option>
                                   <option value="Walk">Walk</option>
                                 </select>
-                                <input
-                                  type="text"
-                                  value={leg.vehicleType}
-                                  onChange={(e) => {
-                                    const updated = [...transfers];
-                                    const legs = [...updated[i].legs];
-                                    legs[li] = { ...legs[li], vehicleType: e.target.value };
-                                    updated[i] = { ...updated[i], legs };
-                                    setTransfers(updated);
-                                  }}
-                                  placeholder="Vehicle (e.g. SUV, Sedan)"
-                                  className="flex-1 px-2 py-1.5 border border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                                />
+                                <div className="flex-1 flex gap-1">
+                                  <input list="vehicle-types" type="text" value={leg.vehicleType} onChange={(e) => { const updated = [...transfers]; const legs = [...updated[i].legs]; legs[li] = { ...legs[li], vehicleType: e.target.value }; updated[i] = { ...updated[i], legs }; setTransfers(updated); }} placeholder="Vehicle (e.g. SUV)" className="w-full px-2 py-1.5 border border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+                                  <datalist id="vehicle-types">
+                                    <option value="Sedan" />
+                                    <option value="SUV" />
+                                    <option value="Innova" />
+                                    <option value="Innova Crysta" />
+                                    <option value="Tempo Traveller" />
+                                    <option value="Mini Bus" />
+                                  </datalist>
+                                  <button type="button" onClick={() => {
+                                    const v = leg.vehicleType;
+                                    if (!v) return;
+                                    setTransfers(transfers.map(t => ({ ...t, legs: t.legs.map(l => ({ ...l, vehicleType: v })) })));
+                                  }} title="Apply to all transfers" className="px-2 bg-cyan-50 text-cyan-600 hover:bg-cyan-100 rounded flex items-center justify-center text-[10px] font-semibold border border-cyan-100 transition-colors whitespace-nowrap">
+                                    Apply All
+                                  </button>
+                                </div>
                               </div>
                               {/* Stops within this leg */}
                               <div className="pl-6">
