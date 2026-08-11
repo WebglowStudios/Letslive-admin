@@ -3,12 +3,18 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 async function request(endpoint: string, options: RequestInit = {}) {
   const url = `${API_URL}${endpoint}`;
 
+  const headers: any = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
+
   const res = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
     credentials: "include",
   });
 
@@ -29,10 +35,7 @@ async function request(endpoint: string, options: RequestInit = {}) {
     if (refreshRes.ok) {
       const retryRes = await fetch(url, {
         ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
+        headers,
         credentials: "include",
       });
       return retryRes.json();
@@ -55,10 +58,10 @@ async function request(endpoint: string, options: RequestInit = {}) {
 }
 
 export const api = {
-  get: (endpoint: string) => request(endpoint, { method: "GET" }),
-  post: (endpoint: string, body?: unknown) =>
-    request(endpoint, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
-  put: (endpoint: string, body?: unknown) =>
-    request(endpoint, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
-  del: (endpoint: string) => request(endpoint, { method: "DELETE" }),
+  get: (endpoint: string, options?: RequestInit) => request(endpoint, { method: "GET", ...options }),
+  post: (endpoint: string, body?: unknown, options?: RequestInit) =>
+    request(endpoint, { method: "POST", body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined), ...options }),
+  put: (endpoint: string, body?: unknown, options?: RequestInit) =>
+    request(endpoint, { method: "PUT", body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined), ...options }),
+  del: (endpoint: string, options?: RequestInit) => request(endpoint, { method: "DELETE", ...options }),
 };

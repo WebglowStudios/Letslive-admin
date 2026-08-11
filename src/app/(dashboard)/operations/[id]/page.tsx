@@ -12,7 +12,7 @@ interface Transport { _id: string; type: string; name: string; bookingRef: strin
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; package?: { _id: string; name: string; slug: string; isCustom: boolean } }; package?: { _id: string; name: string; slug: string }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -159,7 +159,7 @@ export default function OperationDetailPage() {
     { id: "overview", label: "Overview", icon: <FileText size={14} /> },
     { id: "transport", label: `Transport (${transports.length})`, icon: <Truck size={14} /> },
     { id: "accommodation", label: `Stay (${accommodations.length})`, icon: <Home size={14} /> },
-    { id: "activities", label: `Activities (${activities.length})`, icon: <Compass size={14} /> },
+    { id: "activities", label: `Itinerary Days (${activities.length})`, icon: <Compass size={14} /> },
     { id: "payments", label: `Payments (${customerPayments.length})`, icon: <CreditCard size={14} /> },
     { id: "pnl", label: "P&L", icon: <TrendingUp size={14} /> },
   ];
@@ -187,42 +187,68 @@ export default function OperationDetailPage() {
 
       {/* OVERVIEW */}
       {tab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p><p className="text-sm font-semibold text-slate-800">{op.customer.name}</p><p className="text-xs text-slate-500">{op.customer.email} | {op.customer.phone}</p><p className="text-xs text-slate-400 mt-1">{op.customer.pax} pax</p></div>
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
-            <p className="text-sm font-semibold text-slate-800">{op.destination}</p>
-            <p className="text-xs text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"} → {op.travelDates?.end ? formatDate(op.travelDates.end) : "—"}</p>
-            {op.booking && (
-              <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-                <p className="text-xs text-slate-500">Booking: <Link href={`/bookings/${op.booking._id}`} className="font-semibold text-slate-700 hover:text-cyan-600">{op.booking.bookingId}</Link></p>
-                {op.booking.package && (
-                  op.booking.package.isCustom ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={op.booking.package.name}>Itinerary: {op.booking.package.name}</p>
-                      <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/itinerary/${op.booking.package._id}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                        Visit
-                      </a>
-                      <Link href={`/itineraries/${op.booking.package._id}/edit`} className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1">
-                        Edit
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={op.booking.package.name}>Package: {op.booking.package.name}</p>
-                      <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/packages/${op.booking.package.slug}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                        Visit
-                      </a>
-                      <Link href={`/packages/${op.booking.package._id}/edit`} className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1">
-                        Edit
-                      </Link>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p><p className="text-sm font-semibold text-slate-800">{op.customer.name}</p><p className="text-xs text-slate-500">{op.customer.email} | {op.customer.phone}</p><p className="text-xs text-slate-400 mt-1">{op.customer.pax} pax</p></div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
+              <p className="text-sm font-semibold text-slate-800">{op.destination}</p>
+              <p className="text-xs text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"} → {op.travelDates?.end ? formatDate(op.travelDates.end) : "—"}</p>
+              {op.booking && (
+                <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
+                  <p className="text-xs text-slate-500">Booking: <Link href={`/bookings/${op.booking._id}`} className="font-semibold text-slate-700 hover:text-cyan-600">{op.booking.bookingId}</Link></p>
+                  {op.booking.package && (
+                    op.booking.package.isCustom ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={op.booking.package.name}>Itinerary: {op.booking.package.name}</p>
+                        <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/itinerary/${op.booking.package._id}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          Visit
+                        </a>
+                        <Link href={`/itineraries/${op.booking.package._id}/edit`} className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          Edit
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={op.booking.package.name}>Package: {op.booking.package.name}</p>
+                        <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/packages/${op.booking.package.slug}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          Visit
+                        </a>
+                        <Link href={`/packages/${op.booking.package._id}/edit`} className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          Edit
+                        </Link>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p><div className="flex justify-between"><div><p className="text-xs text-slate-500">Selling</p><p className="text-lg font-bold text-slate-800">{formatCurrency(op.sellingPrice)}</p></div><div className="text-right"><p className="text-xs text-slate-500">Profit</p><p className={`text-lg font-bold ${op.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatCurrency(op.grossProfit)}</p></div></div><button onClick={recalculate} className="mt-3 text-[10px] text-cyan-600 font-semibold hover:underline">Recalculate</button></div>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p><div className="flex justify-between"><div><p className="text-xs text-slate-500">Selling</p><p className="text-lg font-bold text-slate-800">{formatCurrency(op.sellingPrice)}</p></div><div className="text-right"><p className="text-xs text-slate-500">Profit</p><p className={`text-lg font-bold ${op.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatCurrency(op.grossProfit)}</p></div></div><button onClick={recalculate} className="mt-3 text-[10px] text-cyan-600 font-semibold hover:underline">Recalculate</button></div>
+          
+          {op.booking?.package?.description && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Package Description</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{op.booking.package.description}</p>
+            </div>
+          )}
+          
+          {op.booking?.package?.itinerary && op.booking.package.itinerary.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Package Itinerary ({op.booking.package.itinerary.length} Days)</p>
+              <div className="space-y-4">
+                {op.booking.package.itinerary.map((day: any, i: number) => (
+                  <div key={i} className="border-l-2 border-cyan-300 pl-4 py-1">
+                    <p className="text-xs font-bold text-slate-800">Day {day.day}: {day.title}</p>
+                    {day.description && <p className="text-xs text-slate-600 mt-1">{day.description}</p>}
+                    {day.activities && day.activities.length > 0 && (
+                      <p className="text-[10px] text-slate-500 mt-1.5 font-medium bg-slate-50 px-2 py-1 rounded inline-block">Activities: {day.activities.join(', ')}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -331,10 +357,10 @@ export default function OperationDetailPage() {
       {tab === "activities" && (
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <p className="text-sm font-semibold text-slate-700">{activities.length} activit{activities.length===1?"y":"ies"}</p>
+            <p className="text-sm font-semibold text-slate-700">{activities.length} Itinerary Day(s)</p>
             <div className="flex gap-2">
               {op.package && activities.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/activities`, {}); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Activity</button>
+              <button onClick={async () => { await api.post(`/operations/${id}/activities`, {}); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Day Expense</button>
             </div>
           </div>
           {op.package && activities.length === 0 && (
@@ -343,7 +369,7 @@ export default function OperationDetailPage() {
                 <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Wand2 size={16} /></div>
                 <div>
                   <p className="text-sm font-bold text-blue-900">Import from Itinerary</p>
-                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill activities.</p>
+                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill itinerary days.</p>
                 </div>
               </div>
               <button onClick={importFromItinerary} disabled={importing} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors">
@@ -353,13 +379,13 @@ export default function OperationDetailPage() {
           )}
           {activities.map((a, idx) => (
             <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">Activity #{idx+1}</span><div className="flex gap-2"><button onClick={() => saveItem("activities", a._id, activities[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button><button onClick={() => delItem("activities", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
+              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">Day #{idx+1} Expense</span><div className="flex gap-2"><button onClick={() => saveItem("activities", a._id, activities[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button><button onClick={() => delItem("activities", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Title</label><Inp value={a.title} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],title:v};setActivities(u);}} placeholder="Desert Safari, City Tour..." /></div>
+                <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Day Title</label><Inp value={a.title} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],title:v};setActivities(u);}} placeholder="Arrival & City Tour" /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Date</label><Inp type="date" value={a.date?.split("T")[0]||""} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],date:v};setActivities(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Duration</label><Inp value={a.duration} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],duration:v};setActivities(u);}} placeholder="4 hours" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],tripDay:v};setActivities(u);}} placeholder="Day 2" /></div>
-                <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Description</label><Inp value={a.description} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],description:v};setActivities(u);}} /></div>
+                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Duration</label><Inp value={a.duration} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],duration:v};setActivities(u);}} placeholder="Full day" /></div>
+                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],tripDay:v};setActivities(u);}} placeholder="Day 1" /></div>
+                <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Activities / Description</label><Inp value={a.description} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],description:v};setActivities(u);}} /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setActivities(u);}} vendors={vendorList} filterType="activity" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v};setActivities(u);}} />}</div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorCost:Number(v)};setActivities(u);}} /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],sellingPrice:Number(v)};setActivities(u);}} /></div>
@@ -367,7 +393,7 @@ export default function OperationDetailPage() {
               </div>
             </div>
           ))}
-          {activities.length===0&&<div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No activities yet.</div>}
+          {activities.length===0&&<div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No itinerary days yet.</div>}
         </div>
       )}
 

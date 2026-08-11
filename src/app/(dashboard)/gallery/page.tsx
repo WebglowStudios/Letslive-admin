@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import api from "@/lib/api";
+import { api } from "@/lib/api";
 import { Loader2, Plus, Trash2, Eye, EyeOff, Save } from "lucide-react";
 
 interface GalleryImage {
@@ -69,7 +69,7 @@ export default function GalleryCMSPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this image?")) return;
     try {
-      await api.delete(`/gallery/${id}`);
+      await api.del(`/gallery/${id}`);
       setImages(prev => prev.filter(img => img._id !== id));
     } catch (error) {
       console.error("Delete failed", error);
