@@ -1195,9 +1195,21 @@ export default function EditPackagePage() {
           {activeTab === "policies" && (
             <div className="space-y-8 bg-white p-6 rounded-xl border border-slate-200">
               <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">Booking & Cancellation Policies</h3>
-              <ListInput label="Payment Policy" items={paymentPolicy} onChange={setPaymentPolicy} placeholder="e.g. 50% advance to confirm booking" />
-              <ListInput label="Cancellation Policy" items={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation up to 30 days before departure" />
-              <ListInput label="Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
+              
+              <div className="space-y-4">
+                <TemplateControls label="Payment Policy" category="paymentPolicy" items={paymentPolicy} onChange={setPaymentPolicy} />
+                <ListInput label="Payment Policy" items={paymentPolicy} onChange={setPaymentPolicy} placeholder="e.g. 50% advance to confirm booking" />
+              </div>
+
+              <div className="space-y-4">
+                <TemplateControls label="Cancellation Policy" category="cancellationPolicy" items={cancellationPolicy} onChange={setCancellationPolicy} />
+                <ListInput label="Cancellation Policy" items={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation up to 30 days before departure" />
+              </div>
+
+              <div className="space-y-4">
+                <TemplateControls label="Flight Cancellation Policy" category="flightCancellationPolicy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} />
+                <ListInput label="Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
+              </div>
             </div>
           )}
 
