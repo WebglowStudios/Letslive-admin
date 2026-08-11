@@ -29,6 +29,7 @@ interface BookingDetail {
   totalAmount: number;
   paidAmount: number;
   paymentStatus: string;
+  paymentFinanceStatus?: string;
   bookingStatus: string;
   specialRequests?: string;
   paymentHistory: { amount: number; method: string; transactionId?: string; date: string; status: string }[];
@@ -101,9 +102,20 @@ export default function BookingDetailPage() {
   }
 
   async function updatePayment(paymentStatus: string) {
+    let payload: any = { paymentStatus };
+    if (paymentStatus === 'paid' || paymentStatus === 'partial') {
+      const mode = window.prompt("Enter Payment Mode (e.g., UPI, Cash, NEFT):", "");
+      if (mode === null) return;
+      const txId = window.prompt("Enter Transaction ID (optional):", "");
+      if (txId === null) return;
+      const remarks = window.prompt("Enter Remarks (optional):", "");
+      if (remarks === null) return;
+      payload.financeDetails = { mode, transactionId: txId, remarks };
+    }
+    
     setUpdatingPayment(true);
     try {
-      await api.put(`/bookings/${id}/status`, { paymentStatus });
+      await api.put(`/bookings/${id}/status`, payload);
       fetchBooking();
     } catch { alert("Failed to update payment status"); }
     finally { setUpdatingPayment(false); }
@@ -172,16 +184,23 @@ export default function BookingDetailPage() {
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-slate-400 font-medium uppercase">Payment</label>
-                    <select
-                      value={booking.paymentStatus}
-                      onChange={(e) => updatePayment(e.target.value)}
-                      disabled={updatingPayment}
-                      className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      {["pending", "partial", "paid", "refunded"].map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={booking.paymentStatus}
+                        onChange={(e) => updatePayment(e.target.value)}
+                        disabled={updatingPayment || booking.paymentFinanceStatus === 'pending_approval'}
+                        className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        {["pending", "partial", "paid", "refunded"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      {booking.paymentFinanceStatus === 'pending_approval' && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded-full whitespace-nowrap">
+                          Pending Approval
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </>
               )}

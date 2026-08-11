@@ -21,6 +21,7 @@ import {
   LogOut,
   TrendingUp,
   KanbanSquare,
+  BadgeDollarSign,
 } from "lucide-react";
 
 import { getInitials } from "@/lib/utils";
@@ -48,6 +49,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Pipeline", href: "/enquiries/pipeline", icon: <KanbanSquare size={20} />, permission: "enquiries.view" },
       { label: "Custom Itineraries", href: "/itineraries", icon: <MapPin size={20} />, permission: "packages.view" },
       { label: "Post-Sales Ops", href: "/operations", icon: <TrendingUp size={20} />, permission: "bookings.view" },
+      { label: "Finance Approvals", href: "/finance-approvals", icon: <BadgeDollarSign size={20} />, permission: "finance.approve" },
     ],
   },
   {

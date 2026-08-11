@@ -35,7 +35,8 @@ type Permission =
   | "newsletter.export"
   | "settings.view"
   | "settings.edit"
-  | "activity.view";
+  | "activity.view"
+  | "finance.approve";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "dashboard.view",
@@ -49,7 +50,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "careers.view", "careers.create", "careers.edit", "careers.delete",
   "newsletter.view", "newsletter.export",
   "settings.view", "settings.edit",
-  "activity.view"
+  "activity.view", "finance.approve"
 ];
 
 export const rolePermissions: Record<Role, Permission[]> = {
@@ -65,7 +66,7 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "careers.view", "careers.create", "careers.edit", "careers.delete",
     "newsletter.view", "newsletter.export",
     "settings.view", "settings.edit",
-    "activity.view",
+    "activity.view", "finance.approve",
   ],
   manager: [
     "dashboard.view",
