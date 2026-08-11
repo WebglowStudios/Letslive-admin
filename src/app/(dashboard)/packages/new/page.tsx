@@ -993,6 +993,30 @@ export default function NewPackagePage() {
                                       }
                                     }}
                                   />
+                                  {(() => {
+                                    const matched = itinerary.find((d) => d.day === transfer.day && transfer.day > 0);
+                                    if (matched && matched.activities && matched.activities.length > 0) {
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...transfers];
+                                            const legs = [...updated[i].legs];
+                                            const newStops = matched.activities.filter(a => !legs[li].stops.includes(a));
+                                            if (newStops.length === 0) return;
+                                            legs[li] = { ...legs[li], stops: [...legs[li].stops, ...newStops] };
+                                            updated[i] = { ...updated[i], legs };
+                                            setTransfers(updated);
+                                          }}
+                                          className="ml-1 px-2 py-1 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded text-[11px] font-medium hover:bg-cyan-100 transition-colors whitespace-nowrap"
+                                          title="Fetch itinerary activities as route stops"
+                                        >
+                                          + Fetch Activities
+                                        </button>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               </div>
                             </div>

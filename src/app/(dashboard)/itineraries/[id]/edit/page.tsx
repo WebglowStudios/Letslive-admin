@@ -708,6 +708,69 @@ export default function EditCustomItineraryPage() {
                                 </button>
                               </div>
                             </div>
+                            {/* Stops within this leg */}
+                            <div className="pl-6">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {leg.stops.map((stop, si) => (
+                                  <span key={si} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded text-[11px] text-slate-600">
+                                    {stop}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...transfers];
+                                        const legs = [...updated[i].legs];
+                                        legs[li] = { ...legs[li], stops: legs[li].stops.filter((_, idx) => idx !== si) };
+                                        updated[i] = { ...updated[i], legs };
+                                        setTransfers(updated);
+                                      }}
+                                      className="text-slate-400 hover:text-red-500 ml-0.5"
+                                    >×</button>
+                                  </span>
+                                ))}
+                                <input
+                                  type="text"
+                                  placeholder="+ stop (Enter)"
+                                  className="w-28 px-2 py-1 border border-dashed border-slate-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      const val = (e.target as HTMLInputElement).value.trim();
+                                      if (!val) return;
+                                      const updated = [...transfers];
+                                      const legs = [...updated[i].legs];
+                                      legs[li] = { ...legs[li], stops: [...legs[li].stops, val] };
+                                      updated[i] = { ...updated[i], legs };
+                                      setTransfers(updated);
+                                      (e.target as HTMLInputElement).value = "";
+                                    }
+                                  }}
+                                />
+                                {(() => {
+                                  const matched = itinerary.find((d) => d.day === transfer.day && transfer.day > 0);
+                                  if (matched && matched.activities && matched.activities.length > 0) {
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updated = [...transfers];
+                                          const legs = [...updated[i].legs];
+                                          const newStops = matched.activities.filter(a => !legs[li].stops.includes(a));
+                                          if (newStops.length === 0) return;
+                                          legs[li] = { ...legs[li], stops: [...legs[li].stops, ...newStops] };
+                                          updated[i] = { ...updated[i], legs };
+                                          setTransfers(updated);
+                                        }}
+                                        className="ml-1 px-2 py-1 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded text-[11px] font-medium hover:bg-cyan-100 transition-colors whitespace-nowrap"
+                                        title="Fetch itinerary activities as route stops"
+                                      >
+                                        + Fetch Activities
+                                      </button>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
