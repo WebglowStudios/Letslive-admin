@@ -59,6 +59,7 @@ export default function NewCustomItineraryPage() {
   const [price, setPrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [discount, setDiscount] = useState("");
+  const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
@@ -95,10 +96,18 @@ export default function NewCustomItineraryPage() {
     if (!isNaN(p) && p > 0) {
       if (originalPrice && parseFloat(originalPrice) > p) {
         const op = parseFloat(originalPrice);
-        setDiscount(Math.round(((op - p) / op) * 100).toString());
-      } else if (discount && parseFloat(discount) > 0 && parseFloat(discount) < 100) {
+        if (discountType === "percent") {
+          setDiscount(Math.round(((op - p) / op) * 100).toString());
+        } else {
+          setDiscount(Math.round(op - p).toString());
+        }
+      } else if (discount && parseFloat(discount) > 0) {
         const d = parseFloat(discount);
-        setOriginalPrice(Math.round(p / (1 - d / 100)).toString());
+        if (discountType === "percent" && d < 100) {
+          setOriginalPrice(Math.round(p / (1 - d / 100)).toString());
+        } else if (discountType === "amount") {
+          setOriginalPrice(Math.round(p + d).toString());
+        }
       }
     }
   };
@@ -108,7 +117,11 @@ export default function NewCustomItineraryPage() {
     const op = parseFloat(val);
     const p = parseFloat(price);
     if (!isNaN(op) && !isNaN(p) && op > p && p > 0) {
-      setDiscount(Math.round(((op - p) / op) * 100).toString());
+      if (discountType === "percent") {
+        setDiscount(Math.round(((op - p) / op) * 100).toString());
+      } else {
+        setDiscount(Math.round(op - p).toString());
+      }
     } else if (!val || isNaN(op)) {
       setDiscount("");
     }
@@ -118,10 +131,22 @@ export default function NewCustomItineraryPage() {
     setDiscount(val);
     const d = parseFloat(val);
     const p = parseFloat(price);
-    if (!isNaN(d) && !isNaN(p) && d > 0 && d < 100 && p > 0) {
-      setOriginalPrice(Math.round(p / (1 - d / 100)).toString());
+    if (!isNaN(d) && !isNaN(p) && d > 0 && p > 0) {
+      if (discountType === "percent" && d < 100) {
+        setOriginalPrice(Math.round(p / (1 - d / 100)).toString());
+      } else if (discountType === "amount") {
+        setOriginalPrice(Math.round(p + d).toString());
+      }
     } else if (!val || isNaN(d) || d === 0) {
       setOriginalPrice("");
+    }
+  };
+
+  const handleDiscountTypeChange = (type: "percent" | "amount") => {
+    setDiscountType(type);
+    setDiscount("");
+    if (price) {
+      setOriginalPrice(price);
     }
   };
 
@@ -247,6 +272,7 @@ export default function NewCustomItineraryPage() {
         price: Number(price) || 0,
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
+        discountType,
         isFeatured, isActive, flightsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
@@ -442,8 +468,14 @@ export default function NewCustomItineraryPage() {
                 <input type="number" value={originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="85000" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Discount %</label>
-                <input type="number" value={discount} onChange={(e) => handleDiscountChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="20" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-slate-700">Discount</label>
+                  <div className="flex bg-slate-100 rounded-md p-0.5">
+                    <button type="button" onClick={() => handleDiscountTypeChange("percent")} className={`px-2 py-0.5 text-[10px] font-bold rounded-sm transition-colors ${discountType === "percent" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>%</button>
+                    <button type="button" onClick={() => handleDiscountTypeChange("amount")} className={`px-2 py-0.5 text-[10px] font-bold rounded-sm transition-colors ${discountType === "amount" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>₹</button>
+                  </div>
+                </div>
+                <input type="number" value={discount} onChange={(e) => handleDiscountChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder={discountType === "percent" ? "20" : "5000"} />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">

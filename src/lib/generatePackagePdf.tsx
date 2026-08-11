@@ -86,7 +86,7 @@ interface PackageData {
   duration: { nights: number; days: number };
   travelDates?: { startDate?: string; endDate?: string };
   hotelRating?: string; category?: string;
-  price: number; originalPrice?: number; priceUnit?: string; discount?: number;
+  price: number; originalPrice?: number; priceUnit?: string; discount?: number; discountType?: "percent" | "amount";
   badge?: string; rating?: number; reviewCount?: number;
   highlights?: string[]; keyPoints?: string[];
   itinerary?: ItineraryDay[];
@@ -1409,7 +1409,9 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => (
       {pkg.discount && pkg.discount > 0 ? (
         <View style={s.priceCardBottom}>
           <View style={s.priceCardSavings}>
-            <Text style={s.priceCardSavingsText}>You save {pkg.discount}% on this package</Text>
+            <Text style={s.priceCardSavingsText}>
+              You save {pkg.discountType === "percent" || !pkg.discountType ? `${pkg.discount}%` : `INR ${pkg.discount?.toLocaleString("en-IN")}`} on this package
+            </Text>
           </View>
         </View>
       ) : null}
