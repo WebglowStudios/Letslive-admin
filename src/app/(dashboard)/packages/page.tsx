@@ -66,7 +66,7 @@ export default function PackagesPage() {
 
   useEffect(() => {
     // Fetch destinations for filter dropdown
-    api.get("/destinations?limit=100").then(res => {
+    api.get("/destinations?limit=100&admin=true").then(res => {
       setDestinations(res?.data || []);
     }).catch(console.error);
   }, []);

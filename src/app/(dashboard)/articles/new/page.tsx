@@ -30,7 +30,7 @@ export default function NewArticlePage() {
   const [isPublished, setIsPublished] = useState(false);
 
   useEffect(() => {
-    api.get("/destinations?limit=100").then((res) => setDestinations(res?.data || [])).catch(() => {});
+    api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

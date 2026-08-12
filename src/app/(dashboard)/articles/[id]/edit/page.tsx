@@ -34,7 +34,7 @@ export default function EditArticlePage() {
   const [isPublished, setIsPublished] = useState(false);
 
   useEffect(() => {
-    api.get("/destinations?limit=100").then((res) => setDestinations(res?.data || [])).catch(() => {});
+    api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
     api.get(`/articles/${id}`).then((res) => {
       const a = res?.data;
       if (a) {
