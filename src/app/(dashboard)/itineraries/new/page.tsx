@@ -268,7 +268,22 @@ export default function NewCustomItineraryPage() {
   function addStay() { setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 1, checkIn: "", checkOut: "", address: "", confirmationNo: "", amenities: [] }]); }
   function removeStay(i: number) { setStays(stays.filter((_, idx) => idx !== i)); }
   function updateStay(i: number, field: string, value: unknown) {
-    const u = [...stays]; u[i] = { ...u[i], [field]: value }; setStays(u);
+    const u = [...stays]; 
+    u[i] = { ...u[i], [field]: value }; 
+    
+    // Auto-calculate checkOut date if checkIn or nights change
+    if (field === 'checkIn' || field === 'nights') {
+      const stay = u[i];
+      if (stay.checkIn && stay.nights && !isNaN(Number(stay.nights))) {
+        const checkInDate = new Date(stay.checkIn);
+        if (!isNaN(checkInDate.getTime())) {
+          checkInDate.setDate(checkInDate.getDate() + Number(stay.nights));
+          stay.checkOut = checkInDate.toISOString().split('T')[0];
+        }
+      }
+    }
+    
+    setStays(u);
   }
   function moveStay(index: number, direction: 'up' | 'down') {
     if (direction === 'up' && index === 0) return;

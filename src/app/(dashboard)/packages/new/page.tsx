@@ -33,6 +33,10 @@ interface Stay {
   roomType: string;
   rooms?: number;
   amenities: string[];
+  checkIn?: string;
+  checkOut?: string;
+  address?: string;
+  confirmationNo?: string;
 }
 
 interface Transfer {
@@ -259,6 +263,19 @@ export default function NewPackagePage() {
   function updateStay(index: number, field: string, value: unknown) {
     const updated = [...stays];
     updated[index] = { ...updated[index], [field]: value };
+    
+    // Auto-calculate checkOut date if checkIn or nights change
+    if (field === 'checkIn' || field === 'nights') {
+      const stay = updated[index];
+      if (stay.checkIn && stay.nights && !isNaN(Number(stay.nights))) {
+        const checkInDate = new Date(stay.checkIn);
+        if (!isNaN(checkInDate.getTime())) {
+          checkInDate.setDate(checkInDate.getDate() + Number(stay.nights));
+          stay.checkOut = checkInDate.toISOString().split('T')[0];
+        }
+      }
+    }
+    
     setStays(updated);
   }
   function moveStay(index: number, direction: 'up' | 'down') {
