@@ -31,6 +31,7 @@ interface Stay {
   rating: string;
   nights: number;
   roomType: string;
+  rooms?: number;
   amenities: string[];
 }
 
@@ -241,7 +242,7 @@ export default function NewPackagePage() {
             }));
             setTransfers((prev) => [...prev, ...extraTransfers]);
           } else {
-            setTransfers((prev) => prev.slice(0, days).map((t, i) => ({ ...t, day: i + 1 })));
+            setTransfers((prev) => transfers.slice(0, days).map((t, i) => ({ ...t, day: i + 1 })));
           }
         }
       }
@@ -250,7 +251,7 @@ export default function NewPackagePage() {
 
   // Stays helpers
   function addStay() {
-    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", amenities: [] }]);
+    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, amenities: [] }]);
   }
   function removeStay(index: number) {
     setStays(stays.filter((_, i) => i !== index));
@@ -363,6 +364,7 @@ export default function NewPackagePage() {
           rating: s.rating,
           nights: Number(s.nights) || 0,
           roomType: s.roomType,
+          rooms: Number(s.rooms) || 0,
           amenities: s.amenities,
         })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({
@@ -766,10 +768,11 @@ export default function NewPackagePage() {
                           </div>
                         </div>
                         <input type="text" value={stay.name} onChange={(e) => updateStay(i, "name", e.target.value)} placeholder="Hotel/Resort name" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-4 gap-3">
                           <input type="text" value={stay.rating} onChange={(e) => updateStay(i, "rating", e.target.value)} placeholder="Rating (e.g. 5-Star)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                           <input type="number" value={stay.nights || ""} onChange={(e) => updateStay(i, "nights", Number(e.target.value) || 0)} placeholder="Nights" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                           <input type="text" value={stay.roomType} onChange={(e) => updateStay(i, "roomType", e.target.value)} placeholder="Room type" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          <input type="number" value={stay.rooms || ""} onChange={(e) => updateStay(i, "rooms", Number(e.target.value) || 0)} placeholder="Rooms" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         </div>
                       </div>
                     ))}
