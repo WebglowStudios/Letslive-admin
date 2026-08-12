@@ -305,7 +305,7 @@ export default function EditPackagePage() {
         );
         setStays(
           p.stays && p.stays.length > 0
-            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string }, i: number) => ({
+            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; rooms?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string }, i: number) => ({
                 _key: Date.now() + i + 1000,
                 name: s.name || "",
                 rating: s.rating || "",
