@@ -829,7 +829,7 @@ const GallerySection = ({ pkg }: { pkg: PackageData }) => {
   ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4);
   if (imgs.length === 0) return null;
   return (
-    <View style={{ marginBottom: 20 }} break wrap={false}>
+    <View style={{ marginBottom: 20 }} wrap={false}>
       <SectionTitle title="Photo Gallery" />
       <View style={s.galleryGrid}>
         {imgs.map((img, i) => (
@@ -848,7 +848,7 @@ const OverviewSection = ({ pkg }: { pkg: PackageData }) => {
     pkg.description || pkg.highlights?.length || pkg.keyPoints?.length;
   if (!hasContent) return null;
   return (
-    <View style={{ marginBottom: 20 }} break>
+    <View style={{ marginBottom: 20 }}>
       {pkg.description && (
         <View wrap={false} style={{ marginBottom: 14 }}>
           <SectionTitle title="Overview" />
