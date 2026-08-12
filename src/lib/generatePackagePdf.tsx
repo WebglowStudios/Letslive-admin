@@ -68,6 +68,7 @@ interface ItineraryDay {
 }
 interface Stay {
   name: string; rating: string; nights: number; roomType: string; amenities: string[];
+  rooms?: number;
   checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string;
 }
 interface TransferLeg {
@@ -1301,7 +1302,7 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
             <Text style={[s.tableCell, { width: hasDateInfo ? "15%" : "20%" }]}>{stay.address || "—"}</Text>
             <Text style={[s.tableCell, { width: hasDateInfo ? "10%" : "12%" }]}>{stay.rating}</Text>
             <Text style={[s.tableCell, { width: hasDateInfo ? "8%" : "10%" }]}>{stay.nights}N</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "21%" : "33%" }]}>{stay.roomType}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "21%" : "33%" }]}>{stay.rooms ? `${stay.rooms}x ` : ''}{stay.roomType}</Text>
             {hasDateInfo && <Text style={[s.tableCell, { width: "13%" }]}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
             {hasDateInfo && <Text style={[s.tableCell, { width: "13%" }]}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
           </View>
@@ -1471,6 +1472,13 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => (
       <Text style={s.ctaSubtitle}>
         Contact us to customise dates, group size, and confirm your trip.
       </Text>
+      {pkg.slug && (
+        <Text style={{ fontSize: 9, color: C.gn3, marginTop: 4, marginBottom: 8, textAlign: "center" }}>
+          <Link src={`https://letslivetours.com/packages/${pkg.slug}`} style={{ color: C.gn3, textDecoration: "underline" }}>
+            View Full Itinerary Online
+          </Link>
+        </Text>
+      )}
       <Text style={s.ctaContact}>+91 77700 88466  ·  info@letslivetours.com</Text>
     </View>
   </View>
