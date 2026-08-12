@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Plus, Minus, Save, FolderOpen } from "lucide-react";
+import { Plus, Minus, Save, FolderOpen, Search, Trash2, Loader2 } from "lucide-react";
 
 interface Template {
   _id: string;
@@ -23,6 +23,8 @@ export default function PointListWithTemplates({ label, category, items, onChang
   const [showLoadDropdown, setShowLoadDropdown] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveLoading, setSaveLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -70,7 +72,24 @@ export default function PointListWithTemplates({ label, category, items, onChang
   function loadTemplate(template: Template) {
     onChange([...template.items]);
     setShowLoadDropdown(false);
+    setSearchQuery("");
   }
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    if (!confirm("Delete this template?")) return;
+    setDeleting(id);
+    try {
+      await api.del(`/package-templates/${id}`);
+      setTemplates(prev => prev.filter(t => t._id !== id));
+    } catch {
+      alert("Failed to delete template");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  const filteredTemplates = templates.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className="space-y-3">
@@ -88,23 +107,49 @@ export default function PointListWithTemplates({ label, category, items, onChang
               Load Saved
             </button>
             {showLoadDropdown && (
-              <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 max-h-52 overflow-y-auto">
-                {templates.length === 0 ? (
-                  <div className="px-4 py-3 text-xs text-slate-400 text-center">No saved templates</div>
-                ) : (
-                  templates.map((t) => (
-                    <button
-                      key={t._id}
-                      type="button"
-                      onClick={() => loadTemplate(t)}
-                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between"
-                    >
-                      <span className="font-medium">{t.name}</span>
-                      <span className="text-xs text-slate-400">{t.items.length} items</span>
-                    </button>
-                  ))
-                )}
-              </div>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowLoadDropdown(false)} />
+                <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-2 max-h-64 flex flex-col">
+                  <div className="px-3 pb-2 border-b border-slate-100 relative">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 -mt-1 text-slate-400" size={14} />
+                    <input
+                      type="text"
+                      placeholder="Search templates..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs focus:outline-none focus:border-cyan-400 focus:bg-white"
+                    />
+                  </div>
+                  <div className="overflow-y-auto flex-1 py-1">
+                    {filteredTemplates.length === 0 ? (
+                      <div className="px-4 py-4 text-xs text-slate-400 text-center">
+                        {searchQuery ? "No matching templates" : "No saved templates"}
+                      </div>
+                    ) : (
+                      filteredTemplates.map((t) => (
+                        <div
+                          key={t._id}
+                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between group cursor-pointer"
+                          onClick={() => loadTemplate(t)}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium truncate pr-2 max-w-[150px]">{t.name}</span>
+                            <span className="text-[10px] text-slate-400">{t.items.length} items</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(e, t._id)}
+                            disabled={deleting === t._id}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            {deleting === t._id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
             )}
           </div>
 

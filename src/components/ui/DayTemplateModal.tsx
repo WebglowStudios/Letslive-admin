@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Folder, FileText, X, Loader2, ArrowLeft, Trash2, Check, Clock, Utensils, Bed } from "lucide-react";
+import { Folder, FileText, X, Loader2, ArrowLeft, Trash2, Check, Clock, Utensils, Bed, Search } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface DayTemplate {
@@ -50,11 +50,13 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
   const [loading, setLoading] = useState(true);
   const [currentFolder, setCurrentFolderState] = useState<string | null>(() => _cachedFolder);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   function setCurrentFolder(folder: string | null) {
     _cachedFolder = folder;
     persistFolder(folder);
     setCurrentFolderState(folder);
+    setSearchQuery("");
   }
 
   useEffect(() => { setMounted(true); }, []);
@@ -111,6 +113,12 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
     }
   };
 
+  const filteredFolders = folders.filter(f => f.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredTemplates = templates.filter(t => 
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (t.title && t.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   if (!mounted || !open) return null;
 
   return createPortal(
@@ -140,9 +148,21 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder={currentFolder ? "Search templates..." : "Search folders..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-48 sm:w-64"
+              />
+            </div>
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* BODY */}
@@ -154,11 +174,11 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
             </div>
           ) : !currentFolder ? (
             /* FOLDERS VIEW */
-            folders.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">No folders found. Save a day as a template first.</div>
+            filteredFolders.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">{searchQuery ? "No folders match your search." : "No folders found. Save a day as a template first."}</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {folders.map(folder => (
+                {filteredFolders.map(folder => (
                   <button 
                     key={folder}
                     onClick={() => setCurrentFolder(folder)}
@@ -172,11 +192,11 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
             )
           ) : (
             /* TEMPLATES VIEW */
-            templates.length === 0 ? (
-              <div className="text-center py-12 text-slate-400">No templates found in this folder.</div>
+            filteredTemplates.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">{searchQuery ? "No templates match your search." : "No templates found in this folder."}</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {templates.map(template => (
+                {filteredTemplates.map(template => (
                   <div 
                     key={template._id} 
                     className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col hover:border-indigo-300 transition-colors cursor-pointer group"
