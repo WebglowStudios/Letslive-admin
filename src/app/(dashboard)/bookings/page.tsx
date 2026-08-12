@@ -16,11 +16,30 @@ export default function BookingsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [activeTab, setActiveTab] = useState("single");
+  const [groupPackages, setGroupPackages] = useState<any[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const canUpdate = usePermission("bookings.update");
 
   useEffect(() => {
-    fetchBookings();
-  }, [statusFilter, page]);
+    if (activeTab === "single") {
+      fetchBookings();
+    } else {
+      fetchGroupPackages();
+    }
+  }, [statusFilter, page, activeTab]);
+
+  async function fetchGroupPackages() {
+    setLoadingGroups(true);
+    try {
+      const res = await api.get(`/packages?isGroupTour=true&admin=true&limit=100`);
+      setGroupPackages(res?.data || []);
+    } catch {
+      setGroupPackages([]);
+    } finally {
+      setLoadingGroups(false);
+    }
+  }
 
   async function fetchBookings() {
     setLoading(true);
@@ -67,7 +86,29 @@ export default function BookingsPage() {
   return (
     <RoleGuard permission="bookings.view">
       <div className="space-y-6">
-        {/* Filters */}
+        {/* Main Tabs */}
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-max">
+          <button
+            onClick={() => setActiveTab("single")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === "single" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Single Bookings
+          </button>
+          <button
+            onClick={() => setActiveTab("group")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === "group" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Group Tour Departures
+          </button>
+        </div>
+
+        {activeTab === "single" ? (
+          <>
+            {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 flex-1 max-w-sm">
             <Search size={16} className="text-slate-400" />
@@ -194,6 +235,72 @@ export default function BookingsPage() {
             </div>
           )}
         </div>
+          </>
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50">
+                    <th className="px-6 py-3">Package</th>
+                    <th className="px-6 py-3">Dates</th>
+                    <th className="px-6 py-3">Slots (Booked/Total)</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingGroups ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">Loading group tours...</td></tr>
+                  ) : groupPackages.length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">No group tours found</td></tr>
+                  ) : (
+                    groupPackages.flatMap((pkg) => {
+                      if (!pkg.departures || pkg.departures.length === 0) return [];
+                      return pkg.departures.map((dep: any) => (
+                        <tr key={dep._id} className="hover:bg-slate-50">
+                          <td className="px-6 py-4 text-sm font-medium text-slate-700">{pkg.name}</td>
+                          <td className="px-6 py-4 text-sm text-slate-500">
+                            {formatDate(dep.startDate)} - {formatDate(dep.endDate)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-slate-700">{dep.bookedSlots || 0}</span>
+                              <span className="text-xs text-slate-400">/ {dep.totalSlots}</span>
+                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden ml-2">
+                                <div 
+                                  className={`h-full ${dep.bookedSlots >= dep.totalSlots ? 'bg-red-500' : 'bg-cyan-500'}`}
+                                  style={{ width: `${Math.min(100, ((dep.bookedSlots || 0) / dep.totalSlots) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-semibold tracking-wide uppercase ${
+                              dep.status === 'sold-out' ? 'bg-red-100 text-red-700' :
+                              dep.status === 'cancelled' ? 'bg-slate-200 text-slate-600' :
+                              'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {dep.status || 'available'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Link
+                              href={`/group-tours/${pkg._id}/departures/${dep._id}`}
+                              className="flex items-center gap-1 text-xs text-cyan-600 hover:text-cyan-700 font-medium whitespace-nowrap bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-100 w-max"
+                            >
+                              Manage Departure
+                            </Link>
+                          </td>
+                        </tr>
+                      ));
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </RoleGuard>
   );

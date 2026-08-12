@@ -92,6 +92,7 @@ export default function EditPackagePage() {
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [isCustom, setIsCustom] = useState(false);
+  const [isGroupTour, setIsGroupTour] = useState(false);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
@@ -196,6 +197,9 @@ export default function EditPackagePage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Departures (Group Tour)
+  const [departures, setDepartures] = useState<{ _id?: string; startDate: string; endDate: string; totalSlots: number; bookedSlots?: number; status?: string; priceCategory?: string; price: number }[]>([]);
+
   // Auto-compute end date from start date + itinerary days (editable override)
   function computeEndDate(start: string, days: string): string {
     const d = parseInt(days, 10);
@@ -263,6 +267,7 @@ export default function EditPackagePage() {
         setIsFeatured(p.isFeatured || false);
         setIsActive(p.isActive ?? true);
         setIsCustom(p.isCustom || false);
+        setIsGroupTour(p.isGroupTour || false);
         setFlightsIncluded(p.flightsIncluded || false);
         setTravellerCount(p.travellerCount || "");
         setAdultCount(p.adultCount != null ? String(p.adultCount) : "");
@@ -344,6 +349,19 @@ export default function EditPackagePage() {
         if (p.travelDates) {
           setStartDate(p.travelDates.startDate ? new Date(p.travelDates.startDate).toISOString().split('T')[0] : "");
           setEndDate(p.travelDates.endDate ? new Date(p.travelDates.endDate).toISOString().split('T')[0] : "");
+        }
+        // Departures
+        if (p.departures) {
+          setDepartures(p.departures.map((d: any) => ({
+            _id: d._id,
+            startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : "",
+            endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : "",
+            price: d.price || p.price || 0,
+            totalSlots: d.totalSlots || 0,
+            bookedSlots: d.bookedSlots || 0,
+            status: d.status || "available",
+            priceCategory: d.priceCategory || "standard"
+          })));
         }
         // Flights
         setFlights(
@@ -484,6 +502,7 @@ export default function EditPackagePage() {
         badge: badge || undefined,
         isFeatured,
         isActive,
+        isGroupTour,
         flightsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
@@ -546,6 +565,15 @@ export default function EditPackagePage() {
           images: t.images,
         })),
         travelDates: (startDate || endDate) ? { startDate: startDate || undefined, endDate: endDate || undefined } : undefined,
+        departures: isGroupTour ? departures.filter((d) => d.startDate && d.endDate).map((d) => ({
+          _id: d._id,
+          startDate: d.startDate,
+          endDate: d.endDate,
+          price: Number(d.price) || 0,
+          totalSlots: Number(d.totalSlots) || 0,
+          priceCategory: d.priceCategory,
+          status: d.status
+        })) : undefined,
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({
           day: f.day || undefined,
           airline: f.airline,
@@ -673,6 +701,74 @@ export default function EditPackagePage() {
                 </div>
               </div>
               )}
+              {isGroupTour && (
+                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">Group Tour Departures</p>
+                      <p className="text-xs text-slate-400">Manage available slots and dates for this group tour.</p>
+                    </div>
+                    <button type="button" onClick={() => setDepartures([...departures, { startDate: "", endDate: "", totalSlots: 0, status: "available", price: 0 }])} className="text-xs bg-cyan-100 text-cyan-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-cyan-200">
+                      + Add Departure
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {departures.map((dep, i) => (
+                      <div key={i} className="flex gap-3 items-start bg-white p-3 rounded-lg border border-slate-200">
+                        <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-3">
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Start Date</label>
+                            <input type="date" value={dep.startDate} onChange={(e) => {
+                              const arr = [...departures];
+                              arr[i].startDate = e.target.value;
+                              if (e.target.value && durationDays) arr[i].endDate = computeEndDate(e.target.value, durationDays);
+                              setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">End Date</label>
+                            <input type="date" value={dep.endDate} onChange={(e) => {
+                              const arr = [...departures]; arr[i].endDate = e.target.value; setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Total Slots</label>
+                            <input type="number" value={dep.totalSlots} onChange={(e) => {
+                              const arr = [...departures]; arr[i].totalSlots = Number(e.target.value); setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 20" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Price</label>
+                            <input type="number" value={dep.price} onChange={(e) => {
+                              const arr = [...departures]; arr[i].price = Number(e.target.value); setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 5000" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Status</label>
+                            <select value={dep.status} onChange={(e) => {
+                              const arr = [...departures]; arr[i].status = e.target.value; setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm">
+                              <option value="available">Available</option>
+                              <option value="sold-out">Sold Out</option>
+                              <option value="cancelled">Cancelled</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end justify-between h-full pt-1 gap-2">
+                          <button type="button" onClick={() => setDepartures(departures.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
+                            <Trash2 size={16} />
+                          </button>
+                          <div className="text-xs text-slate-400 text-right">
+                            Booked:<br/><strong className="text-slate-700">{dep.bookedSlots || 0}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {departures.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No departures added.</p>}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Hotel Rating</label>
@@ -735,6 +831,10 @@ export default function EditPackagePage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Active</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Is Group Tour</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
