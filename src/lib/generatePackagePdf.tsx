@@ -1287,31 +1287,33 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
       <SectionTitle title="Accommodation" />
       <View style={s.tableWrap}>
         <View style={s.tableHead}>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "25%" : "33%" }]}>Hotel</Text>
-          <Text style={[s.tableHeadCell, { width: "12%" }]}>Rating</Text>
-          <Text style={[s.tableHeadCell, { width: "10%" }]}>Nights</Text>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "18%" : "25%" }]}>Room Type</Text>
-          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "15%" }]}>Check-in</Text>}
-          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "15%" }]}>Check-out</Text>}
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "20%" : "25%" }]}>Hotel</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "15%" : "20%" }]}>Location</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "10%" : "12%" }]}>Rating</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "8%" : "10%" }]}>Nights</Text>
+          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "21%" : "33%" }]}>Room Type</Text>
+          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "13%" }]}>Check-in</Text>}
+          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "13%" }]}>Check-out</Text>}
         </View>
         {pkg.stays.map((stay, i) => (
           <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "25%" : "33%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
-            <Text style={[s.tableCell, { width: "12%" }]}>{stay.rating}</Text>
-            <Text style={[s.tableCell, { width: "10%" }]}>{stay.nights}N</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "18%" : "25%" }]}>{stay.roomType}</Text>
-            {hasDateInfo && <Text style={[s.tableCell, { width: "15%" }]}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
-            {hasDateInfo && <Text style={[s.tableCell, { width: "15%" }]}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
+            <Text style={[s.tableCell, { width: hasDateInfo ? "20%" : "25%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "15%" : "20%" }]}>{stay.address || "—"}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "10%" : "12%" }]}>{stay.rating}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "8%" : "10%" }]}>{stay.nights}N</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "21%" : "33%" }]}>{stay.roomType}</Text>
+            {hasDateInfo && <Text style={[s.tableCell, { width: "13%" }]}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
+            {hasDateInfo && <Text style={[s.tableCell, { width: "13%" }]}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
           </View>
         ))}
       </View>
-      {/* Show address/confirmation below table if available */}
-      {pkg.stays.some(s => s.address || s.confirmationNo) && (
+      {/* Show confirmation below table if available */}
+      {pkg.stays.some(s => s.confirmationNo) && (
         <View style={{ marginTop: 8 }}>
-          {pkg.stays.filter(s => s.address || s.confirmationNo).map((stay, i) => (
+          {pkg.stays.filter(s => s.confirmationNo).map((stay, i) => (
             <View key={i} style={{ marginBottom: 4 }}>
               <Text style={{ fontSize: 7.5, color: C.ink3 }}>
-                {stay.name}:{stay.address ? ` ${stay.address}` : ""}{stay.confirmationNo ? ` · Booking Ref: ${stay.confirmationNo}` : ""}
+                {stay.name}: Booking Ref: {stay.confirmationNo}
               </Text>
             </View>
           ))}
