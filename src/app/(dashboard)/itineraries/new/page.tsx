@@ -78,6 +78,10 @@ export default function NewCustomItineraryPage() {
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [saveTemplateDayData, setSaveTemplateDayData] = useState<any>(null);
 
+  // Departures (Group Tour)
+  const [isGroupTour, setIsGroupTour] = useState(false);
+  const [departures, setDepartures] = useState<{ _id?: string; startDate: string; endDate: string; totalSlots: number; bookedSlots?: number; status?: string; priceCategory?: string; price: number }[]>([]);
+
   // Auto-compute end date from start date + itinerary days (editable override)
   function computeEndDate(start: string, days: string): string {
     const d = parseInt(days, 10);
@@ -336,7 +340,7 @@ export default function NewCustomItineraryPage() {
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
         discountType,
-        isFeatured, isActive, flightsIncluded,
+        isFeatured, isActive, isGroupTour, flightsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -350,6 +354,9 @@ export default function NewCustomItineraryPage() {
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
         transferSummary: transferMode === 'summary' && transferSummary.trim() ? transferSummary.trim() : undefined,
+        departures: isGroupTour ? departures.filter((d) => d.startDate && d.endDate).map((d) => ({
+          startDate: d.startDate, endDate: d.endDate, totalSlots: Number(d.totalSlots) || 0, bookedSlots: 0, status: d.status || 'available', price: Number(d.price) || 0,
+        })) : undefined,
       };
       const res = await api.post("/packages", payload);
       if (res?.status === "success" && res.data) {
@@ -567,6 +574,10 @@ export default function NewCustomItineraryPage() {
                 <span className="text-sm text-slate-700">Active</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                <span className="text-sm text-slate-700">Group Tour</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                 <span className="text-sm text-slate-700">Flights Included</span>
               </label>
@@ -613,6 +624,72 @@ export default function NewCustomItineraryPage() {
                 </>
               )}
             </div>
+
+            {isGroupTour && (
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Group Tour Departures</p>
+                    <p className="text-xs text-slate-400">Manage available slots and dates for this group tour.</p>
+                  </div>
+                  <button type="button" onClick={() => setDepartures([...departures, { startDate: "", endDate: "", totalSlots: 0, status: "available", price: 0 }])} className="text-xs bg-cyan-100 text-cyan-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-cyan-200">
+                    + Add Departure
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {departures.map((dep, i) => (
+                    <div key={i} className="flex gap-3 items-start bg-white p-3 rounded-lg border border-slate-200">
+                      <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Start Date</label>
+                          <input type="date" value={dep.startDate} onChange={(e) => {
+                            const arr = [...departures];
+                            arr[i].startDate = e.target.value;
+                            if (e.target.value && durationDays) arr[i].endDate = computeEndDate(e.target.value, durationDays);
+                            setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">End Date</label>
+                          <input type="date" value={dep.endDate} onChange={(e) => {
+                            const arr = [...departures]; arr[i].endDate = e.target.value; setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Total Slots</label>
+                          <input type="number" value={dep.totalSlots || ""} onChange={(e) => {
+                            const arr = [...departures]; arr[i].totalSlots = Number(e.target.value); setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 20" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Price</label>
+                          <input type="number" value={dep.price || ""} onChange={(e) => {
+                            const arr = [...departures]; arr[i].price = Number(e.target.value); setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 5000" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Status</label>
+                          <select value={dep.status || "available"} onChange={(e) => {
+                            const arr = [...departures]; arr[i].status = e.target.value; setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm">
+                            <option value="available">Available</option>
+                            <option value="sold-out">Sold Out</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end justify-between h-full pt-1 gap-2">
+                        <button type="button" onClick={() => setDepartures(departures.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {departures.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No departures added.</p>}
+                </div>
+              </div>
+            )}
           </>
         )}
 
