@@ -14,6 +14,7 @@ import TemplateControls from "@/components/ui/TemplateControls";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { DayTemplateModal } from "@/components/ui/DayTemplateModal";
 import { SaveDayTemplateModal } from "@/components/ui/SaveDayTemplateModal";
+import { ImportModal } from "@/components/ui/ImportModal";
 
 interface ItineraryDay {
   day: number; title: string; description: string;
@@ -77,6 +78,53 @@ export default function NewCustomItineraryPage() {
   const [loadTemplateDayIndex, setLoadTemplateDayIndex] = useState<number | null>(null);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [saveTemplateDayData, setSaveTemplateDayData] = useState<any>(null);
+
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const handleImportData = (p: any) => {
+    // Intentionally omit client info if it exists, since this is usually for a new client
+    if (p.name) setName(p.name);
+    if (p.destination?._id) setDestination(p.destination._id);
+    else if (p.destination) setDestination(p.destination);
+    if (p.description) setDescription(p.description);
+    if (p.shortDescription) setShortDescription(p.shortDescription);
+    if (p.duration) {
+      setDurationNights(p.duration.nights?.toString() || "");
+      setDurationDays(p.duration.days?.toString() || "");
+    }
+    if (p.hotelRating) setHotelRating(p.hotelRating);
+    if (p.category) setCategory(p.category);
+    if (p.price) setPrice(p.price.toString());
+    if (p.originalPrice) setOriginalPrice(p.originalPrice.toString());
+    if (p.discount) setDiscount(p.discount.toString());
+    if (p.discountType) setDiscountType(p.discountType);
+    if (p.isFeatured !== undefined) setIsFeatured(p.isFeatured);
+    if (p.isActive !== undefined) setIsActive(p.isActive);
+    if (p.isGroupTour !== undefined) setIsGroupTour(p.isGroupTour);
+    if (p.flightsIncluded !== undefined) setFlightsIncluded(p.flightsIncluded);
+    if (p.departures) setDepartures(p.departures.map((d: any) => ({ ...d, startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' })));
+    if (p.travellerCount) setTravellerCount(p.travellerCount.toString());
+    if (p.adultCount) setAdultCount(p.adultCount.toString());
+    if (p.childCount) setChildCount(p.childCount.toString());
+    if (p.priceUnit) setPriceUnit(p.priceUnit);
+    if (p.heroImage) setHeroImage(p.heroImage);
+    if (p.destinationImages) setDestinationImages(p.destinationImages);
+    if (p.stayImages) setStayImages(p.stayImages);
+    if (p.activityImages) setActivityImages(p.activityImages);
+    if (p.images) setImages(p.images);
+    if (p.itinerary) setItinerary(p.itinerary.map((day: any) => ({ ...day, _key: Date.now() + Math.random() })));
+    if (p.stays) setStays(p.stays.map((stay: any) => ({ ...stay, _key: Date.now() + Math.random() })));
+    if (p.transfers) setTransfers(p.transfers.map((t: any) => ({ ...t, _key: Date.now() + Math.random() })));
+    if (p.flights) setFlights(p.flights.map((f: any) => ({ ...f, _key: Date.now() + Math.random() })));
+    if (p.inclusions) setInclusions(p.inclusions);
+    if (p.exclusions) setExclusions(p.exclusions);
+    if (p.thingsToCarry) setThingsToCarry(p.thingsToCarry);
+    if (p.paymentPolicy) setPaymentPolicy(p.paymentPolicy);
+    if (p.cancellationPolicy) setCancellationPolicy(p.cancellationPolicy);
+    if (p.flightCancellationPolicy) setFlightCancellationPolicy(p.flightCancellationPolicy);
+    
+    setShowImportModal(false);
+  };
 
   // Departures (Group Tour)
   const [isGroupTour, setIsGroupTour] = useState(false);
@@ -380,14 +428,23 @@ export default function NewCustomItineraryPage() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/itineraries" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">New Custom Itinerary</h1>
-          <p className="text-sm text-slate-500">Create a personalized trip plan for a client</p>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Link href="/itineraries" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">New Custom Itinerary</h1>
+            <p className="text-sm text-slate-500">Create a personalized trip plan for a client</p>
+          </div>
         </div>
+        <button type="button" onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-semibold hover:bg-indigo-100 transition-colors">
+          <Download size={16} /> Import from Existing
+        </button>
       </div>
+
+      <ImportModal open={showImportModal} onClose={() => setShowImportModal(false)} onImport={handleImportData} />
 
       {error && <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
       {success && (
