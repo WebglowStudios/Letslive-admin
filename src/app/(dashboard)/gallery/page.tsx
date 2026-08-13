@@ -20,7 +20,7 @@ export default function GalleryCMSPage() {
   const fetchImages = async () => {
     try {
       const res = await api.get('/gallery');
-      setImages(res.data.data);
+      setImages(res?.data || []);
     } catch (error) {
       console.error("Failed to load gallery", error);
     } finally {
