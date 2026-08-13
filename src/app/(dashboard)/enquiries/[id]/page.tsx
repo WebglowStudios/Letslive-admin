@@ -515,7 +515,14 @@ function SendBookingLinkModal({ enquiry, onClose }: { enquiry: Enquiry; onClose:
   }
 
   function handleCopyLink(slug: string) {
-    const url = `https://letslivetours.com/book/${slug}`;
+    let url = `https://letslivetours.com/book/${slug}`;
+    const params = new URLSearchParams();
+    if (enquiry.departureId) params.append("departureId", enquiry.departureId.toString());
+    if (enquiry.travelDate) params.append("travelDate", new Date(enquiry.travelDate).toISOString().split('T')[0]);
+    params.append("enquiryId", enquiry._id);
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
     navigator.clipboard.writeText(url);
     alert("Booking link copied to clipboard!");
   }

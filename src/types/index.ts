@@ -124,6 +124,7 @@ export interface Enquiry {
   message?: string;
   packageName?: string;
   package?: string;
+  departureId?: string;
   linkedItineraries?: { _id: string; name: string; slug: string; price?: number }[];
   status: "new" | "assigned" | "in-progress" | "follow-up" | "converted" | "resolved" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
