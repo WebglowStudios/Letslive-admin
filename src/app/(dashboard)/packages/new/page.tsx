@@ -116,12 +116,26 @@ export default function NewPackagePage() {
     if (p.itinerary) setItinerary(p.itinerary.map((day: any) => ({ ...day, _key: Date.now() + Math.random() })));
     if (p.stays) setStays(p.stays.map((stay: any) => ({ ...stay, _key: Date.now() + Math.random() })));
     if (p.transfers) setTransfers(p.transfers.map((t: any) => ({ ...t, _key: Date.now() + Math.random() })));
+    if (p.keyPoints) setKeyPoints(p.keyPoints);
+    if (p.highlights) setHighlights(p.highlights);
     if (p.inclusions) setInclusions(p.inclusions);
     if (p.exclusions) setExclusions(p.exclusions);
+    if (p.knowBeforeYouGo) setKnowBeforeYouGo(p.knowBeforeYouGo);
     if (p.thingsToCarry) setThingsToCarry(p.thingsToCarry);
+    if (p.transferSummary) {
+      setTransferSummary(p.transferSummary);
+      if (!p.transfers || p.transfers.length === 0) setTransferMode("summary");
+    }
     if (p.paymentPolicy) setPaymentPolicy(p.paymentPolicy);
     if (p.cancellationPolicy) setCancellationPolicy(p.cancellationPolicy);
     if (p.flightCancellationPolicy) setFlightCancellationPolicy(p.flightCancellationPolicy);
+    if (p.badge) setBadge(p.badge);
+    if (p.paymentConfig) {
+      if (p.paymentConfig.mode) setPaymentMode(p.paymentConfig.mode);
+      if (p.paymentConfig.depositType) setDepositType(p.paymentConfig.depositType);
+      if (p.paymentConfig.depositValue) setDepositValue(p.paymentConfig.depositValue.toString());
+      if (p.paymentConfig.balanceDueDays) setBalanceDueDays(p.paymentConfig.balanceDueDays.toString());
+    }
     
     setShowImportModal(false);
   };
