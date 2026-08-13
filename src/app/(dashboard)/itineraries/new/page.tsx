@@ -581,8 +581,10 @@ export default function NewCustomItineraryPage() {
             </div>
             <div className="grid grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Price (₹) *</label>
-                <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="65000" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Price (₹) {isGroupTour ? "" : "*"}
+                </label>
+                <input type="number" value={isGroupTour ? "" : price} onChange={(e) => handlePriceChange(e.target.value)} required={!isGroupTour} disabled={isGroupTour} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" placeholder={isGroupTour ? "Locked (Uses Slot Price)" : "65000"} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Unit</label>
@@ -594,7 +596,7 @@ export default function NewCustomItineraryPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label>
-                <input type="number" value={originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="85000" />
+                <input type="number" value={isGroupTour ? "" : originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} disabled={isGroupTour} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" placeholder={isGroupTour ? "Locked" : "85000"} />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
