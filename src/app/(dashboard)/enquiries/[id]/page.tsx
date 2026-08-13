@@ -85,6 +85,7 @@ function DnpDots({ count }: { count: number }) {
 // ─── Mark Lost Modal ───────────────────────────────────────────────────────────
 function MarkLostModal({ id, onClose, onSave }: { id: string; onClose: () => void; onSave: () => void }) {
   const [reason, setReason] = useState("");
+  const [otherText, setOtherText] = useState("");
   const [saving, setSaving] = useState(false);
 
   const reasons = [
@@ -98,9 +99,14 @@ function MarkLostModal({ id, onClose, onSave }: { id: string; onClose: () => voi
 
   async function handleSave() {
     if (!reason) return;
+    if (reason === "other" && !otherText.trim()) return;
     setSaving(true);
     try {
-      await api.put(`/enquiries/${id}`, { status: "closed", lostReason: reason });
+      await api.put(`/enquiries/${id}`, { 
+        status: "closed", 
+        lostReason: reason,
+        lostReasonOtherText: reason === "other" ? otherText.trim() : undefined 
+      });
       onSave();
       onClose();
     } catch (e: any) {
@@ -122,17 +128,28 @@ function MarkLostModal({ id, onClose, onSave }: { id: string; onClose: () => voi
         </div>
         <div className="p-5 overflow-y-auto space-y-2">
           {reasons.map((r) => (
-            <label key={r.value} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-              reason === r.value ? "border-red-500 bg-red-50" : "border-slate-200 hover:border-slate-300"
-            }`}>
-              <input type="radio" name="lostReason" value={r.value} checked={reason === r.value} onChange={() => setReason(r.value)} className="text-red-600 focus:ring-red-500" />
-              <span className="text-sm font-semibold text-slate-700">{r.label}</span>
-            </label>
+            <div key={r.value}>
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                reason === r.value ? "border-red-500 bg-red-50" : "border-slate-200 hover:border-slate-300"
+              }`}>
+                <input type="radio" name="lostReason" value={r.value} checked={reason === r.value} onChange={() => setReason(r.value)} className="text-red-600 focus:ring-red-500" />
+                <span className="text-sm font-semibold text-slate-700">{r.label}</span>
+              </label>
+              {reason === "other" && r.value === "other" && (
+                <textarea
+                  placeholder="Please specify the reason (Required)"
+                  value={otherText}
+                  onChange={(e) => setOtherText(e.target.value)}
+                  className="w-full mt-2 p-3 text-sm border border-red-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none h-24"
+                  required
+                />
+              )}
+            </div>
           ))}
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-semibold transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={!reason || saving} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-2 transition-colors">
+          <button onClick={handleSave} disabled={!reason || (reason === "other" && !otherText.trim()) || saving} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-2 transition-colors">
             {saving ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />} Mark as Lost
           </button>
         </div>
@@ -887,6 +904,20 @@ export default function EnquiryDetailPage() {
             </button>
           )}
         </div>
+
+        {/* Lead Lost Reason Banner */}
+        {enquiry.status === "closed" && enquiry.lostReason && (
+          <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-start gap-3">
+            <AlertTriangle className="shrink-0 mt-0.5 text-red-600" size={18} />
+            <div>
+              <p className="font-semibold text-sm">Lead Marked as Lost</p>
+              <p className="text-sm mt-0.5 capitalize">
+                <span className="font-medium">Reason:</span> {enquiry.lostReason.replace(/-/g, " ")} 
+                {enquiry.lostReason === "other" && enquiry.lostReasonOtherText && ` — ${enquiry.lostReasonOtherText}`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_280px] gap-5">

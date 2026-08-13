@@ -136,6 +136,7 @@ export interface Enquiry {
   followUpDate?: string;
   followUpNotes?: string;
   lostReason?: string;
+  lostReasonOtherText?: string;
   conversionValue?: number;
   bookingRef?: { bookingId: string; totalAmount: number } | string;
   travellerCount?: number;
