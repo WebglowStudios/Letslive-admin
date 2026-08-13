@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Package, Destination } from "@/types";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronLeft, ChevronRight, X, Filter } from "lucide-react";
+import { Plus, Search, Trash2, Edit, Eye, Download, Copy, ChevronLeft, ChevronRight, X, Filter, Files, Link2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
@@ -97,6 +97,11 @@ export default function PackagesPage() {
     } catch {
       alert("Failed to delete");
     }
+  }
+
+  function handleCopyLink(slug: string) {
+    navigator.clipboard.writeText(`https://letslivetours.com/packages/${slug}`);
+    alert("Link copied to clipboard!");
   }
 
   async function toggleFeatured(id: string, current: boolean) {
@@ -313,9 +318,16 @@ export default function PackagesPage() {
                             >
                               <Download size={16} />
                             </button>
+                            <button
+                              onClick={() => handleCopyLink(p.slug)}
+                              className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors"
+                              title="Copy Link"
+                            >
+                              <Link2 size={16} />
+                            </button>
                             {canCreate && (
                               <button onClick={() => handleDuplicate(p._id, p.name)} className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-400 hover:text-violet-600" title="Duplicate package">
-                                <Copy size={16} />
+                                <Files size={16} />
                               </button>
                             )}
                             {canEdit && (

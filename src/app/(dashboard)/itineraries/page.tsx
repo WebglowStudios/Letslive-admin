@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download } from "lucide-react";
+import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download, Files, Link2 } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { useRole } from "@/hooks/usePermission";
@@ -64,6 +64,20 @@ export default function ItinerariesPage() {
     const url = `https://letslivetours.com/itinerary/${id}`;
     navigator.clipboard.writeText(url);
     alert("Link copied to clipboard!");
+  }
+
+  async function handleDuplicate(id: string, name: string) {
+    if (!confirm(`Duplicate custom itinerary "${name}"?`)) return;
+    try {
+      const res = await api.post(`/packages/${id}/duplicate`, {});
+      if (res?.status === "success") {
+        fetchItineraries();
+      } else {
+        alert(res?.message || "Failed to duplicate");
+      }
+    } catch {
+      alert("Failed to duplicate itinerary");
+    }
   }
 
   async function toggleShowOnDestination(id: string, current: boolean) {
@@ -209,8 +223,8 @@ export default function ItinerariesPage() {
                         <a href={`https://letslivetours.com/itinerary/${it._id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600" title="View">
                           <Eye size={16} />
                         </a>
-                        <button onClick={() => copyLink(it._id)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600" title="Copy shareable link">
-                          <Copy size={16} />
+                        <button onClick={() => copyLink(it._id)} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600" title="Copy shareable link">
+                          <Link2 size={16} />
                         </button>
                         <button
                           onClick={() => handleDownloadPdf(it._id)}
@@ -218,6 +232,9 @@ export default function ItinerariesPage() {
                           title="Download PDF"
                         >
                           <Download size={16} />
+                        </button>
+                        <button onClick={() => handleDuplicate(it._id, it.name)} className="p-1.5 rounded-lg hover:bg-violet-50 text-slate-400 hover:text-violet-600" title="Duplicate itinerary">
+                          <Files size={16} />
                         </button>
                         <Link href={`/itineraries/${it._id}/edit`} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-cyan-600" title="Edit">
                           <Edit size={16} />
