@@ -1099,7 +1099,8 @@ export default function NewCustomItineraryPage() {
             <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">Booking & Cancellation Policies</h3>
             <ListInput label="Payment Policy" items={paymentPolicy} onChange={setPaymentPolicy} placeholder="e.g. 50% advance to confirm booking" />
             <ListInput label="Cancellation Policy" items={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation up to 30 days before departure" />
-            <ListInput label="Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
+            <TemplateControls label="Trains / Flight Cancellation Policy" category="flightCancellationPolicy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} />
+            <ListInput label="Trains / Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
           </div>
         )}
 

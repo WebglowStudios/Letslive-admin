@@ -1417,8 +1417,8 @@ export default function EditPackagePage() {
               </div>
 
               <div className="space-y-4">
-                <TemplateControls label="Flight Cancellation Policy" category="flightCancellationPolicy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} />
-                <ListInput label="Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
+                <TemplateControls label="Trains / Flight Cancellation Policy" category="flightCancellationPolicy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} />
+                <ListInput label="Trains / Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
               </div>
             </div>
           )}
