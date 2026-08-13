@@ -65,6 +65,8 @@ export default function EditCustomItineraryPage() {
   const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [isGroupTour, setIsGroupTour] = useState(false);
+  const [departures, setDepartures] = useState<{ _id?: string; startDate: string; endDate: string; totalSlots: number; bookedSlots?: number; status?: string; priceCategory?: string; price: number }[]>([]);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
@@ -231,7 +233,9 @@ export default function EditCustomItineraryPage() {
       setDiscountType(p.discountType || "percent");
       setIsFeatured(p.isFeatured || false);
       setIsActive(p.isActive ?? true);
+      setIsGroupTour(p.isGroupTour || false);
       setFlightsIncluded(p.flightsIncluded || false);
+      if (p.departures) setDepartures(p.departures.map((d: any) => ({ ...d, startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' })));
       setTravellerCount(p.travellerCount || "");
       setAdultCount(p.adultCount != null ? String(p.adultCount) : "");
       setChildCount(p.childCount != null ? String(p.childCount) : "");
@@ -396,7 +400,7 @@ export default function EditCustomItineraryPage() {
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
         discountType,
-        isFeatured, isActive, flightsIncluded,
+        isFeatured, isActive, isGroupTour, flightsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -409,6 +413,9 @@ export default function EditCustomItineraryPage() {
         stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, rooms: Number(s.rooms) || 0, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
+        departures: isGroupTour ? departures.filter((d) => d.startDate && d.endDate).map((d) => ({
+          _id: d._id || undefined, startDate: d.startDate, endDate: d.endDate, totalSlots: Number(d.totalSlots) || 0, bookedSlots: d.bookedSlots || 0, status: d.status || 'available', price: Number(d.price) || 0,
+        })) : undefined,
       };
       const res = await api.put(`/packages/${id}`, payload);
       if (res?.status === "success") {
@@ -575,6 +582,7 @@ export default function EditCustomItineraryPage() {
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Featured on homepage</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Active</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Group Tour</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Flights Included</span></label>
             </div>
             {/* Payment config */}
@@ -597,6 +605,72 @@ export default function EditCustomItineraryPage() {
                 </>
               )}
             </div>
+
+            {isGroupTour && (
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Group Tour Departures</p>
+                    <p className="text-xs text-slate-400">Manage available slots and dates for this group tour.</p>
+                  </div>
+                  <button type="button" onClick={() => setDepartures([...departures, { startDate: "", endDate: "", totalSlots: 0, status: "available", price: 0 }])} className="text-xs bg-cyan-100 text-cyan-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-cyan-200">
+                    + Add Departure
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {departures.map((dep, i) => (
+                    <div key={i} className="flex gap-3 items-start bg-white p-3 rounded-lg border border-slate-200">
+                      <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Start Date</label>
+                          <input type="date" value={dep.startDate} onChange={(e) => {
+                            const arr = [...departures];
+                            arr[i].startDate = e.target.value;
+                            if (e.target.value && durationDays) arr[i].endDate = computeEndDate(e.target.value, durationDays);
+                            setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">End Date</label>
+                          <input type="date" value={dep.endDate} onChange={(e) => {
+                            const arr = [...departures]; arr[i].endDate = e.target.value; setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Total Slots</label>
+                          <input type="number" value={dep.totalSlots || ""} onChange={(e) => {
+                            const arr = [...departures]; arr[i].totalSlots = Number(e.target.value); setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 20" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Price</label>
+                          <input type="number" value={dep.price || ""} onChange={(e) => {
+                            const arr = [...departures]; arr[i].price = Number(e.target.value); setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 5000" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Status</label>
+                          <select value={dep.status || "available"} onChange={(e) => {
+                            const arr = [...departures]; arr[i].status = e.target.value; setDepartures(arr);
+                          }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm">
+                            <option value="available">Available</option>
+                            <option value="sold-out">Sold Out</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end justify-between h-full pt-1 gap-2">
+                        <button type="button" onClick={() => setDepartures(departures.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {departures.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No departures added.</p>}
+                </div>
+              </div>
+            )}
           </>
         )}
 
