@@ -20,7 +20,7 @@ interface BookingDetail {
   user: { _id: string; firstName: string; lastName: string; email: string; phone?: string };
   package: { _id: string; name: string; slug: string; duration?: { nights: number; days: number }; price?: number };
   destination?: { _id: string; name: string };
-  enquiry?: string;
+  enquiry?: string | { _id: string; [key: string]: any };
   travelDate: string;
   returnDate?: string;
   travellers: { adults: number; children: number; infants: number };
@@ -263,32 +263,32 @@ export default function BookingDetailPage() {
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Primary Traveller</p>
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center font-bold text-cyan-700 text-sm">
-                  {booking.primaryTraveller?.firstName?.[0] || user?.firstName?.[0] || "?"}
+                  {booking.primaryTraveller?.firstName?.[0] || booking.user?.firstName?.[0] || "?"}
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800">
                     {booking.primaryTraveller?.firstName
                       ? `${booking.primaryTraveller.firstName} ${booking.primaryTraveller.lastName}`
-                      : `${user?.firstName} ${user?.lastName}`}
+                      : `${booking.user?.firstName} ${booking.user?.lastName}`}
                   </p>
                   <p className="text-xs text-slate-400">Primary Contact</p>
                 </div>
               </div>
               <div className="space-y-2">
                 <a
-                  href={`mailto:${booking.primaryTraveller?.email || user?.email}`}
+                  href={`mailto:${booking.primaryTraveller?.email || booking.user?.email}`}
                   className="flex items-center gap-2 text-sm text-slate-600 hover:text-cyan-600 transition-colors"
                 >
                   <Mail size={13} className="text-slate-400" />
-                  {booking.primaryTraveller?.email || user?.email}
+                  {booking.primaryTraveller?.email || booking.user?.email}
                 </a>
-                {(booking.primaryTraveller?.phone || user?.phone) && (
+                {(booking.primaryTraveller?.phone || booking.user?.phone) && (
                   <a
-                    href={`tel:${booking.primaryTraveller?.phone || user?.phone}`}
+                    href={`tel:${booking.primaryTraveller?.phone || booking.user?.phone}`}
                     className="flex items-center gap-2 text-sm text-slate-600 hover:text-emerald-600 transition-colors"
                   >
                     <Phone size={13} className="text-slate-400" />
-                    {booking.primaryTraveller?.phone || user?.phone}
+                    {booking.primaryTraveller?.phone || booking.user?.phone}
                   </a>
                 )}
               </div>
@@ -298,7 +298,7 @@ export default function BookingDetailPage() {
             {booking.travellersDetails?.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
-                  All Travellers ({booking.travellersDetails.length})
+                  Added Travellers ({booking.travellersDetails.length})
                 </p>
                 <div className="space-y-2">
                   {booking.travellersDetails.map((t, i) => (
@@ -398,19 +398,19 @@ export default function BookingDetailPage() {
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Account</p>
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-sm">
-                  {user?.firstName?.[0] || "U"}
+                  {booking.user?.firstName?.[0] || "U"}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-sm font-semibold text-slate-800">{booking.user?.firstName} {booking.user?.lastName}</p>
                   <p className="text-xs text-slate-400">Customer</p>
                 </div>
               </div>
-              <a href={`mailto:${user?.email}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 mb-1">
-                <Mail size={11} /> {user?.email}
+              <a href={`mailto:${booking.user?.email}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-600 mb-1">
+                <Mail size={11} /> {booking.user?.email}
               </a>
-              {user?.phone && (
-                <a href={`tel:${user?.phone}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-600">
-                  <Phone size={11} /> {user?.phone}
+              {booking.user?.phone && (
+                <a href={`tel:${booking.user?.phone}`} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-emerald-600">
+                  <Phone size={11} /> {booking.user?.phone}
                 </a>
               )}
             </div>
@@ -429,7 +429,7 @@ export default function BookingDetailPage() {
               )}
               {booking.enquiry && (
                 <Link
-                  href={`/enquiries/${booking.enquiry}`}
+                  href={`/enquiries/${typeof booking.enquiry === 'object' ? booking.enquiry._id : booking.enquiry}`}
                   className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 text-sm text-slate-600 hover:text-slate-800"
                 >
                   <span className="flex items-center gap-2"><MessageSquare size={13} /> View Enquiry</span>
