@@ -72,6 +72,7 @@ export default function EditCustomItineraryPage() {
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
   const [priceUnit, setPriceUnit] = useState("person");
+  const [extraPersonPrice, setExtraPersonPrice] = useState("");
   const [showOnDestination, setShowOnDestination] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -228,6 +229,7 @@ export default function EditCustomItineraryPage() {
 
       setPrice(p.price ? String(p.price) : "");
       setPriceUnit(p.priceUnit || "person");
+      setExtraPersonPrice(p.extraPersonPrice ? String(p.extraPersonPrice) : "");
       setOriginalPrice(p.originalPrice ? String(p.originalPrice) : "");
       setDiscount(p.discount ? String(p.discount) : "");
       setDiscountType(p.discountType || "percent");
@@ -405,6 +407,7 @@ export default function EditCustomItineraryPage() {
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
         priceUnit,
+        extraPersonPrice: extraPersonPrice ? Number(extraPersonPrice) : 0,
         showOnDestination,
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentPolicy, cancellationPolicy, flightCancellationPolicy,
@@ -566,6 +569,12 @@ export default function EditCustomItineraryPage() {
                   <option value="group">Total Group</option>
                   <option value="couple">Per Couple</option>
                 </select>
+                {priceUnit === "group" && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Extra Pax Price (₹)</label>
+                    <input type="number" value={extraPersonPrice} onChange={(e) => setExtraPersonPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 15000" />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label>

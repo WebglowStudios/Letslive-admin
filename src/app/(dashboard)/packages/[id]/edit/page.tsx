@@ -98,6 +98,7 @@ export default function EditPackagePage() {
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
   const [priceUnit, setPriceUnit] = useState("person");
+  const [extraPersonPrice, setExtraPersonPrice] = useState("");
   // Auto-calculation handlers
   const handlePriceChange = (val: string) => {
     setPrice(val);
@@ -260,6 +261,7 @@ export default function EditPackagePage() {
 
         setPrice(p.price ? String(p.price) : "");
         setPriceUnit(p.priceUnit || "person");
+        setExtraPersonPrice(p.extraPersonPrice ? String(p.extraPersonPrice) : "");
         setOriginalPrice(p.originalPrice ? String(p.originalPrice) : "");
         setDiscount(p.discount ? String(p.discount) : "");
         setDiscountType(p.discountType || "percent");
@@ -521,6 +523,7 @@ export default function EditPackagePage() {
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
         priceUnit,
+        extraPersonPrice: extraPersonPrice ? Number(extraPersonPrice) : 0,
         paymentConfig: {
           mode: paymentMode,
           depositType,
@@ -819,6 +822,12 @@ export default function EditPackagePage() {
                     <option value="couple">Per Couple</option>
                   </select>
                 </div>
+                {priceUnit === "group" && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Extra Pax Price (₹)</label>
+                    <input type="number" value={extraPersonPrice} onChange={(e) => setExtraPersonPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 15000" />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label>
                   <input type="number" value={isGroupTour ? "" : originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} disabled={isGroupTour} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" placeholder={isGroupTour ? "Locked" : "85000"} />

@@ -70,6 +70,7 @@ export default function NewCustomItineraryPage() {
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
   const [priceUnit, setPriceUnit] = useState("person");
+  const [extraPersonPrice, setExtraPersonPrice] = useState("");
   const [showOnDestination, setShowOnDestination] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -107,6 +108,7 @@ export default function NewCustomItineraryPage() {
     if (p.adultCount) setAdultCount(p.adultCount.toString());
     if (p.childCount) setChildCount(p.childCount.toString());
     if (p.priceUnit) setPriceUnit(p.priceUnit);
+    if (p.extraPersonPrice) setExtraPersonPrice(p.extraPersonPrice.toString());
     if (p.heroImage) setHeroImage(p.heroImage);
     if (p.destinationImages) setDestinationImages(p.destinationImages);
     if (p.stayImages) setStayImages(p.stayImages);
@@ -406,6 +408,7 @@ export default function NewCustomItineraryPage() {
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
         priceUnit,
+        extraPersonPrice: extraPersonPrice ? Number(extraPersonPrice) : 0,
         showOnDestination,
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentPolicy, cancellationPolicy, flightCancellationPolicy,
@@ -607,6 +610,12 @@ export default function NewCustomItineraryPage() {
                   <option value="couple">Per Couple</option>
                 </select>
               </div>
+              {priceUnit === "group" && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Extra Pax Price (₹)</label>
+                  <input type="number" value={extraPersonPrice} onChange={(e) => setExtraPersonPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 15000" />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Original Price</label>
                 <input type="number" value={isGroupTour ? "" : originalPrice} onChange={(e) => handleOriginalPriceChange(e.target.value)} disabled={isGroupTour} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed" placeholder={isGroupTour ? "Locked" : "85000"} />
