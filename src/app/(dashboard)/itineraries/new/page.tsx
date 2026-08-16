@@ -1160,17 +1160,11 @@ export default function NewCustomItineraryPage() {
         {activeTab === "content" && (
           <div className="space-y-6">
             <TemplateControls label="Key Points" category="keyPoints" items={keyPoints} onChange={setKeyPoints} />
-            <ListInput label="Key Points (short labels for the checkmark box)" items={keyPoints} onChange={setKeyPoints} placeholder="e.g. Burj Khalifa At the Top" />
             <TemplateControls label="Trip Highlights" category="highlights" items={highlights} onChange={setHighlights} />
-            <ListInput label="Trip Highlights" items={highlights} onChange={setHighlights} placeholder="e.g. Private beach villa stay" />
             <TemplateControls label="Inclusions" category="inclusions" items={inclusions} onChange={setInclusions} />
-            <ListInput label="Inclusions" items={inclusions} onChange={setInclusions} placeholder="e.g. Airport transfers included" />
             <TemplateControls label="Exclusions" category="exclusions" items={exclusions} onChange={setExclusions} />
-            <ListInput label="Exclusions" items={exclusions} onChange={setExclusions} placeholder="e.g. Flights not included" />
             <TemplateControls label="Know Before You Go" category="knowBeforeYouGo" items={knowBeforeYouGo} onChange={setKnowBeforeYouGo} />
-            <ListInput label="Know Before You Go" items={knowBeforeYouGo} onChange={setKnowBeforeYouGo} placeholder="e.g. Valid passport required" />
             <TemplateControls label="Things to Carry" category="thingsToCarry" items={thingsToCarry} onChange={setThingsToCarry} />
-            <ListInput label="Things to Carry" items={thingsToCarry} onChange={setThingsToCarry} placeholder="e.g. Comfortable walking shoes" />
           </div>
         )}
 
@@ -1178,10 +1172,9 @@ export default function NewCustomItineraryPage() {
         {activeTab === "policies" && (
           <div className="space-y-8 bg-white p-6 rounded-xl border border-slate-200">
             <h3 className="font-semibold text-slate-800 border-b border-slate-100 pb-2">Booking & Cancellation Policies</h3>
-            <ListInput label="Payment Policy" items={paymentPolicy} onChange={setPaymentPolicy} placeholder="e.g. 50% advance to confirm booking" />
-            <ListInput label="Cancellation Policy" items={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation up to 30 days before departure" />
+            <TemplateControls label="Payment Policy" category="paymentPolicy" items={paymentPolicy} onChange={setPaymentPolicy} />
+            <TemplateControls label="Cancellation Policy" category="cancellationPolicy" items={cancellationPolicy} onChange={setCancellationPolicy} />
             <TemplateControls label="Trains / Flight Cancellation Policy" category="flightCancellationPolicy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} />
-            <ListInput label="Trains / Flight Cancellation Policy" items={flightCancellationPolicy} onChange={setFlightCancellationPolicy} placeholder="e.g. Non-refundable after ticketing" />
           </div>
         )}
 
