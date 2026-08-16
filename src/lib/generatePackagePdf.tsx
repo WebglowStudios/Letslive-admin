@@ -760,7 +760,7 @@ const TripSummarySection = ({ pkg }: { pkg: PackageData }) => (
             <Text style={s.glanceLabel}>TRAVELLERS</Text>
             <Text style={s.glanceValue}>
               {pkg.adultCount || pkg.childCount
-                ? `${pkg.adultCount || 0} Adult(s)${pkg.childCount ? `, ${pkg.childCount} Child(ren)` : ""}`
+                ? `${pkg.adultCount || 0} ${pkg.adultCount === 1 ? 'Adult' : 'Adults'}${pkg.childCount ? `, ${pkg.childCount} ${pkg.childCount === 1 ? 'Child' : 'Children'}` : ""}`
                 : pkg.travellerCount}
             </Text>
           </View>
