@@ -9,7 +9,11 @@ import {
   Svg,
   Path,
   Link,
+  Font,
 } from "@react-pdf/renderer";
+
+// Disable automatic hyphenation for all text in the PDF
+Font.registerHyphenationCallback((word: string) => [word]);
 
 // ─── Brand palette (mirrors globals.css tokens) ───────────────────────────────
 const C = {
