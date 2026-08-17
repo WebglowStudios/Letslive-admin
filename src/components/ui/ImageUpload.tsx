@@ -322,30 +322,62 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
   }
 
   async function handleUpload(files: FileList) {
+    const fileArray = Array.from(files);
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+    const validFiles: File[] = [];
+    const oversizedFiles: string[] = [];
+
+    for (const file of fileArray) {
+      if (file.size > maxSizeBytes) {
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    if (oversizedFiles.length > 0) {
+      alert(`The following files exceed the 10MB limit and will be skipped:\n${oversizedFiles.join('\n')}`);
+    }
+
+    if (validFiles.length === 0) return;
+
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      // Process in batches of 10 (backend limit for /upload/multiple)
+      const batchSize = 10;
+      for (let i = 0; i < validFiles.length; i += batchSize) {
+        const batch = validFiles.slice(i, i + batchSize);
         const formData = new FormData();
-        formData.append("image", file);
-        const res = await authFetch(`${API_URL}/upload?folder=${encodeURIComponent(currentPath)}`, {
+        batch.forEach((file) => formData.append("images", file));
+
+        const res = await authFetch(`${API_URL}/upload/multiple?folder=${encodeURIComponent(currentPath)}`, {
           method: "POST",
           body: formData,
           credentials: "include",
         });
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.message || "Failed to upload batch");
+        }
+
         const json = await res.json();
-        if (json.data?.url) {
-          setImages((prev) => [{
-            url: json.data.url,
-            publicId: json.data.publicId,
-            width: json.data.width,
-            height: json.data.height,
+        if (json.data && Array.isArray(json.data)) {
+          const newImages = json.data.map((img: any) => ({
+            url: img.url,
+            publicId: img.publicId,
+            width: img.width || 1600,
+            height: img.height || 1200,
             createdAt: new Date().toISOString(),
-            name: json.data.name || file.name.replace(/\.[^/.]+$/, '') || 'image',
-            format: json.data.format,
-          }, ...prev]);
+            name: img.name || 'image',
+            format: img.format || 'jpg',
+          }));
+          setImages((prev) => [...newImages, ...prev]);
         }
       }
-    } catch { alert("Upload failed"); }
+    } catch (err: any) { 
+      alert(err.message || "Upload failed"); 
+    }
     finally { setUploading(false); }
   }
 
