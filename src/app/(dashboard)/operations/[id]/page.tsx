@@ -58,11 +58,7 @@ export default function OperationDetailPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [downloadingVoucher, setDownloadingVoucher] = useState(false);
-
-  // Payment Link Modal State
-  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
-  const [paymentLinkData, setPaymentLinkData] = useState<{ amount: string; description: string; cp: any; idx: number } | null>(null);
-  const [paymentLinkLoading, setPaymentLinkLoading] = useState(false);
+  const [paymentLinkLoading, setPaymentLinkLoading] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -152,64 +148,53 @@ export default function OperationDetailPage() {
     }
   }
 
-  const handleGeneratePaymentLink = (cp: any, idx: number) => {
-    const amountDue = cp.amount - (cp.paidAmount || 0);
-    setPaymentLinkData({
-      amount: amountDue > 0 ? amountDue.toString() : "0",
-      description: `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`,
-      cp,
-      idx
-    });
-    setShowPaymentLinkModal(true);
-  };
-
-  const submitPaymentLink = async () => {
-    if (!paymentLinkData || !op) return;
-    const { amount, description, cp, idx } = paymentLinkData;
-    
-    const amountNum = Number(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      alert("Invalid amount");
+  const handleGeneratePaymentLink = async (cp: any, idx: number) => {
+    if (!cp.amount || cp.amount <= 0) {
+      alert("Please enter a valid Amount on the card first.");
+      return;
+    }
+    if (!cp.milestone || cp.milestone.trim() === "") {
+      alert("Please enter a Milestone on the card first.");
       return;
     }
 
-    setPaymentLinkLoading(true);
+    setPaymentLinkLoading(cp._id);
     try {
       const res = await api.post('/payments/create-link', {
-        amount: amountNum,
-        description,
-        bookingId: op.booking?._id || undefined,
+        amount: cp.amount,
+        description: `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`,
+        bookingId: op?.booking?._id || undefined,
         customerPaymentId: cp._id,
-        customerName: op.customer?.name || 'Customer',
-        customerEmail: op.customer?.email,
-        customerPhone: op.customer?.phone
+        customerName: op?.customer?.name || 'Customer',
+        customerEmail: op?.customer?.email,
+        customerPhone: op?.customer?.phone
       });
+      
       if (res.data?.short_url) {
         const u = [...customerPayments];
-        // Only update link-related fields, preserve milestone/amount from DB
-        const updatedPayment = { ...u[idx], paymentLink: res.data.short_url, paymentLinkEnabled: true };
+        // Instantly save everything (amount, milestone, and new link)
+        const updatedPayment = { 
+          ...u[idx], 
+          paymentLink: res.data.short_url, 
+          paymentLinkEnabled: true 
+        };
         u[idx] = updatedPayment;
         setCustomerPayments(u);
-        setShowPaymentLinkModal(false);
         
-        // Auto-save only the link fields to the database
+        // Auto-save the whole card to DB
         try {
-          await api.put(`/operations/${op._id}/customer-payments/${cp._id}`, {
-            paymentLink: res.data.short_url,
-            paymentLinkEnabled: true,
-          });
+          await api.put(`/operations/${op?._id}/customer-payments/${cp._id}`, updatedPayment);
         } catch(err) {
           console.error("Auto-save failed", err);
         }
 
         navigator.clipboard.writeText(res.data.short_url).catch(() => {});
-        // Show a non-blocking toast instead of alert
         const existing = document.getElementById('payment-link-toast');
         if (existing) existing.remove();
         const toast = document.createElement('div');
         toast.id = 'payment-link-toast';
-        toast.className = 'fixed bottom-4 right-4 z-50 bg-indigo-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2';
-        toast.innerHTML = `✓ Payment link generated &amp; copied to clipboard!`;
+        toast.className = 'fixed bottom-4 right-4 z-50 bg-indigo-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300 transform translate-y-0 opacity-100';
+        toast.innerHTML = `✓ Payment link generated, saved, & copied!`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
       } else {
@@ -218,7 +203,7 @@ export default function OperationDetailPage() {
     } catch (error: any) {
       alert(error.response?.data?.message || "Failed to generate link");
     } finally {
-      setPaymentLinkLoading(false);
+      setPaymentLinkLoading(null);
     }
   };
 
@@ -647,7 +632,7 @@ export default function OperationDetailPage() {
                 <div className="flex flex-col gap-3 pt-2 border-t border-slate-100">
                   <div className="flex items-end gap-3">
                     <div className="flex-1"><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Link URL</label><Inp value={p.paymentLink||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLink:v};setCustomerPayments(u);}} placeholder="https://razorpay.me/..." /></div>
-                    {p.status !== "paid" && <button onClick={() => handleGeneratePaymentLink(p, idx)} className="flex items-center gap-1.5 px-4 py-2 h-9 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors whitespace-nowrap"><LinkIcon size={14}/> Generate Link</button>}
+                    {p.status !== "paid" && <button onClick={() => handleGeneratePaymentLink(p, idx)} disabled={paymentLinkLoading === p._id} className="flex items-center gap-1.5 px-4 py-2 h-9 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors whitespace-nowrap disabled:opacity-50"><LinkIcon size={14}/> {paymentLinkLoading === p._id ? "Generating..." : "Generate Link"}</button>}
                   </div>
                   <div className="flex items-end pb-1"><label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={p.paymentLinkEnabled} onChange={(e)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLinkEnabled:e.target.checked};setCustomerPayments(u);}} className="w-3.5 h-3.5 rounded" /><span className="text-slate-600">Include payment link in invoice</span></label></div>
                 </div>
@@ -691,44 +676,6 @@ export default function OperationDetailPage() {
           </div>);
       })()}
     </div>
-
-    {/* Payment Link Modal */}
-    {showPaymentLinkModal && paymentLinkData && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-800">Generate Payment Link</h3>
-            <button onClick={() => setShowPaymentLinkModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
-          </div>
-          <div className="p-5 space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Amount (₹)</label>
-              <input 
-                type="number" 
-                value={paymentLinkData.amount}
-                onChange={(e) => setPaymentLinkData({ ...paymentLinkData, amount: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
-              <input 
-                type="text" 
-                value={paymentLinkData.description}
-                onChange={(e) => setPaymentLinkData({ ...paymentLinkData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-          </div>
-          <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-            <button onClick={() => setShowPaymentLinkModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
-            <button onClick={submitPaymentLink} disabled={paymentLinkLoading} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
-              {paymentLinkLoading ? "Generating..." : "Generate Link"}
-            </button>
-          </div>
-        </div>
-      </div>
-      )}
     </>
   );
 }
