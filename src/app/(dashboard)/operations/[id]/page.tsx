@@ -181,57 +181,47 @@ export default function OperationDetailPage() {
     }
 
     const amountDue = cp.amount - (cp.paidAmount || 0);
-    const amountToCharge = amountDue > 0 ? amountDue : cp.amount;
-
-    if (amountToCharge <= 0) {
+    if (amountDue <= 0) {
       alert("This installment is already fully paid.");
       return;
     }
 
     setPaymentLinkLoading(cp._id);
     try {
-      const res = await api.post('/payments/create-link', {
-        amount: amountToCharge,
-        description: `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`,
-        bookingId: op?.booking?._id || undefined,
-        customerPaymentId: cp._id,
-        customerName: op?.customer?.name || 'Customer',
-        customerEmail: op?.customer?.email,
-        customerPhone: op?.customer?.phone
-      });
+      // Generate the link to our custom website payment page
+      const baseUrl = window.location.hostname.includes("localhost") 
+        ? "http://localhost:3000" 
+        : "https://letslivetours.com";
+      const customLink = `${baseUrl}/pay-installment/${cp._id}`;
       
-      if (res.data?.short_url) {
-        const u = [...customerPayments];
-        // Instantly save everything (amount, milestone, and new link)
-        const updatedPayment = { 
-          ...u[idx], 
-          paymentLink: res.data.short_url, 
-          paymentLinkEnabled: true 
-        };
-        u[idx] = updatedPayment;
-        setCustomerPayments(u);
-        
-        // Auto-save the whole card to DB
-        try {
-          await api.put(`/operations/${op?._id}/customer-payments/${cp._id}`, updatedPayment);
-        } catch(err) {
-          console.error("Auto-save failed", err);
-        }
-
-        navigator.clipboard.writeText(res.data.short_url).catch(() => {});
-        const existing = document.getElementById('payment-link-toast');
-        if (existing) existing.remove();
-        const toast = document.createElement('div');
-        toast.id = 'payment-link-toast';
-        toast.className = 'fixed bottom-4 right-4 z-50 bg-indigo-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300 transform translate-y-0 opacity-100';
-        toast.innerHTML = `✓ Payment link generated, saved, & copied!`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 4000);
-      } else {
-        alert("Failed to get link");
+      const u = [...customerPayments];
+      // Instantly save everything (amount, milestone, and new link)
+      const updatedPayment = { 
+        ...u[idx], 
+        paymentLink: customLink, 
+        paymentLinkEnabled: true 
+      };
+      u[idx] = updatedPayment;
+      setCustomerPayments(u);
+      
+      // Auto-save the whole card to DB
+      try {
+        await api.put(`/operations/${op?._id}/customer-payments/${cp._id}`, updatedPayment);
+      } catch(err) {
+        console.error("Auto-save failed", err);
       }
+
+      navigator.clipboard.writeText(customLink).catch(() => {});
+      const existing = document.getElementById('payment-link-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'payment-link-toast';
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-indigo-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300 transform translate-y-0 opacity-100';
+      toast.innerHTML = `✓ Payment link generated, saved, & copied!`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
     } catch (error: any) {
-      alert(error.response?.data?.message || "Failed to generate link");
+      alert("Failed to generate link");
     } finally {
       setPaymentLinkLoading(null);
     }
