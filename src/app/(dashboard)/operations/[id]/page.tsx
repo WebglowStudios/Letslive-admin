@@ -59,6 +59,11 @@ export default function OperationDetailPage() {
   const [importing, setImporting] = useState(false);
   const [downloadingVoucher, setDownloadingVoucher] = useState(false);
 
+  // Payment Link Modal State
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [paymentLinkData, setPaymentLinkData] = useState<{ amount: string; description: string; cp: any; idx: number } | null>(null);
+  const [paymentLinkLoading, setPaymentLinkLoading] = useState(false);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -161,38 +166,53 @@ export default function OperationDetailPage() {
     }
   }
 
-  const handleGeneratePaymentLink = async (cp: any, idx: number) => {
+  const handleGeneratePaymentLink = (cp: any, idx: number) => {
     const amountDue = cp.amount - (cp.paidAmount || 0);
-    const amountStr = window.prompt(`Enter amount to request for ${cp.milestone} (Max: ₹${amountDue}):`, amountDue > 0 ? amountDue.toString() : "0");
-    if (!amountStr) return;
-    const amount = Number(amountStr);
-    if (isNaN(amount) || amount <= 0) {
+    setPaymentLinkData({
+      amount: amountDue > 0 ? amountDue.toString() : "0",
+      description: `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`,
+      cp,
+      idx
+    });
+    setShowPaymentLinkModal(true);
+  };
+
+  const submitPaymentLink = async () => {
+    if (!paymentLinkData || !op) return;
+    const { amount, description, cp, idx } = paymentLinkData;
+    
+    const amountNum = Number(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
       alert("Invalid amount");
       return;
     }
-    const description = window.prompt("Enter payment description:", `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`);
-    if (description === null) return;
 
+    setPaymentLinkLoading(true);
     try {
       const res = await api.post('/payments/create-link', {
-        amount,
+        amount: amountNum,
         description,
-        bookingId: op?.booking?._id || undefined,
+        bookingId: op.booking?._id || undefined,
         customerPaymentId: cp._id,
-        customerName: op?.customer?.name || 'Customer',
-        customerEmail: op?.customer?.email,
-        customerPhone: op?.customer?.phone
+        customerName: op.customer?.name || 'Customer',
+        customerEmail: op.customer?.email,
+        customerPhone: op.customer?.phone
       });
       if (res.data?.short_url) {
-        window.prompt("Payment link generated! Copy and share:", res.data.short_url);
+        // Success
         const u = [...customerPayments];
         u[idx] = { ...u[idx], paymentLink: res.data.short_url, paymentLinkEnabled: true };
         setCustomerPayments(u);
+        setShowPaymentLinkModal(false);
+        alert(`Payment link generated! Copied to clipboard.\n${res.data.short_url}`);
+        navigator.clipboard.writeText(res.data.short_url).catch(() => {});
       } else {
         alert("Failed to get link");
       }
     } catch (error: any) {
       alert(error.response?.data?.message || "Failed to generate link");
+    } finally {
+      setPaymentLinkLoading(false);
     }
   };
 
@@ -209,7 +229,8 @@ export default function OperationDetailPage() {
   ];
 
   return (
-    <div className="space-y-5">
+    <>
+      <div className="space-y-5">
       <div className="flex items-center gap-4">
         <Link href="/operations" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
         <div className="flex-1">
@@ -653,5 +674,44 @@ export default function OperationDetailPage() {
           </div>);
       })()}
     </div>
+
+    {/* Payment Link Modal */}
+    {showPaymentLinkModal && paymentLinkData && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-800">Generate Payment Link</h3>
+            <button onClick={() => setShowPaymentLinkModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Amount (₹)</label>
+              <input 
+                type="number" 
+                value={paymentLinkData.amount}
+                onChange={(e) => setPaymentLinkData({ ...paymentLinkData, amount: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
+              <input 
+                type="text" 
+                value={paymentLinkData.description}
+                onChange={(e) => setPaymentLinkData({ ...paymentLinkData, description: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+          </div>
+          <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+            <button onClick={() => setShowPaymentLinkModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+            <button onClick={submitPaymentLink} disabled={paymentLinkLoading} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
+              {paymentLinkLoading ? "Generating..." : "Generate Link"}
+            </button>
+          </div>
+        </div>
+      </div>
+      )}
+    </>
   );
 }

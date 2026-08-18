@@ -76,6 +76,11 @@ export default function BookingDetailPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingPayment, setUpdatingPayment] = useState(false);
 
+  // Payment Link Modal State
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
+  const [paymentLinkData, setPaymentLinkData] = useState<{ amount: string; description: string } | null>(null);
+  const [paymentLinkLoading, setPaymentLinkLoading] = useState(false);
+
   const canUpdate = usePermission("bookings.update");
 
   const fetchBooking = useCallback(async () => {
@@ -126,30 +131,40 @@ export default function BookingDetailPage() {
     finally { setUpdatingPayment(false); }
   }
 
-  const handleGeneratePaymentLink = async () => {
+  const handleGeneratePaymentLink = () => {
     if (!booking) return;
     const amountDue = booking.totalAmount - (booking.paidAmount || 0);
-    const amountStr = window.prompt(`Enter amount to request (Max: ₹${amountDue}):`, amountDue > 0 ? amountDue.toString() : "0");
-    if (!amountStr) return;
-    const amount = Number(amountStr);
-    if (isNaN(amount) || amount <= 0) {
+    setPaymentLinkData({
+      amount: amountDue > 0 ? amountDue.toString() : "0",
+      description: `Payment for Booking ${booking.bookingId}`
+    });
+    setShowPaymentLinkModal(true);
+  };
+
+  const submitPaymentLink = async () => {
+    if (!paymentLinkData || !booking) return;
+    const { amount, description } = paymentLinkData;
+    
+    const amountNum = Number(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
       alert("Invalid amount");
       return;
     }
-    const description = window.prompt("Enter payment description:", `Payment for ${booking.package?.name || 'Booking'}`);
-    if (description === null) return;
 
+    setPaymentLinkLoading(true);
     try {
       const res = await api.post('/payments/create-link', {
-        amount,
+        amount: amountNum,
         description,
         bookingId: booking._id,
-        customerName: `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`.trim(),
+        customerName: booking.user?.firstName || 'Customer',
         customerEmail: booking.user?.email,
         customerPhone: booking.user?.phone
       });
       if (res.data?.short_url) {
-        window.prompt("Payment link generated! Copy and share:", res.data.short_url);
+        setShowPaymentLinkModal(false);
+        alert(`Payment link generated! Copied to clipboard.\n${res.data.short_url}`);
+        navigator.clipboard.writeText(res.data.short_url).catch(() => {});
       } else {
         alert("Failed to get link");
       }
@@ -493,6 +508,44 @@ export default function BookingDetailPage() {
           </div>
         </div>
       </div>
+      
+      {/* Payment Link Modal */}
+      {showPaymentLinkModal && paymentLinkData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">Generate Payment Link</h3>
+              <button onClick={() => setShowPaymentLinkModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Amount (₹)</label>
+                <input 
+                  type="number" 
+                  value={paymentLinkData.amount}
+                  onChange={(e) => setPaymentLinkData({ ...paymentLinkData, amount: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Description</label>
+                <input 
+                  type="text" 
+                  value={paymentLinkData.description}
+                  onChange={(e) => setPaymentLinkData({ ...paymentLinkData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+            </div>
+            <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={() => setShowPaymentLinkModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+              <button onClick={submitPaymentLink} disabled={paymentLinkLoading} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
+                {paymentLinkLoading ? "Generating..." : "Generate Link"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </RoleGuard>
   );
 }
