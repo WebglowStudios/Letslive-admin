@@ -77,27 +77,13 @@ export default function OperationDetailPage() {
   async function saveItem(endpoint: string, itemId: string, data: any) { 
     setSaving(itemId); 
     try { 
-      let payload = { ...data };
-      if (endpoint === "customer-payments" && (data.status === "paid" || data.status === "partial" || data.paidAmount > 0)) {
-        const mode = window.prompt("Enter Payment Mode (e.g., UPI, Cash, NEFT):", data.paymentMode || "");
-        if (mode === null) return; // user cancelled
-        const txId = window.prompt("Enter Transaction ID (optional):", data.transactionId || "");
-        if (txId === null) return;
-        const remarks = window.prompt("Enter Remarks (optional):", data.remarks || "");
-        if (remarks === null) return;
-        
-        payload.financeDetails = {
-          mode,
-          transactionId: txId,
-          remarks
-        };
-      }
-      await api.put(`/operations/${id}/${endpoint}/${itemId}`, payload); 
+      // For customer payments, send the data directly without finance approval flow.
+      // The backend updateCustomerPayment handles status computation via the pre('save') hook.
+      // Staff do not need finance approval flow for basic milestone/amount edits.
+      await api.put(`/operations/${id}/${endpoint}/${itemId}`, data); 
       fetchAll();
     } catch { 
-      alert("Save failed"); 
-    } finally { 
-      setSaving(null); 
+      setSaving(null);
     } 
   }
   async function delItem(endpoint: string, itemId: string) { if (!confirm("Delete?")) return; await api.del(`/operations/${id}/${endpoint}/${itemId}`); fetchAll(); }
@@ -199,22 +185,33 @@ export default function OperationDetailPage() {
         customerPhone: op.customer?.phone
       });
       if (res.data?.short_url) {
-        // Success
         const u = [...customerPayments];
-        const updatedPayment = { ...u[idx], paymentLink: res.data.short_url, paymentLinkEnabled: true, amount: amountNum, milestone: description };
+        // Only update link-related fields, preserve milestone/amount from DB
+        const updatedPayment = { ...u[idx], paymentLink: res.data.short_url, paymentLinkEnabled: true };
         u[idx] = updatedPayment;
         setCustomerPayments(u);
         setShowPaymentLinkModal(false);
         
-        // Auto-save the updated information
+        // Auto-save only the link fields to the database
         try {
-          await api.put(`/operations/${op._id}/customer-payments/${cp._id}`, updatedPayment);
+          await api.put(`/operations/${op._id}/customer-payments/${cp._id}`, {
+            paymentLink: res.data.short_url,
+            paymentLinkEnabled: true,
+          });
         } catch(err) {
           console.error("Auto-save failed", err);
         }
 
-        alert(`Payment link generated and auto-saved! Copied to clipboard.\n${res.data.short_url}`);
         navigator.clipboard.writeText(res.data.short_url).catch(() => {});
+        // Show a non-blocking toast instead of alert
+        const existing = document.getElementById('payment-link-toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.id = 'payment-link-toast';
+        toast.className = 'fixed bottom-4 right-4 z-50 bg-indigo-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2';
+        toast.innerHTML = `✓ Payment link generated &amp; copied to clipboard!`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
       } else {
         alert("Failed to get link");
       }
@@ -631,7 +628,7 @@ export default function OperationDetailPage() {
           {customerPayments.length>0&&<div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between"><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Total</p><p className="text-sm font-bold text-slate-800">{formatCurrency(customerPayments.reduce((s,p)=>s+p.amount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Received</p><p className="text-sm font-bold text-emerald-600">{formatCurrency(customerPayments.reduce((s,p)=>s+p.paidAmount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Pending</p><p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</p></div></div>}
           {customerPayments.map((p, idx) => (
             <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.financeStatus==="pending_approval"?<span className="text-amber-600">PENDING APPROVAL</span>:p.status==="paid"&&<span className="text-emerald-600">PAID</span>}{p.status==="overdue"&&<span className="text-red-600">OVERDUE</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={p.financeStatus==="pending_approval"} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> Save</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
+              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Milestone</label><Inp value={p.milestone} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],milestone:v};setCustomerPayments(u);}} placeholder="Advance, Final..." /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>

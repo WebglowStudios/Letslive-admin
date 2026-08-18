@@ -15,11 +15,13 @@ interface OperationItem {
   travelDates: { start: string; end: string };
   assignedTo?: { firstName: string; lastName: string };
   sellingPrice: number;
+  effectiveSelling?: number;   // live total billed (from CustomerPayments)
+  totalReceived?: number;      // live total received
   totalVendorCost: number;
   grossProfit: number;
   profitPercentage: number;
-  status: string;
   pendingPayment?: number;
+  status: string;
   createdAt: string;
 }
 
@@ -119,8 +121,9 @@ export default function OperationsPage() {
                   <th className="px-5 py-3">Customer</th>
                   <th className="px-5 py-3">Destination</th>
                   <th className="px-5 py-3">Travel Date</th>
-                  <th className="px-5 py-3">Selling</th>
-                  <th className="px-5 py-3">Pending Payment</th>
+                  <th className="px-5 py-3">Billed</th>
+                  <th className="px-5 py-3">Received</th>
+                  <th className="px-5 py-3">Pending</th>
                   <th className="px-5 py-3">Vendor Cost</th>
                   <th className="px-5 py-3">Profit</th>
                   <th className="px-5 py-3">Status</th>
@@ -145,12 +148,19 @@ export default function OperationsPage() {
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{op.destination}</td>
                       <td className="px-5 py-4 text-sm text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"}</td>
-                      <td className="px-5 py-4 text-sm font-semibold text-slate-700">{formatCurrency(op.sellingPrice)}</td>
+                      <td className="px-5 py-4 text-sm font-semibold text-slate-700">{formatCurrency(op.effectiveSelling ?? op.sellingPrice)}</td>
+                      <td className="px-5 py-4">
+                        {op.totalReceived !== undefined && op.totalReceived > 0 ? (
+                          <div className="text-sm font-bold text-emerald-600">{formatCurrency(op.totalReceived)}</div>
+                        ) : (
+                          <div className="text-sm text-slate-400">—</div>
+                        )}
+                      </td>
                       <td className="px-5 py-4">
                         {op.pendingPayment !== undefined && op.pendingPayment > 0 ? (
                           <div className="text-sm font-bold text-amber-600">{formatCurrency(op.pendingPayment)}</div>
                         ) : (
-                          <div className="text-sm text-slate-400">Paid</div>
+                          <div className="text-sm text-emerald-500 font-medium">All Paid</div>
                         )}
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{formatCurrency(op.totalVendorCost)}</td>
