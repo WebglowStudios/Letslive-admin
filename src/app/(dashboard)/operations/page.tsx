@@ -19,6 +19,7 @@ interface OperationItem {
   grossProfit: number;
   profitPercentage: number;
   status: string;
+  pendingPayment?: number;
   createdAt: string;
 }
 
@@ -26,17 +27,19 @@ export default function OperationsPage() {
   const [operations, setOperations] = useState<OperationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchOperations();
-  }, [statusFilter]);
+  }, [statusFilter, hasPendingPayment]);
 
   async function fetchOperations() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "50" });
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (hasPendingPayment) params.set("hasPendingPayment", "true");
       const res = await api.get(`/operations?${params}`);
       setOperations(res?.data || []);
     } catch {
@@ -93,6 +96,10 @@ export default function OperationsPage() {
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by ID, customer, destination..." className="bg-transparent border-none outline-none text-sm w-full" />
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setHasPendingPayment(!hasPendingPayment)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${hasPendingPayment ? "bg-amber-100 text-amber-700 border-amber-200 border" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+              {hasPendingPayment ? "Show All" : "Pending Payments Only"}
+            </button>
+            <div className="w-px h-6 bg-slate-200 mx-1"></div>
             <Filter size={14} className="text-slate-400" />
             {["all", "planning", "booked", "in-progress", "completed"].map((s) => (
               <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${statusFilter === s ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
@@ -113,6 +120,7 @@ export default function OperationsPage() {
                   <th className="px-5 py-3">Destination</th>
                   <th className="px-5 py-3">Travel Date</th>
                   <th className="px-5 py-3">Selling</th>
+                  <th className="px-5 py-3">Pending Payment</th>
                   <th className="px-5 py-3">Vendor Cost</th>
                   <th className="px-5 py-3">Profit</th>
                   <th className="px-5 py-3">Status</th>
@@ -121,9 +129,9 @@ export default function OperationsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-400">Loading operations...</td></tr>
+                  <tr><td colSpan={10} className="px-5 py-12 text-center text-sm text-slate-400">Loading operations...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="px-5 py-12 text-center text-sm text-slate-400">No operations found. Confirm a booking to auto-create one.</td></tr>
+                  <tr><td colSpan={10} className="px-5 py-12 text-center text-sm text-slate-400">No operations found. Confirm a booking to auto-create one.</td></tr>
                 ) : (
                   filtered.map((op) => (
                     <tr key={op._id} className="hover:bg-slate-50">
@@ -138,6 +146,13 @@ export default function OperationsPage() {
                       <td className="px-5 py-4 text-sm text-slate-600">{op.destination}</td>
                       <td className="px-5 py-4 text-sm text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"}</td>
                       <td className="px-5 py-4 text-sm font-semibold text-slate-700">{formatCurrency(op.sellingPrice)}</td>
+                      <td className="px-5 py-4">
+                        {op.pendingPayment !== undefined && op.pendingPayment > 0 ? (
+                          <div className="text-sm font-bold text-amber-600">{formatCurrency(op.pendingPayment)}</div>
+                        ) : (
+                          <div className="text-sm text-slate-400">Paid</div>
+                        )}
+                      </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{formatCurrency(op.totalVendorCost)}</td>
                       <td className="px-5 py-4">
                         <div className="text-sm font-bold" style={{ color: op.grossProfit >= 0 ? "#10b981" : "#ef4444" }}>
