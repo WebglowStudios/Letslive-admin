@@ -23,7 +23,7 @@ interface Transport {
 }
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
-interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; }
+interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
 interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
@@ -70,17 +70,39 @@ export default function OperationDetailPage() {
   }, [id]);
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+
   async function saveItem(endpoint: string, itemId: string, data: any) { 
     setSaving(itemId); 
     try { 
-      // For customer payments, send the data directly without finance approval flow.
-      // The backend updateCustomerPayment handles status computation via the pre('save') hook.
-      // Staff do not need finance approval flow for basic milestone/amount edits.
-      await api.put(`/operations/${id}/${endpoint}/${itemId}`, data); 
+      // If it's a manual payment with a paid amount, trigger the Finance Approval flow
+      if (endpoint === "customer-payments" && data._isManual && data.paidAmount > 0) {
+        const payload = {
+          ...data,
+          financeDetails: {
+            mode: data.paymentMode || "Offline",
+            transactionId: data.transactionId || "N/A",
+            paidAmount: data.paidAmount
+          }
+        };
+        await api.put(`/operations/${id}/${endpoint}/${itemId}`, payload); 
+      } else {
+        await api.put(`/operations/${id}/${endpoint}/${itemId}`, data); 
+      }
       fetchAll();
+      
+      const existing = document.getElementById('save-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'save-toast';
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300';
+      toast.innerHTML = `✓ Saved successfully!`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
     } catch { 
+      alert("Failed to save item.");
+    } finally {
       setSaving(null);
-    } 
+    }
   }
   async function delItem(endpoint: string, itemId: string) { if (!confirm("Delete?")) return; await api.del(`/operations/${id}/${endpoint}/${itemId}`); fetchAll(); }
   async function recalculate() { await api.put(`/operations/${id}/recalculate`); fetchAll(); }
@@ -158,10 +180,18 @@ export default function OperationDetailPage() {
       return;
     }
 
+    const amountDue = cp.amount - (cp.paidAmount || 0);
+    const amountToCharge = amountDue > 0 ? amountDue : cp.amount;
+
+    if (amountToCharge <= 0) {
+      alert("This installment is already fully paid.");
+      return;
+    }
+
     setPaymentLinkLoading(cp._id);
     try {
       const res = await api.post('/payments/create-link', {
-        amount: cp.amount,
+        amount: amountToCharge,
         description: `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`,
         bookingId: op?.booking?._id || undefined,
         customerPaymentId: cp._id,
@@ -614,28 +644,41 @@ export default function OperationDetailPage() {
           {customerPayments.map((p, idx) => (
             <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
               <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
+              <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-max mb-4">
+                <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: false}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!p._isManual ? "bg-white shadow text-indigo-700" : "text-slate-500 hover:text-slate-700"}`}>Razorpay Link</button>
+                <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: true}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${p._isManual ? "bg-white shadow text-cyan-700" : "text-slate-500 hover:text-slate-700"}`}>Manual / Offline</button>
+              </div>
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Milestone</label><Inp value={p.milestone} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],milestone:v};setCustomerPayments(u);}} placeholder="Advance, Final..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Paid</label><Inp type="number" value={p.paidAmount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paidAmount:Number(v)};setCustomerPayments(u);}} /></div>
+                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Total Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Due Date</label><Inp type="date" value={p.dueDate?.split("T")[0]||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],dueDate:v};setCustomerPayments(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Mode</label><Inp value={p.paymentMode} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentMode:v};setCustomerPayments(u);}} placeholder="UPI/NEFT" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">TXN ID</label><Inp value={p.transactionId} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],transactionId:v};setCustomerPayments(u);}} /></div>
+                
+                {p._isManual && (
+                  <>
+                    <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Paid Received</label><Inp type="number" value={p.paidAmount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paidAmount:Number(v)};setCustomerPayments(u);}} /></div>
+                    <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Mode (Manual)</label><Inp value={p.paymentMode} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentMode:v};setCustomerPayments(u);}} placeholder="UPI/NEFT/Cash" /></div>
+                    <div><label className="text-[9px] text-slate-400 uppercase block mb-1">TXN ID</label><Inp value={p.transactionId} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],transactionId:v};setCustomerPayments(u);}} /></div>
+                  </>
+                )}
               </div>
-              {p.status === "paid" && p.paymentLink ? (
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2 rounded-lg text-xs font-semibold">
-                    <Check size={14} /> Paid via Link: <a href={p.paymentLink} target="_blank" rel="noopener noreferrer" className="underline truncate max-w-sm">{p.paymentLink}</a>
+              
+              {!p._isManual && (
+                p.status === "paid" && p.paymentLink ? (
+                  <div className="pt-2 border-t border-slate-100 mt-2">
+                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2 rounded-lg text-xs font-semibold">
+                      <Check size={14} /> Paid via Link: <a href={p.paymentLink} target="_blank" rel="noopener noreferrer" className="underline truncate max-w-sm">{p.paymentLink}</a>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3 pt-2 border-t border-slate-100">
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1"><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Link URL</label><Inp value={p.paymentLink||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLink:v};setCustomerPayments(u);}} placeholder="https://razorpay.me/..." /></div>
-                    {p.status !== "paid" && <button onClick={() => handleGeneratePaymentLink(p, idx)} disabled={paymentLinkLoading === p._id} className="flex items-center gap-1.5 px-4 py-2 h-9 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors whitespace-nowrap disabled:opacity-50"><LinkIcon size={14}/> {paymentLinkLoading === p._id ? "Generating..." : "Generate Link"}</button>}
+                ) : (
+                  <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 mt-2">
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1"><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Link URL</label><Inp value={p.paymentLink||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLink:v};setCustomerPayments(u);}} placeholder="https://razorpay.me/..." /></div>
+                      {p.status !== "paid" && <button onClick={() => handleGeneratePaymentLink(p, idx)} disabled={paymentLinkLoading === p._id} className="flex items-center gap-1.5 px-4 py-2 h-9 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors whitespace-nowrap disabled:opacity-50"><LinkIcon size={14}/> {paymentLinkLoading === p._id ? "Generating..." : "Generate Link for ₹" + (p.amount - (p.paidAmount || 0))}</button>}
+                    </div>
+                    <div className="flex items-end pb-1"><label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={p.paymentLinkEnabled} onChange={(e)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLinkEnabled:e.target.checked};setCustomerPayments(u);}} className="w-3.5 h-3.5 rounded" /><span className="text-slate-600">Include payment link in invoice</span></label></div>
                   </div>
-                  <div className="flex items-end pb-1"><label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={p.paymentLinkEnabled} onChange={(e)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLinkEnabled:e.target.checked};setCustomerPayments(u);}} className="w-3.5 h-3.5 rounded" /><span className="text-slate-600">Include payment link in invoice</span></label></div>
-                </div>
+                )
               )}
             </div>
           ))}
