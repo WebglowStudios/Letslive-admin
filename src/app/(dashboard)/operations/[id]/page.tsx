@@ -8,7 +8,19 @@ import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus
 import Link from "next/link";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
-interface Transport { _id: string; type: string; name: string; bookingRef: string; route: string; date: string; departureTime: string; arrivalTime: string; driverName: string; driverContact: string; vehicleNumber: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; paymentDueDate: string; isUrgent: boolean; remarks: string; }
+interface Transport {
+  _id: string;
+  vendorName: string;
+  vendorContact: string;
+  vendorEmail: string;
+  vendorCost: number;
+  sellingPrice: number;
+  paymentStatus: string;
+  paymentDueDate: string;
+  isUrgent: boolean;
+  remarks: string;
+  legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string }[];
+}
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; }
@@ -25,15 +37,12 @@ function VendorPick({ value, onChange, vendors, filterType }: { value: string; o
   return <select value={value} onChange={(e) => onChange(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full"><option value="">-- Select vendor --</option>{filtered.map((v) => <option key={v._id} value={v.name}>{v.name}</option>)}<option value="__custom">+ Enter manually</option></select>;
 }
 
-const TRANSPORT_TYPES = [
-  { v: "flight", l: "Flight" }, { v: "train", l: "Train" }, { v: "bus", l: "Bus" }, { v: "car", l: "Car/Taxi" },
-  { v: "ferry", l: "Ferry" }, { v: "cruise", l: "Cruise" }, { v: "buggy", l: "Buggy" }, { v: "other", l: "Other" },
-];
 const ACCOMMODATION_TYPES = [
   { v: "hotel", l: "Hotel" }, { v: "resort", l: "Resort" }, { v: "villa", l: "Villa" }, { v: "hostel", l: "Hostel" },
   { v: "motel", l: "Motel" }, { v: "inn", l: "Inn" }, { v: "apartment", l: "Apartment" }, { v: "homestay", l: "Homestay" }, { v: "other", l: "Other" },
 ];
 const PAY_OPTS = [{ v: "pending", l: "Pending" }, { v: "partial", l: "Partial" }, { v: "paid", l: "Paid" }];
+
 
 export default function OperationDetailPage() {
   const params = useParams();
@@ -135,9 +144,9 @@ export default function OperationDetailPage() {
         adults: op?.customer?.adults,
         children: op?.customer?.children,
         paymentStatus: op?.booking?.paymentStatus || "pending",
-        flights: transports.filter((t) => t.type === "flight"),
+        flights: [],
         accommodations: accommodations,
-        transports: transports.filter((t) => t.type !== "flight"),
+        transports: transports,
         itinerary,
         transferSummary,
         packageSlug: op?.package?.slug || "",
@@ -255,20 +264,29 @@ export default function OperationDetailPage() {
       {/* TRANSPORTATION */}
       {tab === "transport" && (
         <div className="space-y-3">
+          <datalist id="vehicle-type-opts">
+            <option value="Car" /><option value="SUV" /><option value="Innova" />
+            <option value="Tempo Traveller" /><option value="Bus" /><option value="Mini Bus" />
+            <option value="Van" /><option value="Auto Rickshaw" /><option value="Ferry" />
+            <option value="Speed Boat" /><option value="Flight" /><option value="Train" />
+            <option value="Buggy" /><option value="Bike" /><option value="Other" />
+          </datalist>
+
           <div className="flex justify-between items-center">
-            <p className="text-sm font-semibold text-slate-700">{transports.length} transport(s)</p>
+            <p className="text-sm font-semibold text-slate-700">{transports.length} transfer group(s)</p>
             <div className="flex gap-2">
               {op.package && transports.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "flight" }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Transport</button>
+              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "", notes: "" }] }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Transfer Group</button>
             </div>
           </div>
+
           {op.package && transports.length === 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 text-blue-600 rounded-full"><Wand2 size={16} /></div>
                 <div>
                   <p className="text-sm font-bold text-blue-900">Import from Itinerary</p>
-                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill transports.</p>
+                  <p className="text-xs text-blue-700 mt-0.5">This operation is linked to a package. Click to auto-fill transfers from the itinerary.</p>
                 </div>
               </div>
               <button onClick={importFromItinerary} disabled={importing} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors">
@@ -276,32 +294,166 @@ export default function OperationDetailPage() {
               </button>
             </div>
           )}
+
           {transports.map((t, idx) => (
-            <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-3 ${t.isUrgent ? "border-red-300 bg-red-50/30" : "border-slate-200"}`}>
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} <span className="capitalize text-slate-500">{t.type}</span> {t.isUrgent && <span className="text-red-600 ml-1">URGENT</span>}</span><div className="flex gap-2"><button onClick={() => saveItem("transports", t._id, transports[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold">{saving===t._id?"...": <><Check size={10}/> Save</>}</button><button onClick={() => delItem("transports", t._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Type</label><Sel value={t.type} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],type:v};setTransports(u);}} options={TRANSPORT_TYPES} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Name/Airline</label><Inp value={t.name} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],name:v};setTransports(u);}} placeholder="IndiGo, Rajdhani..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">PNR / Booking Ref</label><Inp value={t.bookingRef} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],bookingRef:v};setTransports(u);}} placeholder="ABC123" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Route</label><Inp value={t.route} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],route:v};setTransports(u);}} placeholder="Mumbai → Dubai" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Date</label><Inp type="date" value={t.date?.split("T")[0]||""} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],date:v};setTransports(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Departure</label><Inp value={t.departureTime} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],departureTime:v};setTransports(u);}} placeholder="06:30" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Arrival</label><Inp value={t.arrivalTime} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],arrivalTime:v};setTransports(u);}} placeholder="10:45" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vehicle No.</label><Inp value={t.vehicleNumber} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],vehicleNumber:v};setTransports(u);}} placeholder="MH12XX1234" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Duration/Allotment</label><Inp value={t.duration} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],duration:v};setTransports(u);}} placeholder="Full day, 4 hrs..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={t.tripDay} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],tripDay:v};setTransports(u);}} placeholder="Day 1, Arrival..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Driver</label><Inp value={t.driverName} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],driverName:v};setTransports(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Driver Contact</label><Inp value={t.driverContact} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],driverContact:v};setTransports(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!t.vendorName?<VendorPick value={t.vendorName} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setTransports(u);}} vendors={vendorList} filterType="flight" />:<Inp value={t.vendorName} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],vendorName:v};setTransports(u);}} />}</div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={t.vendorCost} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],vendorCost:Number(v)};setTransports(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={t.sellingPrice} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],sellingPrice:Number(v)};setTransports(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0]||""} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],paymentDueDate:v};setTransports(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],paymentStatus:v};setTransports(u);}} options={PAY_OPTS} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks</label><Inp value={t.remarks||""} onChange={(v)=>{const u=[...transports];u[idx]={...u[idx],remarks:v};setTransports(u);}} /></div>
+            <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-4 ${t.isUrgent ? "border-red-300 bg-red-50/20" : "border-slate-200"}`}>
+
+              {/* Card header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-cyan-700">#{idx + 1}</span>
+                  <span className="text-xs font-semibold text-slate-600">{t.vendorName || "Transfer Group"}</span>
+                  {t.isUrgent && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">URGENT</span>}
+                  {t.legs.length > 1 && <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{t.legs.length} legs</span>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => saveItem("transports", t._id, transports[idx])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors">
+                    {saving === t._id ? "..." : <><Check size={10} /> Save</>}
+                  </button>
+                  <button onClick={() => delItem("transports", t._id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                </div>
               </div>
+
+              {/* Vendor info row */}
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Name / Company</label>
+                    <Inp value={t.vendorName} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorName: v }; setTransports(u); }} placeholder="e.g. Ravi Travels, IndiGo..." />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label>
+                    <Inp value={t.vendorContact} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorContact: v }; setTransports(u); }} placeholder="+91 98765 43210" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label>
+                    <Inp value={t.vendorEmail} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorEmail: v }; setTransports(u); }} placeholder="vendor@email.com" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financials row */}
+              <div>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label>
+                    <Inp type="number" value={t.vendorCost} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorCost: Number(v) }; setTransports(u); }} placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label>
+                    <Inp type="number" value={t.sellingPrice} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], sellingPrice: Number(v) }; setTransports(u); }} placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label>
+                    <Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentDueDate: v }; setTransports(u); }} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label>
+                    <Sel value={t.paymentStatus} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentStatus: v }; setTransports(u); }} options={PAY_OPTS} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <div>
+                <label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks / Notes</label>
+                <Inp value={t.remarks || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], remarks: v }; setTransports(u); }} placeholder="e.g. Night transfers included, toll charges extra..." />
+              </div>
+
+              {/* Transfer legs */}
+              <div className="border-t border-slate-100 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Transfer Legs {t.legs.length > 1 ? `(${t.legs.length} segments — group transfer)` : "(single transfer)"}</p>
+                  <button
+                    onClick={() => {
+                      const u = [...transports];
+                      u[idx] = { ...u[idx], legs: [...u[idx].legs, { from: "", to: "", date: "", tripDay: "", vehicleType: "", notes: "" }] };
+                      setTransports(u);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold hover:bg-slate-200 transition-colors"
+                  >
+                    <Plus size={10} /> Add Leg
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {(t.legs || []).map((leg, li) => (
+                    <div key={li} className="bg-slate-50 rounded-lg p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-slate-400 w-5 shrink-0">{li + 1}.</span>
+                        <input
+                          type="text"
+                          value={leg.from}
+                          onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], from: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                          placeholder="From (e.g. Pune Airport)"
+                          className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                        />
+                        <span className="text-slate-300 text-xs shrink-0">→</span>
+                        <input
+                          type="text"
+                          value={leg.to}
+                          onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], to: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                          placeholder="To (e.g. Marriott Hotel)"
+                          className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                        />
+                        {t.legs.length > 1 && (
+                          <button
+                            onClick={() => { const u = [...transports]; u[idx] = { ...u[idx], legs: u[idx].legs.filter((_, i) => i !== li) }; setTransports(u); }}
+                            className="p-1 text-red-400 hover:text-red-600 shrink-0"
+                          ><Trash2 size={12} /></button>
+                        )}
+                      </div>
+                      <div className="pl-5 grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div>
+                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle Type</label>
+                          <input
+                            list="vehicle-type-opts"
+                            type="text"
+                            value={leg.vehicleType}
+                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], vehicleType: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                            placeholder="Car, SUV, Bus..."
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Trip Day</label>
+                          <input
+                            type="text"
+                            value={leg.tripDay}
+                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], tripDay: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                            placeholder="Day 1, Arrival..."
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={leg.date?.split("T")[0] || ""}
+                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], date: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Notes</label>
+                          <input
+                            type="text"
+                            value={leg.notes}
+                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], notes: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                            placeholder="e.g. Night transfer, toll included"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           ))}
-          {transports.length===0&&<div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No transports yet.</div>}
+          {transports.length === 0 && <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No transfer groups yet. Add one above or import from itinerary.</div>}
         </div>
       )}
 

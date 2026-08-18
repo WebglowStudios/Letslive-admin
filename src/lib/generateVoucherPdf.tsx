@@ -258,35 +258,75 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
           </View>
         )}
 
-        {/* TRANSPORT DETAILS */}
+        {/* TRANSFER ARRANGEMENTS */}
         {transports.length > 0 && (
-          <View style={s.sectionWrapper} wrap={false}>
+          <View style={s.sectionWrapper}>
             <View style={s.sectionHeader}>
               <Icon d={ICONS.car} color={C.gn3} size={14} />
-              <Text style={s.sectionTitle}>TRANSPORT DETAILS</Text>
+              <Text style={s.sectionTitle}>TRANSFER ARRANGEMENTS</Text>
             </View>
-            {transports.map((t, i) => (
-              <View style={[s.transportBox, { marginTop: i > 0 ? 10 : 0 }]} key={i}>
-                <View style={s.tBoxCol}>
-                  <Text style={s.tBoxLabel}>DRIVER NAME</Text>
-                  <Text style={s.tBoxValue}>{t.driverName || "To be updated"}</Text>
+            {transports.map((t: any, i: number) => {
+              const legs: any[] = t.legs || [];
+              const hasLegData = legs.some((l: any) => l.from || l.to);
+              return (
+                <View key={i} style={[s.transportBox, { marginTop: i > 0 ? 10 : 0, flexDirection: "column", gap: 0, padding: 14 }]}>
+                  {/* Vendor header row */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: hasLegData ? 10 : 0 }}>
+                    <View style={{ flex: 2 }}>
+                      <Text style={s.tBoxLabel}>OPERATOR / VENDOR</Text>
+                      <Text style={s.tBoxValue}>{t.vendorName || "To be updated"}</Text>
+                    </View>
+                    {(t.vendorContact || t.vendorEmail) && (
+                      <View style={{ flex: 2 }}>
+                        <Text style={s.tBoxLabel}>CONTACT</Text>
+                        {t.vendorContact ? <Text style={s.tBoxValue}>{t.vendorContact}</Text> : null}
+                        {t.vendorEmail ? <Text style={{ fontSize: 8, color: C.ink3 }}>{t.vendorEmail}</Text> : null}
+                      </View>
+                    )}
+                    {t.remarks ? (
+                      <View style={{ flex: 3 }}>
+                        <Text style={s.tBoxLabel}>NOTES</Text>
+                        <Text style={{ fontSize: 8, color: C.ink2, lineHeight: 1.4 }}>{t.remarks}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Legs table */}
+                  {hasLegData && (
+                    <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 8 }}>
+                      {/* Table header */}
+                      <View style={{ flexDirection: "row", paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: C.iv2 }}>
+                        <Text style={[s.th, { width: "15%" }]}>DAY</Text>
+                        <Text style={[s.th, { width: "50%" }]}>ROUTE</Text>
+                        <Text style={[s.th, { width: "20%" }]}>VEHICLE</Text>
+                        <Text style={[s.th, { width: "15%" }]}>DATE</Text>
+                      </View>
+                      {legs.filter((l: any) => l.from || l.to).map((leg: any, li: number) => (
+                        <View key={li}>
+                          <View style={{ flexDirection: "row", paddingVertical: 5, borderBottomWidth: li < legs.length - 1 ? 1 : 0, borderBottomColor: C.iv2 }}>
+                            <Text style={[s.td, { width: "15%" }]}>{leg.tripDay || "—"}</Text>
+                            <Text style={[s.td, { width: "50%" }]}>
+                              {leg.from && leg.to ? `${leg.from}  →  ${leg.to}` : leg.from || leg.to || "—"}
+                            </Text>
+                            <Text style={[s.td, { width: "20%" }]}>{leg.vehicleType || "—"}</Text>
+                            <Text style={[s.td, { width: "15%", color: C.ink3 }]}>{formatDateSafe(leg.date)}</Text>
+                          </View>
+                          {leg.notes ? (
+                            <View style={{ paddingLeft: "15%", paddingBottom: 4 }}>
+                              <Text style={{ fontSize: 7, color: C.ink3, fontStyle: "italic" }}>{leg.notes}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
-                <View style={s.tBoxCol}>
-                  <Text style={s.tBoxLabel}>CONTACT NUMBER</Text>
-                  <Text style={s.tBoxValue}>{t.driverContact || "To be updated"}</Text>
-                </View>
-                <View style={[s.tBoxCol, { flex: 1.5 }]}>
-                  <Text style={s.tBoxLabel}>VEHICLE DETAILS</Text>
-                  <Text style={s.tBoxValue}>
-                    {t.name || "TBD"} {t.vehicleNumber ? `- ${t.vehicleNumber}` : ""}
-                  </Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
-        {/* OVERALL TRANSFER SUMMARY (fallback if no transports are mapped) */}
+        {/* OVERALL TRANSFER SUMMARY (fallback if no transport records at all) */}
         {transports.length === 0 && transferSummary && (
           <View style={s.sectionWrapper} wrap={false}>
             <View style={s.sectionHeader}>
@@ -298,6 +338,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
             </View>
           </View>
         )}
+
 
         {/* DAY-WISE ITINERARY */}
         {itinerary && itinerary.length > 0 && (
