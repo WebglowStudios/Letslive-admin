@@ -7,7 +7,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import {
   ArrowLeft, User, Package, MapPin, Calendar, Users, CreditCard,
   CheckCircle, Clock, XCircle, AlertCircle, Phone, Mail,
-  RefreshCw, MessageSquare, ExternalLink, ChevronRight
+  RefreshCw, MessageSquare, ExternalLink, ChevronRight, Link as LinkIcon
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
@@ -104,13 +104,18 @@ export default function BookingDetailPage() {
   async function updatePayment(paymentStatus: string) {
     let payload: any = { paymentStatus };
     if (paymentStatus === 'paid' || paymentStatus === 'partial') {
+      const amountStr = window.prompt("Enter Amount Paid (Numbers only):", "");
+      if (amountStr === null) return;
+      const amount = Number(amountStr);
+      if (isNaN(amount) || amount <= 0) return alert("Invalid amount entered. Please enter a valid number.");
+      
       const mode = window.prompt("Enter Payment Mode (e.g., UPI, Cash, NEFT):", "");
       if (mode === null) return;
       const txId = window.prompt("Enter Transaction ID (optional):", "");
       if (txId === null) return;
       const remarks = window.prompt("Enter Remarks (optional):", "");
       if (remarks === null) return;
-      payload.financeDetails = { mode, transactionId: txId, remarks };
+      payload.financeDetails = { paidAmount: amount, mode, transactionId: txId, remarks };
     }
     
     setUpdatingPayment(true);
@@ -120,6 +125,38 @@ export default function BookingDetailPage() {
     } catch { alert("Failed to update payment status"); }
     finally { setUpdatingPayment(false); }
   }
+
+  const handleGeneratePaymentLink = async () => {
+    if (!booking) return;
+    const amountDue = booking.totalAmount - (booking.paidAmount || 0);
+    const amountStr = window.prompt(`Enter amount to request (Max: ₹${amountDue}):`, amountDue > 0 ? amountDue.toString() : "0");
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Invalid amount");
+      return;
+    }
+    const description = window.prompt("Enter payment description:", `Payment for ${booking.package?.name || 'Booking'}`);
+    if (description === null) return;
+
+    try {
+      const res = await api.post('/payments/create-link', {
+        amount,
+        description,
+        bookingId: booking._id,
+        customerName: `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`.trim(),
+        customerEmail: booking.user?.email,
+        customerPhone: booking.user?.phone
+      });
+      if (res.data?.short_url) {
+        window.prompt("Payment link generated! Copy and share:", res.data.short_url);
+      } else {
+        alert("Failed to get link");
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Failed to generate link");
+    }
+  };
 
   if (loading) {
     return (
@@ -384,11 +421,19 @@ export default function BookingDetailPage() {
                     <span className="text-sm font-bold text-amber-600">{formatCurrency(amountDue)}</span>
                   </div>
                 )}
-                <div className="pt-2 border-t border-slate-100">
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold capitalize ${PAYMENT_STATUS_COLORS[booking.paymentStatus] || ""}`}>
                     <CreditCard size={12} />
                     {booking.paymentStatus}
                   </span>
+                  {amountDue > 0 && (
+                    <button
+                      onClick={handleGeneratePaymentLink}
+                      className="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+                    >
+                      <LinkIcon size={12} /> Generate Link
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

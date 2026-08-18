@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Bell, Wand2 } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
@@ -160,6 +160,41 @@ export default function OperationDetailPage() {
       setDownloadingVoucher(false);
     }
   }
+
+  const handleGeneratePaymentLink = async (cp: any, idx: number) => {
+    const amountDue = cp.amount - (cp.paidAmount || 0);
+    const amountStr = window.prompt(`Enter amount to request for ${cp.milestone} (Max: ₹${amountDue}):`, amountDue > 0 ? amountDue.toString() : "0");
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Invalid amount");
+      return;
+    }
+    const description = window.prompt("Enter payment description:", `Payment for ${cp.milestone} - ${op?.destination || 'Operation'}`);
+    if (description === null) return;
+
+    try {
+      const res = await api.post('/payments/create-link', {
+        amount,
+        description,
+        bookingId: op?.booking?._id || undefined,
+        customerPaymentId: cp._id,
+        customerName: op?.customer?.name || 'Customer',
+        customerEmail: op?.customer?.email,
+        customerPhone: op?.customer?.phone
+      });
+      if (res.data?.short_url) {
+        window.prompt("Payment link generated! Copy and share:", res.data.short_url);
+        const u = [...customerPayments];
+        u[idx] = { ...u[idx], paymentLink: res.data.short_url, paymentLinkEnabled: true };
+        setCustomerPayments(u);
+      } else {
+        alert("Failed to get link");
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Failed to generate link");
+    }
+  };
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-3 border-cyan-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (!op) return <div className="text-center py-20 text-sm text-slate-400">Operation not found</div>;
@@ -566,7 +601,7 @@ export default function OperationDetailPage() {
           {customerPayments.length>0&&<div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between"><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Total</p><p className="text-sm font-bold text-slate-800">{formatCurrency(customerPayments.reduce((s,p)=>s+p.amount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Received</p><p className="text-sm font-bold text-emerald-600">{formatCurrency(customerPayments.reduce((s,p)=>s+p.paidAmount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Pending</p><p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</p></div></div>}
           {customerPayments.map((p, idx) => (
             <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.financeStatus==="pending_approval"?<span className="text-amber-600">PENDING APPROVAL</span>:p.status==="paid"&&<span className="text-emerald-600">PAID</span>}{p.status==="overdue"&&<span className="text-red-600">OVERDUE</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={p.financeStatus==="pending_approval"} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> Save</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
+              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.financeStatus==="pending_approval"?<span className="text-amber-600">PENDING APPROVAL</span>:p.status==="paid"&&<span className="text-emerald-600">PAID</span>}{p.status==="overdue"&&<span className="text-red-600">OVERDUE</span>}</span><div className="flex gap-2"><button onClick={() => handleGeneratePaymentLink(p, idx)} className="flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-[10px] font-bold hover:bg-indigo-100 transition-colors"><LinkIcon size={10}/> Link</button><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={p.financeStatus==="pending_approval"} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> Save</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Milestone</label><Inp value={p.milestone} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],milestone:v};setCustomerPayments(u);}} placeholder="Advance, Final..." /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>
