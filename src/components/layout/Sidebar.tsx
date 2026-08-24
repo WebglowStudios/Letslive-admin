@@ -41,6 +41,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: "Overview",
     items: [
       { label: "Dashboard", href: "/", icon: <LayoutDashboard size={20} /> },
+      { label: "My Performance", href: "/performance", icon: <Activity size={20} /> },
     ],
   },
   {
