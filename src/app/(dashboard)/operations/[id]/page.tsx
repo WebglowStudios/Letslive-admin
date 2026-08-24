@@ -248,14 +248,13 @@ export default function OperationDetailPage() {
   };
 
   const handleSplitSubmit = async () => {
-    if (!splitData.primaryPaymentId || !splitData.amount) {
-      alert("Please select an installment and enter amount");
+    if (!splitData.amount) {
+      alert("Please enter amount");
       return;
     }
     setSaving("split");
     try {
       await api.post(`/operations/${id}/customer-payments/split`, {
-        primaryPaymentId: splitData.primaryPaymentId,
         amount: Number(splitData.amount)
       });
       setSplitModalOpen(false);
@@ -699,10 +698,11 @@ export default function OperationDetailPage() {
                 <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: true}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${p._isManual ? "bg-white shadow text-cyan-700" : "text-slate-500 hover:text-slate-700"}`}>Manual / Offline</button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Milestone</label><Inp value={p.milestone} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],milestone:v};setCustomerPayments(u);}} placeholder="Advance, Final..." /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Total Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>
                 <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Due Date</label><Inp type="date" value={p.dueDate?.split("T")[0]||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],dueDate:v};setCustomerPayments(u);}} /></div>
+                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={p.status} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],status:v};setCustomerPayments(u);}} options={[{v:"upcoming",l:"Pending"},{v:"paid",l:"Paid"}]} /></div>
                 
                 {p._isManual && (
                   <>
@@ -785,21 +785,12 @@ export default function OperationDetailPage() {
               </button>
 
               <div className="border border-indigo-200 bg-indigo-50/30 rounded-xl p-4">
-                <p className="text-sm font-bold text-indigo-900">Log Split Payment (Keeps Cost Same)</p>
-                <p className="text-xs text-indigo-700 mt-1 mb-3">Use this for cash drop-offs or partial payments.</p>
+                <p className="text-sm font-bold text-indigo-900">Split into Smaller Installment</p>
+                <p className="text-xs text-indigo-700 mt-1 mb-3">Use this to split a large payment into a smaller card so you can send a payment link to the customer for just this amount. This will automatically deduct from the existing unpaid balance.</p>
                 
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Deduct From Existing Installment</label>
-                    <select value={splitData.primaryPaymentId} onChange={e => setSplitData({...splitData, primaryPaymentId: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                      <option value="">-- Select Installment --</option>
-                      {customerPayments.map(p => (
-                        <option key={p._id} value={p._id}>{p.milestone || 'Unnamed'} (₹{p.amount.toLocaleString('en-IN')} - Bal: ₹{(p.amount - (p.paidAmount || 0)).toLocaleString('en-IN')})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Cash Received (₹)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Amount to Split (₹)</label>
                     <input type="number" value={splitData.amount} onChange={e => setSplitData({...splitData, amount: e.target.value})} placeholder="50000" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                   </div>
                   <button onClick={handleSplitSubmit} disabled={saving === "split"} className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm disabled:opacity-50 transition-colors mt-2">
