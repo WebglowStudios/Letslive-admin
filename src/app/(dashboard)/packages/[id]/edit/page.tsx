@@ -78,6 +78,8 @@ export default function EditPackagePage() {
   const [hotelRating, setHotelRating] = useState("");
   const [category, setCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
+  const [isInternational, setIsInternational] = useState(false);
+  const [visaIncluded, setVisaIncluded] = useState(false);
 
   const [showDayTemplateModal, setShowDayTemplateModal] = useState(false);
   const [loadTemplateDayIndex, setLoadTemplateDayIndex] = useState<number | null>(null);
@@ -243,9 +245,10 @@ export default function EditPackagePage() {
         setCustomDestinationText(p.customDestinationText || "");
         setDescription(p.description || "");
         setShortDescription(p.shortDescription || "");
-        setDurationNights(p.duration?.nights ? String(p.duration.nights) : "");
-        setDurationDays(p.duration?.days ? String(p.duration.days) : "");
-        setHotelRating(p.hotelRating || "");
+        setDurationNights(p.duration?.nights != null ? String(p.duration.nights) : "");
+        setDurationDays(p.duration?.days != null ? String(p.duration.days) : "");
+        setIsInternational(p.isInternational || false);
+        setVisaIncluded(p.visaIncluded || false);
 
         const predefinedCategories = ["luxury", "honeymoon", "family", "adventure", "group", "budget"];
         if (p.category && predefinedCategories.includes(p.category)) {
@@ -510,6 +513,10 @@ export default function EditPackagePage() {
         duration: { nights: Number(durationNights) || 0, days: Number(durationDays) || 0 },
         hotelRating: hotelRating || undefined,
         category: category === "custom" ? (customCategory || undefined) : (category || undefined),
+        isCustom: false,
+        showOnDestination: true,
+        isInternational,
+        visaIncluded,
         price: Number(price) || 0,
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
@@ -847,7 +854,7 @@ export default function EditPackagePage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Badge</label>
                 <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
               </div>
-              <div className="flex items-center gap-6">
+              <div className="flex flex-wrap items-center gap-6 mt-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Featured on homepage</span>
@@ -864,6 +871,22 @@ export default function EditPackagePage() {
                   <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Flights Included</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={isInternational} onChange={(e) => {
+                    setIsInternational(e.target.checked);
+                    if (!e.target.checked) setVisaIncluded(false);
+                  }} className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                  <span className="text-sm text-slate-700">International Package (Requires Passport & PAN)</span>
+                </label>
+                {isInternational && (
+                  <label className="flex items-center gap-2 cursor-pointer col-span-full bg-amber-50 p-3 rounded-lg border border-amber-100 mt-2">
+                    <input type="checkbox" checked={visaIncluded} onChange={(e) => setVisaIncluded(e.target.checked)} className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                    <div>
+                      <span className="text-sm font-semibold text-amber-900 block">Visa Included</span>
+                      <span className="text-xs text-amber-700">Is the Visa cost included in this package?</span>
+                    </div>
+                  </label>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>

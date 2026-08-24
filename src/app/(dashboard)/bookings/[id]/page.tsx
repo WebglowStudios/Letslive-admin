@@ -24,8 +24,8 @@ interface BookingDetail {
   travelDate: string;
   returnDate?: string;
   travellers: { adults: number; children: number; infants: number };
-  travellersDetails: { name: string; age?: number; type: string }[];
-  primaryTraveller: { firstName: string; lastName: string; email: string; phone?: string };
+  travellersDetails: { name: string; age?: number; type: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string }[];
+  primaryTraveller: { firstName: string; lastName: string; email: string; phone?: string; panCard?: string };
   totalAmount: number;
   paidAmount: number;
   paymentStatus: string;
@@ -413,6 +413,11 @@ export default function BookingDetailPage() {
                     {booking.primaryTraveller?.phone || booking.user?.phone}
                   </a>
                 )}
+                {booking.primaryTraveller?.panCard && (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 mt-2 p-2 bg-slate-50 border border-slate-100 rounded">
+                    <span className="font-semibold">PAN:</span> {booking.primaryTraveller.panCard}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -423,22 +428,31 @@ export default function BookingDetailPage() {
                   Added Travellers ({booking.travellersDetails.length})
                 </p>
                 <div className="space-y-2">
-                  {booking.travellersDetails.map((t, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
-                          {i + 1}
+                  {booking.travellersDetails.map((t: any, i: number) => (
+                    <div key={i} className="py-3 border-b border-slate-50 last:border-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                            {i + 1}
+                          </div>
+                          <p className="text-sm font-medium text-slate-700">{t.name || "—"}</p>
                         </div>
-                        <p className="text-sm font-medium text-slate-700">{t.name || "—"}</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-400">
+                          {t.age && <span>Age {t.age}</span>}
+                          <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
+                            t.type === "adult" ? "bg-slate-100 text-slate-600" :
+                            t.type === "child" ? "bg-amber-100 text-amber-700" :
+                            "bg-blue-100 text-blue-700"
+                          }`}>{t.type}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400">
-                        {t.age && <span>Age {t.age}</span>}
-                        <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
-                          t.type === "adult" ? "bg-slate-100 text-slate-600" :
-                          t.type === "child" ? "bg-amber-100 text-amber-700" :
-                          "bg-blue-100 text-blue-700"
-                        }`}>{t.type}</span>
-                      </div>
+                      {t.passportNumber && (
+                        <div className="ml-10 mt-1 flex flex-wrap gap-4 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded border border-slate-100">
+                          <p><span className="font-semibold">Passport:</span> {t.passportNumber}</p>
+                          {t.passportExpiry && <p><span className="font-semibold">Expiry:</span> {new Date(t.passportExpiry).toLocaleDateString()}</p>}
+                          {t.issuingCountry && <p><span className="font-semibold">Country:</span> {t.issuingCountry}</p>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

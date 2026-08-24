@@ -74,6 +74,8 @@ export default function NewPackagePage() {
   const [durationDays, setDurationDays] = useState("");
   const [hotelRating, setHotelRating] = useState("");
   const [category, setCategory] = useState("");
+  const [isInternational, setIsInternational] = useState(false);
+  const [visaIncluded, setVisaIncluded] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
 
   const [showDayTemplateModal, setShowDayTemplateModal] = useState(false);
@@ -408,6 +410,10 @@ export default function NewPackagePage() {
         description,
         shortDescription,
         heroImage: heroImage || undefined,
+        isCustom: false,
+        showOnDestination: true,
+        isInternational,
+        visaIncluded,
         images,
         destinationImages,
         stayImages,
@@ -586,11 +592,39 @@ export default function NewPackagePage() {
                   <input type="number" value={durationNights} onChange={(e) => setDurationNights(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="5" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Days *</label>
-                  <input type="number" value={durationDays} onChange={(e) => setDurationDays(e.target.value)} required className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="6" />
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Duration (Days)</label>
+                  <input type="number" min="0" value={durationDays} onChange={(e) => setDurationDays(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="mt-6 p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">International Package</p>
+                  <p className="text-xs text-slate-500 mt-1">If enabled, customers will be required to provide Passport and PAN Card details during booking.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={isInternational} onChange={(e) => {
+                    setIsInternational(e.target.checked);
+                    if (!e.target.checked) setVisaIncluded(false);
+                  }} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                </label>
+              </div>
+
+              {isInternational && (
+                <div className="mt-2 p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-amber-900">Visa Included</p>
+                    <p className="text-xs text-amber-700 mt-1">Is the Visa cost included in this package?</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={visaIncluded} onChange={(e) => setVisaIncluded(e.target.checked)} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                  </label>
+                </div>
+              )}
+
+              <div className="mt-8 border-t border-slate-200 pt-6 grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Hotel Rating</label>
                   <input type="text" value={hotelRating} onChange={(e) => setHotelRating(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="5-Star" />

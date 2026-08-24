@@ -74,6 +74,8 @@ export default function EditCustomItineraryPage() {
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
   const [showOnDestination, setShowOnDestination] = useState(false);
+  const [isInternational, setIsInternational] = useState(false);
+  const [visaIncluded, setVisaIncluded] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -236,6 +238,8 @@ export default function EditCustomItineraryPage() {
       setIsFeatured(p.isFeatured || false);
       setIsActive(p.isActive ?? true);
       setIsGroupTour(p.isGroupTour || false);
+      setIsInternational(p.isInternational || false);
+      setVisaIncluded(p.visaIncluded || false);
       setFlightsIncluded(p.flightsIncluded || false);
       if (p.departures) setDepartures(p.departures.map((d: any) => ({ ...d, startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' })));
       setTravellerCount(p.travellerCount || "");
@@ -394,6 +398,8 @@ export default function EditCustomItineraryPage() {
         name, clientName, clientEmail: clientEmail || undefined, clientPhone: clientPhone || undefined,
         destination: destination || undefined, customDestinationText: (!destination && customDestinationText) ? customDestinationText.trim() : undefined, description, shortDescription,
         heroImage: heroImage || undefined, images, destinationImages, stayImages, activityImages,
+        isInternational,
+        visaIncluded,
         duration: { nights: Number(durationNights) || 0, days: Number(durationDays) || 0 },
         travelDates: (startDate || endDate) ? { startDate: startDate || undefined, endDate: endDate || undefined } : undefined,
         hotelRating: hotelRating || undefined,
@@ -596,12 +602,28 @@ export default function EditCustomItineraryPage() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Adults</label><input type="number" value={adultCount} onChange={(e) => setAdultCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 2" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1.5">Children</label><input type="number" value={childCount} onChange={(e) => setChildCount(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. 1" /></div>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-6 p-4 bg-slate-50 border border-slate-100 rounded-xl mb-4">
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Featured on homepage</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Active</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Group Tour</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Flights Included</span></label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={isInternational} onChange={(e) => {
+                  setIsInternational(e.target.checked);
+                  if (!e.target.checked) setVisaIncluded(false);
+                }} className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                <span className="text-sm text-slate-700">International Itinerary (Requires Passport & PAN)</span>
+              </label>
             </div>
+            {isInternational && (
+              <label className="flex items-center gap-2 cursor-pointer bg-amber-50 p-3 rounded-lg border border-amber-100 mb-4">
+                <input type="checkbox" checked={visaIncluded} onChange={(e) => setVisaIncluded(e.target.checked)} className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                <div>
+                  <span className="text-sm font-semibold text-amber-900 block">Visa Included</span>
+                  <span className="text-xs text-amber-700">Is the Visa cost included in this itinerary?</span>
+                </div>
+              </label>
+            )}
             {/* Payment config */}
             <div className="border border-slate-200 rounded-xl p-4 space-y-4 bg-slate-50">
               <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-cyan-600" /><p className="text-sm font-semibold text-slate-700">Payment Configuration</p></div>

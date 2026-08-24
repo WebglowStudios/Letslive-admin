@@ -72,6 +72,8 @@ export default function NewCustomItineraryPage() {
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
   const [showOnDestination, setShowOnDestination] = useState(false);
+  const [isInternational, setIsInternational] = useState(false);
+  const [visaIncluded, setVisaIncluded] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -404,6 +406,8 @@ export default function NewCustomItineraryPage() {
         discount: discount ? Number(discount) : undefined,
         discountType,
         isFeatured, isActive, isGroupTour, flightsIncluded,
+        isInternational,
+        visaIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -662,7 +666,23 @@ export default function NewCustomItineraryPage() {
                 <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                 <span className="text-sm text-slate-700">Flights Included</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={isInternational} onChange={(e) => {
+                  setIsInternational(e.target.checked);
+                  if (!e.target.checked) setVisaIncluded(false);
+                }} className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" />
+                <span className="text-sm text-slate-700">International Itinerary</span>
+              </label>
             </div>
+            {isInternational && (
+              <label className="flex items-center gap-2 cursor-pointer bg-amber-50 p-3 rounded-lg border border-amber-100">
+                <input type="checkbox" checked={visaIncluded} onChange={(e) => setVisaIncluded(e.target.checked)} className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+                <div>
+                  <span className="text-sm font-semibold text-amber-900 block">Visa Included</span>
+                  <span className="text-xs text-amber-700">Is the Visa cost included in this itinerary?</span>
+                </div>
+              </label>
+            )}
             {/* Payment Configuration */}
             <div className="border border-slate-200 rounded-xl p-4 space-y-4 bg-slate-50">
               <div className="flex items-center gap-2">
