@@ -25,7 +25,7 @@ interface Transport {
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -180,6 +180,7 @@ export default function OperationDetailPage() {
         transferSummary,
         packageSlug: op?.package?.slug || "",
         hasPolicies,
+        dateChangeHistory: op?.booking?.dateChangeHistory,
       });
 
     } catch (err) {
@@ -346,6 +347,22 @@ export default function OperationDetailPage() {
             <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Package Description</p>
               <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{op.booking.package.description}</p>
+            </div>
+          )}
+
+          {op.booking?.dateChangeHistory && op.booking.dateChangeHistory.length > 0 && (
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 mt-4">
+              <p className="text-[10px] font-bold text-amber-800 uppercase flex items-center gap-2 mb-2">
+                <Wand2 size={14} /> Date Change History
+              </p>
+              <div className="space-y-2">
+                {op.booking.dateChangeHistory.map((h, i) => (
+                  <div key={i} className="text-xs text-amber-900 border-l-2 border-amber-300 pl-2">
+                    <p>Travel dates changed from <span className="font-bold">{formatDate(h.oldDate)}</span> to <span className="font-bold">{formatDate(h.newDate)}</span></p>
+                    <p className="italic opacity-80 mt-1">"{h.reason}"</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           

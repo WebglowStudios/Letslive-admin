@@ -58,6 +58,7 @@ export interface VoucherData {
   transferSummary?: string;
   packageSlug?: string;
   hasPolicies?: boolean;
+  dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
@@ -362,6 +363,24 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                     <Text style={s.dayDesc}>{day.description}</Text>
                   </View>
                 </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* DATE CHANGE NOTICE */}
+        {data.dateChangeHistory && data.dateChangeHistory.length > 0 && (
+          <View style={s.sectionWrapper} wrap={false}>
+            <View style={s.sectionHeader}>
+              <Icon d={ICONS.check} color={C.cu} size={14} />
+              <Text style={[s.sectionTitle, { color: C.cu }]}>DATE CHANGE NOTICE</Text>
+            </View>
+            <View style={{ marginBottom: 12, padding: 12, backgroundColor: C.iv, borderLeftWidth: 3, borderLeftColor: C.cu, borderRadius: 4 }}>
+              {data.dateChangeHistory.map((h, i) => (
+                <Text key={i} style={{ fontSize: 9, color: C.ink, marginBottom: 4 }}>
+                  <Text style={{ fontFamily: "Helvetica-Bold" }}>Travel date changed</Text> from {new Date(h.oldDate).toLocaleDateString()} to {new Date(h.newDate).toLocaleDateString()}.
+                  {"\n"}Reason: <Text style={{ fontStyle: "italic", color: C.ink3 }}>{h.reason}</Text>
+                </Text>
               ))}
             </View>
           </View>

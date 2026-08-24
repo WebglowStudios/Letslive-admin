@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
-import { usePermission } from "@/hooks/usePermission";
+import { usePermission, useRole } from "@/hooks/usePermission";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BookingDetail {
@@ -35,6 +35,7 @@ interface BookingDetail {
   paymentHistory: { amount: number; method: string; transactionId?: string; date: string; status: string }[];
   cancellationReason?: string;
   cancelledAt?: string;
+  dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +83,15 @@ export default function BookingDetailPage() {
   const [paymentLinkLoading, setPaymentLinkLoading] = useState(false);
 
   const canUpdate = usePermission("bookings.update");
+  const role = useRole();
+  const canEditDates = role === 'admin' || role === 'manager';
+
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [editTravelDate, setEditTravelDate] = useState("");
+  const [editReturnDate, setEditReturnDate] = useState("");
+  const [updatingDates, setUpdatingDates] = useState(false);
+  const [showDateReasonModal, setShowDateReasonModal] = useState(false);
+  const [dateChangeReason, setDateChangeReason] = useState("");
 
   const fetchBooking = useCallback(async () => {
     setLoading(true);
@@ -129,6 +139,23 @@ export default function BookingDetailPage() {
       fetchBooking();
     } catch { alert("Failed to update payment status"); }
     finally { setUpdatingPayment(false); }
+  }
+
+  async function updateDates() {
+    if (!editTravelDate) return alert("Start date is required");
+    if (!dateChangeReason.trim()) return alert("Reason is required");
+    setUpdatingDates(true);
+    try {
+      await api.put(`/bookings/${id}/dates`, { travelDate: editTravelDate, returnDate: editReturnDate, reason: dateChangeReason });
+      setIsEditingDates(false);
+      setShowDateReasonModal(false);
+      setDateChangeReason("");
+      fetchBooking();
+    } catch {
+      alert("Failed to update dates");
+    } finally {
+      setUpdatingDates(false);
+    }
   }
 
   const handleGeneratePaymentLink = () => {
@@ -285,13 +312,56 @@ export default function BookingDetailPage() {
                     <p className="text-sm text-slate-600">{dest.name}</p>
                   </div>
                 )}
-                <div className="flex items-center gap-3">
-                  <Calendar size={16} className="text-slate-400 shrink-0" />
-                  <p className="text-sm text-slate-600">
-                    {formatDate(booking.travelDate)}
-                    {booking.returnDate && ` → ${formatDate(booking.returnDate)}`}
-                  </p>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <Calendar size={16} className="text-slate-400 shrink-0 mt-0.5" />
+                    {!isEditingDates ? (
+                      <p className="text-sm text-slate-600">
+                        {formatDate(booking.travelDate)}
+                        {booking.returnDate && ` → ${formatDate(booking.returnDate)}`}
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500 w-12">Start:</label>
+                          <input type="date" value={editTravelDate} onChange={e => setEditTravelDate(e.target.value)} className="text-sm border border-slate-200 rounded px-2 py-1" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500 w-12">Return:</label>
+                          <input type="date" value={editReturnDate} onChange={e => setEditReturnDate(e.target.value)} className="text-sm border border-slate-200 rounded px-2 py-1" />
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <button onClick={() => setShowDateReasonModal(true)} disabled={updatingDates} className="text-xs bg-cyan-600 text-white px-3 py-1 rounded hover:bg-cyan-700">Next</button>
+                          <button onClick={() => setIsEditingDates(false)} className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {canEditDates && !isEditingDates && (
+                    <button 
+                      onClick={() => {
+                        setEditTravelDate(booking.travelDate?.split('T')[0] || "");
+                        setEditReturnDate(booking.returnDate?.split('T')[0] || "");
+                        setIsEditingDates(true);
+                      }}
+                      className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 underline underline-offset-2 shrink-0"
+                    >
+                      Edit Dates
+                    </button>
+                  )}
                 </div>
+                
+                {booking.dateChangeHistory && booking.dateChangeHistory.length > 0 && (
+                  <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Date Change History</p>
+                    {booking.dateChangeHistory.map((h, i) => (
+                      <div key={i} className="text-xs text-slate-600 border-l-2 border-slate-300 pl-2">
+                        <p>Changed from <b>{formatDate(h.oldDate)}</b> to <b>{formatDate(h.newDate)}</b></p>
+                        <p className="italic text-slate-400">"{h.reason}"</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Users size={16} className="text-slate-400 shrink-0" />
                   <p className="text-sm text-slate-600">
@@ -541,6 +611,33 @@ export default function BookingDetailPage() {
               <button onClick={() => setShowPaymentLinkModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
               <button onClick={submitPaymentLink} disabled={paymentLinkLoading} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
                 {paymentLinkLoading ? "Generating..." : "Generate Link"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Date Change Reason Modal */}
+      {showDateReasonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">Reason for Date Change</h3>
+              <button onClick={() => setShowDateReasonModal(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
+            </div>
+            <div className="p-5">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Please provide a reason</label>
+              <textarea 
+                value={dateChangeReason}
+                onChange={(e) => setDateChangeReason(e.target.value)}
+                placeholder="e.g. User requested via phone, Flight cancelled, Calamity..."
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 min-h-[100px]"
+              />
+            </div>
+            <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={() => setShowDateReasonModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+              <button onClick={updateDates} disabled={updatingDates || !dateChangeReason.trim()} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2">
+                {updatingDates ? "Saving..." : "Confirm Date Change"}
               </button>
             </div>
           </div>
