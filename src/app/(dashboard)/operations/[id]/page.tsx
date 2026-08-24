@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2 } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
@@ -64,6 +64,8 @@ export default function OperationDetailPage() {
   const [importing, setImporting] = useState(false);
   const [downloadingVoucher, setDownloadingVoucher] = useState(false);
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<string | null>(null);
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
+  const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -242,6 +244,27 @@ export default function OperationDetailPage() {
       alert("Failed to generate link");
     } finally {
       setPaymentLinkLoading(null);
+    }
+  };
+
+  const handleSplitSubmit = async () => {
+    if (!splitData.primaryPaymentId || !splitData.amount) {
+      alert("Please select an installment and enter amount");
+      return;
+    }
+    setSaving("split");
+    try {
+      await api.post(`/operations/${id}/customer-payments/split`, {
+        primaryPaymentId: splitData.primaryPaymentId,
+        amount: Number(splitData.amount)
+      });
+      setSplitModalOpen(false);
+      setSplitData({ primaryPaymentId: "", amount: "" });
+      fetchAll();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to split");
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -664,7 +687,7 @@ export default function OperationDetailPage() {
             </div>
             <div className="flex gap-2">
               {customerPayments.length > 0 && <button onClick={() => generateInvoicePdf({ mode: "summary", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: "Full Statement", amount: customerPayments.reduce((s,p)=>s+p.amount,0), dueDate: undefined, paidAmount: customerPayments.reduce((s,p)=>s+p.paidAmount,0), status: "statement", sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp=>({milestone:cp.milestone,amount:cp.amount,paidAmount:cp.paidAmount,status:cp.status})) })} className="flex items-center gap-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200"><Download size={14} /> Statement</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/customer-payments`, {}); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Installment</button>
+              <button onClick={() => setSplitModalOpen(true)} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Installment</button>
             </div>
           </div>
           {customerPayments.length>0&&<div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between"><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Total</p><p className="text-sm font-bold text-slate-800">{formatCurrency(customerPayments.reduce((s,p)=>s+p.amount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Received</p><p className="text-sm font-bold text-emerald-600">{formatCurrency(customerPayments.reduce((s,p)=>s+p.paidAmount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Pending</p><p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</p></div></div>}
@@ -746,6 +769,48 @@ export default function OperationDetailPage() {
           </div>);
       })()}
     </div>
+
+      {/* SPLIT MODAL */}
+      {splitModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl relative">
+            <button onClick={() => setSplitModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            <h3 className="text-lg font-bold text-slate-800 mb-1">Add Installment</h3>
+            <p className="text-xs text-slate-500 mb-5">How would you like to record this payment?</p>
+
+            <div className="space-y-4">
+              <button onClick={async () => { setSplitModalOpen(false); await api.post(`/operations/${id}/customer-payments`, {}); fetchAll(); }} className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-colors group">
+                <p className="text-sm font-bold text-slate-800 group-hover:text-cyan-700">Add Extra Charge (Increases Trip Cost)</p>
+                <p className="text-xs text-slate-500 mt-1">Use this if the customer added a new activity or penalty.</p>
+              </button>
+
+              <div className="border border-indigo-200 bg-indigo-50/30 rounded-xl p-4">
+                <p className="text-sm font-bold text-indigo-900">Log Split Payment (Keeps Cost Same)</p>
+                <p className="text-xs text-indigo-700 mt-1 mb-3">Use this for cash drop-offs or partial payments.</p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Deduct From Existing Installment</label>
+                    <select value={splitData.primaryPaymentId} onChange={e => setSplitData({...splitData, primaryPaymentId: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                      <option value="">-- Select Installment --</option>
+                      {customerPayments.map(p => (
+                        <option key={p._id} value={p._id}>{p.milestone || 'Unnamed'} (₹{p.amount.toLocaleString('en-IN')} - Bal: ₹{(p.amount - (p.paidAmount || 0)).toLocaleString('en-IN')})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Cash Received (₹)</label>
+                    <input type="number" value={splitData.amount} onChange={e => setSplitData({...splitData, amount: e.target.value})} placeholder="50000" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  </div>
+                  <button onClick={handleSplitSubmit} disabled={saving === "split"} className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm disabled:opacity-50 transition-colors mt-2">
+                    {saving === "split" ? "Processing..." : "Deduct & Create Card"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
