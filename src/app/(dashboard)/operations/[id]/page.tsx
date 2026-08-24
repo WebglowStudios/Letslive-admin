@@ -25,7 +25,7 @@ interface Transport {
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -66,6 +66,10 @@ export default function OperationDetailPage() {
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<string | null>(null);
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
+
+  const [passengerModalOpen, setPassengerModalOpen] = useState(false);
+  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
+  const [addingPassenger, setAddingPassenger] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -270,6 +274,41 @@ export default function OperationDetailPage() {
     }
   };
 
+  const handleAddPassenger = async () => {
+    if (!newPassenger.name) {
+      alert("Please enter passenger name");
+      return;
+    }
+    setAddingPassenger(true);
+    try {
+      const updatedTravellers = [...(op?.booking?.travellersDetails || []), newPassenger];
+      await api.put(`/bookings/${op?.booking?._id}/passengers`, {
+        travellersDetails: updatedTravellers
+      });
+      setPassengerModalOpen(false);
+      setNewPassenger({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
+      fetchAll();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to add passenger");
+    } finally {
+      setAddingPassenger(false);
+    }
+  };
+
+  const handleRemovePassenger = async (index: number) => {
+    if (!confirm("Remove this passenger?")) return;
+    try {
+      const updatedTravellers = [...(op?.booking?.travellersDetails || [])];
+      updatedTravellers.splice(index, 1);
+      await api.put(`/bookings/${op?.booking?._id}/passengers`, {
+        travellersDetails: updatedTravellers
+      });
+      fetchAll();
+    } catch (err: any) {
+      alert("Failed to remove passenger");
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-3 border-cyan-600 border-t-transparent rounded-full animate-spin" /></div>;
   if (!op) return <div className="text-center py-20 text-sm text-slate-400">Operation not found</div>;
 
@@ -345,6 +384,52 @@ export default function OperationDetailPage() {
             <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p><div className="flex justify-between"><div><p className="text-xs text-slate-500">Selling</p><p className="text-lg font-bold text-slate-800">{formatCurrency(op.sellingPrice)}</p></div><div className="text-right"><p className="text-xs text-slate-500">Profit</p><p className={`text-lg font-bold ${op.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatCurrency(op.grossProfit)}</p></div></div><button onClick={recalculate} className="mt-3 text-[10px] text-cyan-600 font-semibold hover:underline">Recalculate</button></div>
           </div>
           
+          {op.booking && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Passenger Details</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Base Package Pax: {op.booking.package?.adultCount || 1} Adult(s) {op.booking.package?.childCount ? `, ${op.booking.package.childCount} Child(ren)` : ''}</p>
+                </div>
+                <button onClick={() => setPassengerModalOpen(true)} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                  <Plus size={14} /> Add Passenger
+                </button>
+              </div>
+              
+              {(!op.booking.travellersDetails || op.booking.travellersDetails.length === 0) ? (
+                <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  <p className="text-xs text-slate-500">No passenger details added yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {op.booking.travellersDetails.map((t: any, idx: number) => (
+                    <div key={idx} className="p-3 border border-slate-100 bg-slate-50 rounded-lg relative group">
+                      <button onClick={() => handleRemovePassenger(idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">
+                        <Trash2 size={14} />
+                      </button>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {t.type || 'Adult'}
+                        </span>
+                        <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                        {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
+                      </div>
+                      {(t.passportNumber || t.issuingCountry) && (
+                        <div className="mt-2 pt-2 border-t border-slate-200">
+                          <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
+                          <div className="flex gap-3 mt-0.5">
+                            <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
+                            <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {op.booking?.package?.description && (
             <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Package Description</p>
@@ -817,6 +902,65 @@ export default function OperationDetailPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD PASSENGER MODAL */}
+      {passengerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setPassengerModalOpen(false)}></div>
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl flex flex-col max-h-[90vh]">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-800">Add Passenger</h2>
+              <button onClick={() => setPassengerModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Full Name</label>
+                <input type="text" value={newPassenger.name} onChange={e => setNewPassenger({...newPassenger, name: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="John Doe" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Type</label>
+                  <select value={newPassenger.type} onChange={e => setNewPassenger({...newPassenger, type: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    <option value="adult">Adult</option>
+                    <option value="child">Child</option>
+                    <option value="infant">Infant</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Age</label>
+                  <input type="number" value={newPassenger.age} onChange={e => setNewPassenger({...newPassenger, age: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. 30" />
+                </div>
+              </div>
+              <div className="pt-3 border-t border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Passport Details (Optional)</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Passport Number</label>
+                    <input type="text" value={newPassenger.passportNumber} onChange={e => setNewPassenger({...newPassenger, passportNumber: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Expiry Date</label>
+                      <input type="date" value={newPassenger.passportExpiry} onChange={e => setNewPassenger({...newPassenger, passportExpiry: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Issuing Country</label>
+                      <input type="text" value={newPassenger.issuingCountry} onChange={e => setNewPassenger({...newPassenger, issuingCountry: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end">
+              <button onClick={handleAddPassenger} disabled={addingPassenger} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-xs disabled:opacity-50">
+                {addingPassenger ? "Adding..." : "Add Passenger"}
+              </button>
             </div>
           </div>
         </div>
