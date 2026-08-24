@@ -374,6 +374,16 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
             format: img.format || 'jpg',
           }));
           setImages((prev) => [...newImages, ...prev]);
+          
+          if (multiple) {
+            setSelected((prev) => {
+              const newUrls = newImages.map((img: any) => img.url);
+              const uniqueNewUrls = newUrls.filter((url: string) => !prev.includes(url));
+              return [...prev, ...uniqueNewUrls];
+            });
+          } else if (newImages.length > 0) {
+            setSelected([newImages[0].url]);
+          }
         }
       }
     } catch (err: any) { 
@@ -819,6 +829,22 @@ export function MultiImageUpload({ images, onChange, label }: MultiImageUploadPr
   const [modalOpen, setModalOpen] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  function handleDragStart(e: React.DragEvent, index: number) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  }
+
+  function handleDrop(e: React.DragEvent, dropIndex: number) {
+    e.preventDefault();
+    const dragIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+    if (isNaN(dragIndex) || dragIndex === dropIndex) return;
+
+    const newImages = [...images];
+    const [draggedItem] = newImages.splice(dragIndex, 1);
+    newImages.splice(dropIndex, 0, draggedItem);
+    onChange(newImages);
+  }
+
   return (
     <div className="space-y-2">
       {label && <p className="text-sm font-medium text-slate-700">{label}</p>}
@@ -826,8 +852,15 @@ export function MultiImageUpload({ images, onChange, label }: MultiImageUploadPr
       {images.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {images.map((url, i) => (
-            <div key={i} className="relative group">
-              <img src={url} alt="" className="w-20 h-16 object-cover rounded-lg border border-slate-200" />
+            <div 
+              key={i} 
+              className="relative group cursor-move"
+              draggable
+              onDragStart={(e) => handleDragStart(e, i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleDrop(e, i)}
+            >
+              <img src={url} alt="" className="w-20 h-16 object-cover rounded-lg border border-slate-200" draggable={false} />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1.5">
                 <button
                   type="button"
