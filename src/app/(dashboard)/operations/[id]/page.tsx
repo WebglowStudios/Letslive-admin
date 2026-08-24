@@ -25,7 +25,7 @@ interface Transport {
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[] } }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -173,6 +173,8 @@ export default function OperationDetailPage() {
         adults: op?.customer?.adults,
         children: op?.customer?.children,
         paymentStatus: op?.booking?.paymentStatus || "pending",
+        totalAmount: op?.booking?.totalAmount,
+        paidAmount: op?.booking?.paidAmount,
         flights: pdfFlights,
         accommodations: accommodations,
         transports: pdfTransports,

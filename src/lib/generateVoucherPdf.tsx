@@ -51,6 +51,8 @@ export interface VoucherData {
   adults?: number;
   children?: number;
   paymentStatus: string;
+  totalAmount?: number;
+  paidAmount?: number;
   flights: any[];
   accommodations: any[];
   transports: any[];
@@ -151,7 +153,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, flights, accommodations, transports, itinerary, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, flights, accommodations, transports, itinerary, transferSummary } = data;
 
   return (
     <Document>
@@ -184,18 +186,36 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                 <Text style={s.cardLabel}>BOOKING ID</Text>
                 <Text style={s.cardValue}>{operationId}</Text>
               </View>
-              <View style={s.cardCol}>
-                <Text style={s.cardLabel}>PAYMENT STATUS</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Text style={[s.cardValue, { color: paymentStatus === 'paid' || paymentStatus === 'partial' ? C.gn : C.cu }]}>
-                    {paymentStatus === 'paid' ? 'FULL PAID' : paymentStatus === 'partial' ? 'PARTIALLY PAID' : 'PENDING'}
-                  </Text>
-                  {(paymentStatus === 'paid' || paymentStatus === 'partial') && (
-                    <Icon d={ICONS.check} color={C.gn} size={12} />
+            </View>
+            
+            {/* Payment Status Row */}
+            {totalAmount !== undefined && (
+              <>
+                <View style={[s.cardDivider, { marginTop: 16 }]} />
+                <View style={s.cardRow}>
+                  <View style={s.cardCol}>
+                    <Text style={s.cardLabel}>TOTAL AMOUNT</Text>
+                    <Text style={s.cardValue}>₹{totalAmount.toLocaleString("en-IN")}</Text>
+                  </View>
+                  <View style={s.cardCol}>
+                    <Text style={s.cardLabel}>PAID AMOUNT</Text>
+                    <Text style={[s.cardValue, { color: C.gn2 }]}>₹{(paidAmount || 0).toLocaleString("en-IN")}</Text>
+                  </View>
+                  <View style={s.cardCol}>
+                    <Text style={s.cardLabel}>PAYMENT STATUS</Text>
+                    <Text style={[s.cardValue, { color: paymentStatus === "paid" || paymentStatus === "full" ? C.gn : (paymentStatus === "partial" ? C.cu : "#dc3545") }]}>
+                      {paymentStatus === "paid" || paymentStatus === "full" ? "FULLY PAID" : paymentStatus.toUpperCase()}
+                    </Text>
+                  </View>
+                  {paymentStatus === "partial" && (
+                    <View style={s.cardCol}>
+                      <Text style={s.cardLabel}>PENDING AMOUNT</Text>
+                      <Text style={[s.cardValue, { color: C.cu }]}>₹{(totalAmount - (paidAmount || 0)).toLocaleString("en-IN")}</Text>
+                    </View>
                   )}
                 </View>
-              </View>
-            </View>
+              </>
+            )}
           </View>
         </View>
 

@@ -113,6 +113,12 @@ interface PackageData {
   isCustom?: boolean; clientName?: string; clientEmail?: string; clientPhone?: string;
   travellerCount?: string; adultCount?: number; childCount?: number;
   transferSummary?: string;
+  bookingMeta?: {
+    dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
+    totalAmount?: number;
+    paidAmount?: number;
+    paymentStatus?: string;
+  };
 }
 
 // ─── Helper: Dynamic Vehicle Icon ─────────────────────────────────────────────
@@ -1470,27 +1476,56 @@ const PoliciesLinkSection = ({ pkg }: { pkg: PackageData }) => {
 };
 
 // ─── Pricing & CTA ────────────────────────────────────────────────────────────
-const PricingSection = ({ pkg }: { pkg: PackageData }) => (
+const PricingSection = ({ pkg }: { pkg: PackageData }) => {
+  const hasBookingMeta = pkg.bookingMeta && pkg.bookingMeta.totalAmount !== undefined;
+  return (
   <View wrap={false} style={{ marginBottom: 20 }}>
-    <SectionTitle title="Pricing" />
+    <SectionTitle title={hasBookingMeta ? "Payment Summary" : "Pricing"} />
     <View style={s.priceCard}>
-      <View style={s.priceCardTop}>
-        <Text style={s.priceCardLabel}>PACKAGE PRICE</Text>
-        {pkg.originalPrice && pkg.originalPrice > pkg.price ? (
-          <Text style={s.priceCardOriginal}>INR {pkg.originalPrice.toLocaleString("en-IN")}</Text>
-        ) : null}
-        <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
-        <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"} (twin sharing)</Text>
-      </View>
-      {pkg.discount && pkg.discount > 0 ? (
-        <View style={s.priceCardBottom}>
-          <View style={s.priceCardSavings}>
-            <Text style={s.priceCardSavingsText}>
-              You save {pkg.discountType === "percent" || !pkg.discountType ? `${pkg.discount}%` : `INR ${pkg.discount?.toLocaleString("en-IN")}`} on this package
+      {hasBookingMeta ? (
+        <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <View style={{ flex: 1, minWidth: "30%" }}>
+            <Text style={s.priceCardLabel}>TOTAL AMOUNT</Text>
+            <Text style={s.priceCardAmount}>INR {pkg.bookingMeta!.totalAmount!.toLocaleString("en-IN")}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: "30%" }}>
+            <Text style={s.priceCardLabel}>PAID AMOUNT</Text>
+            <Text style={[s.priceCardAmount, { color: C.gn2 }]}>INR {(pkg.bookingMeta!.paidAmount || 0).toLocaleString("en-IN")}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: "30%" }}>
+            <Text style={s.priceCardLabel}>PAYMENT STATUS</Text>
+            <Text style={[s.priceCardAmount, { color: pkg.bookingMeta!.paymentStatus === "paid" || pkg.bookingMeta!.paymentStatus === "full" ? C.gn : (pkg.bookingMeta!.paymentStatus === "partial" ? C.cu : "#dc3545"), fontSize: 14 }]}>
+              {pkg.bookingMeta!.paymentStatus === "paid" || pkg.bookingMeta!.paymentStatus === "full" ? "FULLY PAID" : (pkg.bookingMeta!.paymentStatus || "PENDING").toUpperCase()}
             </Text>
           </View>
+          {pkg.bookingMeta!.paymentStatus === "partial" && (
+            <View style={{ flex: 1, minWidth: "30%" }}>
+              <Text style={s.priceCardLabel}>PENDING AMOUNT</Text>
+              <Text style={[s.priceCardAmount, { color: C.cu }]}>INR {(pkg.bookingMeta!.totalAmount! - (pkg.bookingMeta!.paidAmount || 0)).toLocaleString("en-IN")}</Text>
+            </View>
+          )}
         </View>
-      ) : null}
+      ) : (
+        <>
+          <View style={s.priceCardTop}>
+            <Text style={s.priceCardLabel}>PACKAGE PRICE</Text>
+            {pkg.originalPrice && pkg.originalPrice > pkg.price ? (
+              <Text style={s.priceCardOriginal}>INR {pkg.originalPrice.toLocaleString("en-IN")}</Text>
+            ) : null}
+            <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
+            <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"} (twin sharing)</Text>
+          </View>
+          {pkg.discount && pkg.discount > 0 ? (
+            <View style={s.priceCardBottom}>
+              <View style={s.priceCardSavings}>
+                <Text style={s.priceCardSavingsText}>
+                  You save {pkg.discountType === "percent" || !pkg.discountType ? `${pkg.discount}%` : `INR ${pkg.discount?.toLocaleString("en-IN")}`} on this package
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </>
+      )}
     </View>
 
     <View style={s.ctaBox}>
@@ -1508,7 +1543,7 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => (
       <Text style={s.ctaContact}>+91 77700 88466  ·  info@letslivetours.com</Text>
     </View>
   </View>
-);
+)};
 
 // ─── Document ─────────────────────────────────────────────────────────────────
 const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
