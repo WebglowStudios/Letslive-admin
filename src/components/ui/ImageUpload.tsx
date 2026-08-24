@@ -205,6 +205,7 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
@@ -396,6 +397,34 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
       });
     } catch { alert('Failed to delete image'); }
     finally { setDeleting(null); }
+  }
+
+  async function handleBulkDelete() {
+    const publicIdsToDelete = selected
+      .map(url => images.find(img => img.url === url)?.publicId)
+      .filter(Boolean) as string[];
+      
+    if (publicIdsToDelete.length === 0) return;
+    if (!confirm(`Delete ${publicIdsToDelete.length} selected image(s)? This cannot be undone.`)) return;
+
+    setBulkDeleting(true);
+    try {
+      const promises = publicIdsToDelete.map(publicId =>
+        authFetch(`${API_URL}/upload/${encodeURIComponent(publicId)}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        }).catch(err => console.error(err))
+      );
+      
+      await Promise.all(promises);
+      
+      setImages((prev) => prev.filter((img) => !publicIdsToDelete.includes(img.publicId)));
+      setSelected([]);
+    } catch {
+      alert('Failed to delete some images');
+    } finally {
+      setBulkDeleting(false);
+    }
   }
 
   // ─── DRAG & DROP to move image into folder ───
@@ -680,18 +709,31 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
             {selected.length > 0 && " · "}
             {images.length} image{images.length !== 1 ? "s" : ""} · {folders.length} folder{folders.length !== 1 ? "s" : ""}
           </p>
-          <button
-            type="button"
-            onClick={handleInsert}
-            disabled={selected.length === 0}
-            className={`px-5 py-2 border-none rounded-lg text-xs font-bold cursor-pointer transition-all ${
-              selected.length > 0
-                ? 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            }`}
-          >
-            {multiple ? `Insert ${selected.length} Image${selected.length !== 1 ? "s" : ""}` : "Select Image"}
-          </button>
+          <div className="flex items-center gap-2">
+            {selected.length > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                {bulkDeleting ? "Deleting..." : `Delete ${selected.length} Selected`}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleInsert}
+              disabled={selected.length === 0 || bulkDeleting}
+              className={`px-5 py-2 border-none rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                selected.length > 0 && !bulkDeleting
+                  ? 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              {multiple ? `Insert ${selected.length} Image${selected.length !== 1 ? "s" : ""}` : "Select Image"}
+            </button>
+          </div>
         </div>
 
         {/* Create Folder Dialog */}
