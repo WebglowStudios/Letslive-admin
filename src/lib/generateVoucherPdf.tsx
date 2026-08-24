@@ -215,11 +215,11 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
               </View>
               {flights.map((f, i) => (
                 <View style={s.tableRow} key={i}>
-                  <Text style={[s.td, { width: "20%" }]}>{f.name}</Text>
+                  <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "—"}</Text>
                   <Text style={[s.td, { width: "20%" }]}>{formatDateSafe(f.date)}</Text>
-                  <Text style={[s.td, { width: "30%" }]}>{f.route}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.departureTime || "—"}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.arrivalTime || "—"}</Text>
+                  <Text style={[s.td, { width: "30%" }]}>{f.from && f.to ? `${f.from} → ${f.to}` : (f.route || "—")}</Text>
+                  <Text style={[s.td, { width: "15%" }]}>{f.departure || f.departureTime || "—"}</Text>
+                  <Text style={[s.td, { width: "15%" }]}>{f.arrival || f.arrivalTime || "—"}</Text>
                 </View>
               ))}
             </View>
@@ -270,30 +270,11 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
               const hasLegData = legs.some((l: any) => l.from || l.to);
               return (
                 <View key={i} style={[s.transportBox, { marginTop: i > 0 ? 10 : 0, flexDirection: "column", gap: 0, padding: 14 }]}>
-                  {/* Vendor header row */}
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: hasLegData ? 10 : 0 }}>
-                    <View style={{ flex: 2 }}>
-                      <Text style={s.tBoxLabel}>OPERATOR / VENDOR</Text>
-                      <Text style={s.tBoxValue}>{t.vendorName || "To be updated"}</Text>
-                    </View>
-                    {(t.vendorContact || t.vendorEmail) && (
-                      <View style={{ flex: 2 }}>
-                        <Text style={s.tBoxLabel}>CONTACT</Text>
-                        {t.vendorContact ? <Text style={s.tBoxValue}>{t.vendorContact}</Text> : null}
-                        {t.vendorEmail ? <Text style={{ fontSize: 8, color: C.ink3 }}>{t.vendorEmail}</Text> : null}
-                      </View>
-                    )}
-                    {t.remarks ? (
-                      <View style={{ flex: 3 }}>
-                        <Text style={s.tBoxLabel}>NOTES</Text>
-                        <Text style={{ fontSize: 8, color: C.ink2, lineHeight: 1.4 }}>{t.remarks}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
+                  {/* Vendor Info Hidden to prevent bypassing agency */}
+                  
                   {/* Legs table */}
                   {hasLegData && (
-                    <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 8 }}>
+                    <View>
                       {/* Table header */}
                       <View style={{ flexDirection: "row", paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: C.iv2 }}>
                         <Text style={[s.th, { width: "15%" }]}>DAY</Text>
@@ -305,9 +286,24 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                         <View key={li}>
                           <View style={{ flexDirection: "row", paddingVertical: 5, borderBottomWidth: li < legs.length - 1 ? 1 : 0, borderBottomColor: C.iv2 }}>
                             <Text style={[s.td, { width: "15%" }]}>{leg.tripDay || "—"}</Text>
-                            <Text style={[s.td, { width: "50%" }]}>
-                              {leg.from && leg.to ? `${leg.from}  →  ${leg.to}` : leg.from || leg.to || "—"}
-                            </Text>
+                            <View style={{ width: "50%", paddingRight: 4 }}>
+                              <Text style={s.td}>
+                                {leg.from && leg.to ? `${leg.from}  →  ${leg.to}` : leg.from || leg.to || "—"}
+                              </Text>
+                              {(t.type === 'flight' || t.type === 'train') && (leg.pnr || leg.departureTime || leg.arrivalTime) && (
+                                <Text style={{ fontSize: 7, color: C.ink3, marginTop: 2 }}>
+                                  {[leg.pnr ? `PNR: ${leg.pnr}` : null, leg.departureTime ? `Dep: ${leg.departureTime}` : null, leg.arrivalTime ? `Arr: ${leg.arrivalTime}` : null].filter(Boolean).join(" | ")}
+                                </Text>
+                              )}
+                              {(t.type === 'road' || t.type === 'other' || !t.type) && (leg.driverName || leg.driverContact || leg.vehicleNumber) && (
+                                <Text style={{ fontSize: 7, color: C.ink3, marginTop: 2 }}>
+                                  {[leg.driverName ? `Driver: ${leg.driverName}` : null, leg.driverContact ? `Ph: ${leg.driverContact}` : null, leg.vehicleNumber ? `Veh: ${leg.vehicleNumber}` : null].filter(Boolean).join(" | ")}
+                                </Text>
+                              )}
+                              {leg.duration && (
+                                <Text style={{ fontSize: 7, color: C.ink3, marginTop: 1 }}>Duration: {leg.duration}</Text>
+                              )}
+                            </View>
                             <Text style={[s.td, { width: "20%" }]}>{leg.vehicleType || "—"}</Text>
                             <Text style={[s.td, { width: "15%", color: C.ink3 }]}>{formatDateSafe(leg.date)}</Text>
                           </View>

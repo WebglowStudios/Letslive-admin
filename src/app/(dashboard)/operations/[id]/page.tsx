@@ -10,6 +10,7 @@ import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
 interface Transport {
   _id: string;
+  type: string;
   vendorName: string;
   vendorContact: string;
   vendorEmail: string;
@@ -19,7 +20,7 @@ interface Transport {
   paymentDueDate: string;
   isUrgent: boolean;
   remarks: string;
-  legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string }[];
+  legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string; pnr?: string; departureTime?: string; arrivalTime?: string; driverName?: string; driverContact?: string; vehicleNumber?: string; duration?: string }[];
 }
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
@@ -40,6 +41,10 @@ function VendorPick({ value, onChange, vendors, filterType }: { value: string; o
 const ACCOMMODATION_TYPES = [
   { v: "hotel", l: "Hotel" }, { v: "resort", l: "Resort" }, { v: "villa", l: "Villa" }, { v: "hostel", l: "Hostel" },
   { v: "motel", l: "Motel" }, { v: "inn", l: "Inn" }, { v: "apartment", l: "Apartment" }, { v: "homestay", l: "Homestay" }, { v: "other", l: "Other" },
+];
+const TRANSPORT_TYPES = [
+  { v: "flight", l: "Flight" }, { v: "train", l: "Train" }, { v: "road", l: "Road" },
+  { v: "ferry", l: "Ferry" }, { v: "cruise", l: "Cruise" }, { v: "other", l: "Other" },
 ];
 const PAY_OPTS = [{ v: "pending", l: "Pending" }, { v: "partial", l: "Partial" }, { v: "paid", l: "Paid" }];
 
@@ -145,6 +150,19 @@ export default function OperationDetailPage() {
         }
       }
 
+      const pdfFlights = transports
+        .filter(t => t.type === 'flight')
+        .flatMap(t => t.legs.map(leg => ({
+          airline: t.vendorName,
+          date: leg.date,
+          from: leg.from,
+          to: leg.to,
+          departure: leg.departureTime,
+          arrival: leg.arrivalTime,
+        })));
+
+      const pdfTransports = transports.filter(t => t.type !== 'flight');
+
       await generateVoucherPdf({
         operationId: op?.operationId || "",
         destination: op?.destination || "",
@@ -153,9 +171,9 @@ export default function OperationDetailPage() {
         adults: op?.customer?.adults,
         children: op?.customer?.children,
         paymentStatus: op?.booking?.paymentStatus || "pending",
-        flights: [],
+        flights: pdfFlights,
         accommodations: accommodations,
-        transports: transports,
+        transports: pdfTransports,
         itinerary,
         transferSummary,
         packageSlug: op?.package?.slug || "",
@@ -343,7 +361,7 @@ export default function OperationDetailPage() {
             <p className="text-sm font-semibold text-slate-700">{transports.length} transfer group(s)</p>
             <div className="flex gap-2">
               {op.package && transports.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "", notes: "" }] }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Transfer Group</button>
+              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "other", vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "", notes: "" }] }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Transfer Group</button>
             </div>
           </div>
 
@@ -369,7 +387,9 @@ export default function OperationDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-cyan-700">#{idx + 1}</span>
-                  <span className="text-xs font-semibold text-slate-600">{t.vendorName || "Transfer Group"}</span>
+                  <select value={t.type || "other"} onChange={(e) => { const u = [...transports]; u[idx] = { ...u[idx], type: e.target.value }; setTransports(u); }} className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer p-0">
+                    {TRANSPORT_TYPES.map(tt => <option key={tt.v} value={tt.v}>{tt.l} Group</option>)}
+                  </select>
                   {t.isUrgent && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">URGENT</span>}
                   {t.legs.length > 1 && <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{t.legs.length} legs</span>}
                 </div>
@@ -472,6 +492,23 @@ export default function OperationDetailPage() {
                         )}
                       </div>
                       <div className="pl-5 grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {(t.type === "flight" || t.type === "train") && (
+                          <>
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">PNR / Ref</label><input type="text" value={leg.pnr || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], pnr: e.target.value }; setTransports(u); }} placeholder="e.g. ABC123" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], departureTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], arrivalTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                          </>
+                        )}
+                        {(t.type === "road" || t.type === "other") && (
+                          <>
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Driver Name</label><input type="text" value={leg.driverName || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], driverName: e.target.value }; setTransports(u); }} placeholder="Driver Name" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Driver Contact</label><input type="text" value={leg.driverContact || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], driverContact: e.target.value }; setTransports(u); }} placeholder="Phone" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle No.</label><input type="text" value={leg.vehicleNumber || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], vehicleNumber: e.target.value }; setTransports(u); }} placeholder="MH12..." className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                          </>
+                        )}
+                        {(t.type === "road" || t.type === "ferry" || t.type === "cruise" || t.type === "other") && (
+                          <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Duration</label><input type="text" value={leg.duration || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], duration: e.target.value }; setTransports(u); }} placeholder="e.g. Full day" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                        )}
                         <div>
                           <label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle Type</label>
                           <input
