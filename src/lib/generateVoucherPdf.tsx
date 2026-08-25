@@ -53,6 +53,9 @@ export interface VoucherData {
   paymentStatus: string;
   totalAmount?: number;
   paidAmount?: number;
+  isInternational?: boolean;
+  visaIncluded?: boolean;
+  flightsIncluded?: boolean;
   flights: any[];
   accommodations: any[];
   transports: any[];
@@ -153,7 +156,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, flights, accommodations, transports, itinerary, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, flights, accommodations, transports, itinerary, transferSummary } = data;
 
   return (
     <Document>
@@ -170,6 +173,24 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         <View style={s.cardWrapper}>
           <View style={s.mainCard}>
             <Text style={s.destinationTitle}>{destination}</Text>
+            {(isInternational || flightsIncluded !== undefined) && (
+              <View style={{ flexDirection: "row", gap: 8, marginTop: -4, marginBottom: 12 }}>
+                  {isInternational && (
+                    <View style={{ backgroundColor: visaIncluded ? C.iv2 : "rgba(245,166,35,.1)", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: visaIncluded ? C.gn : C.cu }}>
+                        {visaIncluded ? "✓ VISA INCLUDED" : "⚠ VISA NOT INCLUDED"}
+                      </Text>
+                    </View>
+                  )}
+                  {flightsIncluded !== undefined && (
+                    <View style={{ backgroundColor: flightsIncluded ? C.iv2 : "rgba(245,166,35,.1)", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: flightsIncluded ? C.gn : C.cu }}>
+                        {flightsIncluded ? "✈ FLIGHTS INCLUDED" : "⚠ FLIGHTS NOT INCLUDED"}
+                      </Text>
+                    </View>
+                  )}
+              </View>
+            )}
             <View style={s.cardDivider} />
             <View style={s.cardRow}>
               <View style={s.cardCol}>

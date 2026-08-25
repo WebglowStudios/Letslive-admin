@@ -652,7 +652,7 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => (
         backgroundColor: "rgba(0,0,0,0.01)",
       }} />
       <View style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: 320,
+        position: "absolute", bottom: 0, left: 0, right: 0, height: 420,
         backgroundColor: "rgba(10,20,24,0.75)",
       }} />
 
@@ -709,6 +709,26 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => (
               </Svg>
               <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
                 {pkg.hotelRating}
+              </Text>
+            </View>
+          )}
+          {pkg.isInternational && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill={pkg.visaIncluded ? C.gn3 : C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.visaIncluded ? C.gn3 : C.cu }}>
+                {pkg.visaIncluded ? "Visa Included" : "Visa Not Included"}
+              </Text>
+            </View>
+          )}
+          {pkg.flightsIncluded !== undefined && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill={pkg.flightsIncluded ? C.gn3 : C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.flightsIncluded ? C.gn3 : C.cu }}>
+                {pkg.flightsIncluded ? "Flights Included" : "Flights Not Included"}
               </Text>
             </View>
           )}

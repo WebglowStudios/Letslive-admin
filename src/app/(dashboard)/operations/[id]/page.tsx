@@ -21,11 +21,13 @@ interface Transport {
   isUrgent: boolean;
   remarks: string;
   legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string; pnr?: string; departureTime?: string; arrivalTime?: string; driverName?: string; driverContact?: string; vehicleNumber?: string; duration?: string }[];
+  isGroupMaster?: boolean;
+  groupId?: string;
 }
-interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
-interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; }
+interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
+interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[] }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -61,6 +63,9 @@ export default function OperationDetailPage() {
   const [customerPayments, setCustomerPayments] = useState<CPayment[]>([]);
   const [vendorList, setVendorList] = useState<{ _id: string; name: string; type: string }[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
+  const [selectedTransports, setSelectedTransports] = useState<Set<string>>(new Set());
+  const [selectedAccommodations, setSelectedAccommodations] = useState<Set<string>>(new Set());
+  const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [downloadingVoucher, setDownloadingVoucher] = useState(false);
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<string | null>(null);
@@ -119,6 +124,25 @@ export default function OperationDetailPage() {
   async function recalculate() { await api.put(`/operations/${id}/recalculate`); fetchAll(); }
   async function updateStatus(s: string) { await api.put(`/operations/${id}`, { status: s }); fetchAll(); }
   async function sendReminder(paymentId: string) { if (!confirm("Send a payment reminder email to the customer?")) return; try { await api.post(`/operations/${id}/customer-payments/${paymentId}/notify`); alert("Reminder sent successfully!"); } catch { alert("Failed to send reminder."); } }
+
+  async function handleGroupItems(type: string, itemIds: string[]) {
+    if (itemIds.length < 2) return alert("Select at least 2 items to group");
+    try {
+      await api.post(`/operations/${id}/group`, { type, itemIds });
+      if (type === 'transports') setSelectedTransports(new Set());
+      if (type === 'accommodations') setSelectedAccommodations(new Set());
+      if (type === 'activities') setSelectedActivities(new Set());
+      fetchAll();
+    } catch (err) { alert("Failed to group items"); }
+  }
+
+  async function handleUngroup(type: string, groupId: string) {
+    if (!confirm("Are you sure you want to ungroup these items?")) return;
+    try {
+      await api.post(`/operations/${id}/ungroup`, { type, groupId });
+      fetchAll();
+    } catch (err) { alert("Failed to ungroup items"); }
+  }
 
   async function importFromItinerary() {
     if (transports.length > 0 || accommodations.length > 0 || activities.length > 0) {
@@ -179,6 +203,9 @@ export default function OperationDetailPage() {
         paymentStatus: op?.booking?.paymentStatus || "pending",
         totalAmount: op?.booking?.totalAmount,
         paidAmount: op?.booking?.paidAmount,
+        isInternational: op?.package?.isInternational !== undefined ? op?.package?.isInternational : op?.booking?.package?.isInternational,
+        visaIncluded: op?.package?.visaIncluded !== undefined ? op?.package?.visaIncluded : op?.booking?.package?.visaIncluded,
+        flightsIncluded: op?.package?.flightsIncluded !== undefined ? op?.package?.flightsIncluded : op?.booking?.package?.flightsIncluded,
         flights: pdfFlights,
         accommodations: accommodations,
         transports: pdfTransports,
@@ -506,183 +533,248 @@ export default function OperationDetailPage() {
             </div>
           )}
 
-          {transports.map((t, idx) => (
-            <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-4 ${t.isUrgent ? "border-red-300 bg-red-50/20" : "border-slate-200"}`}>
+          {selectedTransports.size > 1 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+              <p className="text-sm font-bold text-indigo-900">{selectedTransports.size} items selected</p>
+              <button onClick={() => handleGroupItems('transports', Array.from(selectedTransports))} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                Merge Selected Services
+              </button>
+            </div>
+          )}
 
-              {/* Card header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-cyan-700">#{idx + 1}</span>
-                  <select value={t.type || "other"} onChange={(e) => { const u = [...transports]; u[idx] = { ...u[idx], type: e.target.value }; setTransports(u); }} className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer p-0">
-                    {TRANSPORT_TYPES.map(tt => <option key={tt.v} value={tt.v}>{tt.l} Group</option>)}
-                  </select>
-                  {t.isUrgent && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">URGENT</span>}
-                  {t.legs.length > 1 && <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{t.legs.length} legs</span>}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => saveItem("transports", t._id, transports[idx])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors">
-                    {saving === t._id ? "..." : <><Check size={10} /> Save</>}
-                  </button>
-                  <button onClick={() => delItem("transports", t._id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
-                </div>
-              </div>
+          {(() => {
+            const grouped: any[] = [];
+            const processed = new Set();
+            transports.forEach((t, idx) => {
+              if (processed.has(t._id)) return;
+              if (t.groupId) {
+                const groupItems = transports.map((item, i) => ({ item, i })).filter(x => x.item.groupId === t.groupId);
+                groupItems.forEach(x => processed.add(x.item._id));
+                const masterInfo = groupItems.find(x => x.item.isGroupMaster) || groupItems[0];
+                grouped.push({ isGroup: true, groupId: t.groupId, items: groupItems, masterInfo });
+              } else {
+                processed.add(t._id);
+                grouped.push({ isGroup: false, item: t, idx });
+              }
+            });
 
-              {/* Vendor info row */}
-              <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Name / Company</label>
-                    <Inp value={t.vendorName} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorName: v }; setTransports(u); }} placeholder="e.g. Ravi Travels, IndiGo..." />
+            const renderTransportCard = (t: any, idx: number, isGrouped: boolean) => (
+              <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-4 ${t.isUrgent ? "border-red-300 bg-red-50/20" : "border-slate-200"} ${isGrouped ? 'shadow-sm' : 'mb-4'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {!isGrouped && (
+                      <input type="checkbox" checked={selectedTransports.has(t._id)} onChange={(e) => {
+                        const s = new Set(selectedTransports);
+                        if (e.target.checked) s.add(t._id); else s.delete(t._id);
+                        setSelectedTransports(s);
+                      }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
+                    )}
+                    <span className="text-xs font-bold text-cyan-700">#{idx + 1}</span>
+                    <select value={t.type || "other"} onChange={(e) => { const u = [...transports]; u[idx] = { ...u[idx], type: e.target.value }; setTransports(u); }} className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer p-0">
+                      {TRANSPORT_TYPES.map(tt => <option key={tt.v} value={tt.v}>{tt.l} Group</option>)}
+                    </select>
+                    {t.isUrgent && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">URGENT</span>}
+                    {t.legs.length > 1 && <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{t.legs.length} legs</span>}
                   </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label>
-                    <Inp value={t.vendorContact} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorContact: v }; setTransports(u); }} placeholder="+91 98765 43210" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label>
-                    <Inp value={t.vendorEmail} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorEmail: v }; setTransports(u); }} placeholder="vendor@email.com" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Financials row */}
-              <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label>
-                    <Inp type="number" value={t.vendorCost} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorCost: Number(v) }; setTransports(u); }} placeholder="0" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label>
-                    <Inp type="number" value={t.sellingPrice} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], sellingPrice: Number(v) }; setTransports(u); }} placeholder="0" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label>
-                    <Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentDueDate: v }; setTransports(u); }} />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label>
-                    <Sel value={t.paymentStatus} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentStatus: v }; setTransports(u); }} options={PAY_OPTS} />
+                  <div className="flex gap-2">
+                    <button onClick={() => saveItem("transports", t._id, transports[idx])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors">
+                      {saving === t._id ? "..." : <><Check size={10} /> Save</>}
+                    </button>
+                    <button onClick={() => delItem("transports", t._id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
                   </div>
                 </div>
-              </div>
 
-              {/* Remarks */}
-              <div>
-                <label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks / Notes</label>
-                <Inp value={t.remarks || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], remarks: v }; setTransports(u); }} placeholder="e.g. Night transfers included, toll charges extra..." />
-              </div>
-
-              {/* Transfer legs */}
-              <div className="border-t border-slate-100 pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Transfer Legs {t.legs.length > 1 ? `(${t.legs.length} segments — group transfer)` : "(single transfer)"}</p>
-                  <button
-                    onClick={() => {
-                      const u = [...transports];
-                      u[idx] = { ...u[idx], legs: [...u[idx].legs, { from: "", to: "", date: "", tripDay: "", vehicleType: "", notes: "" }] };
-                      setTransports(u);
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold hover:bg-slate-200 transition-colors"
-                  >
-                    <Plus size={10} /> Add Leg
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {(t.legs || []).map((leg, li) => (
-                    <div key={li} className="bg-slate-50 rounded-lg p-2.5 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-slate-400 w-5 shrink-0">{li + 1}.</span>
-                        <input
-                          type="text"
-                          value={leg.from}
-                          onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], from: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
-                          placeholder="From (e.g. Pune Airport)"
-                          className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
-                        />
-                        <span className="text-slate-300 text-xs shrink-0">→</span>
-                        <input
-                          type="text"
-                          value={leg.to}
-                          onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], to: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
-                          placeholder="To (e.g. Marriott Hotel)"
-                          className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
-                        />
-                        {t.legs.length > 1 && (
-                          <button
-                            onClick={() => { const u = [...transports]; u[idx] = { ...u[idx], legs: u[idx].legs.filter((_, i) => i !== li) }; setTransports(u); }}
-                            className="p-1 text-red-400 hover:text-red-600 shrink-0"
-                          ><Trash2 size={12} /></button>
-                        )}
-                      </div>
-                      <div className="pl-5 grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {(t.type === "flight" || t.type === "train") && (
-                          <>
-                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">PNR / Ref</label><input type="text" value={leg.pnr || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], pnr: e.target.value }; setTransports(u); }} placeholder="e.g. ABC123" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], departureTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], arrivalTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                          </>
-                        )}
-                        {(t.type === "road" || t.type === "other") && (
-                          <>
-                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Driver Name</label><input type="text" value={leg.driverName || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], driverName: e.target.value }; setTransports(u); }} placeholder="Driver Name" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Driver Contact</label><input type="text" value={leg.driverContact || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], driverContact: e.target.value }; setTransports(u); }} placeholder="Phone" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle No.</label><input type="text" value={leg.vehicleNumber || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], vehicleNumber: e.target.value }; setTransports(u); }} placeholder="MH12..." className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                          </>
-                        )}
-                        {(t.type === "road" || t.type === "ferry" || t.type === "cruise" || t.type === "other") && (
-                          <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Duration</label><input type="text" value={leg.duration || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], duration: e.target.value }; setTransports(u); }} placeholder="e.g. Full day" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                        )}
-                        <div>
-                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle Type</label>
-                          <input
-                            list="vehicle-type-opts"
-                            type="text"
-                            value={leg.vehicleType}
-                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], vehicleType: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
-                            placeholder="Car, SUV, Bus..."
-                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Trip Day</label>
-                          <input
-                            type="text"
-                            value={leg.tripDay}
-                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], tripDay: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
-                            placeholder="Day 1, Arrival..."
-                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Date</label>
-                          <input
-                            type="date"
-                            value={leg.date?.split("T")[0] || ""}
-                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], date: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
-                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[8px] text-slate-400 uppercase block mb-1">Notes</label>
-                          <input
-                            type="text"
-                            value={leg.notes}
-                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], notes: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
-                            placeholder="e.g. Night transfer, toll included"
-                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
-                          />
-                        </div>
+                {!isGrouped && (
+                  <>
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Name / Company</label><Inp value={t.vendorName} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorName: v }; setTransports(u); }} placeholder="e.g. Ravi Travels, IndiGo..." /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label><Inp value={t.vendorContact} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorContact: v }; setTransports(u); }} placeholder="+91 98765 43210" /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label><Inp value={t.vendorEmail} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorEmail: v }; setTransports(u); }} placeholder="vendor@email.com" /></div>
                       </div>
                     </div>
-                  ))}
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label><Inp type="number" value={t.vendorCost} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorCost: Number(v) }; setTransports(u); }} placeholder="0" /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label><Inp type="number" value={t.sellingPrice} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], sellingPrice: Number(v) }; setTransports(u); }} placeholder="0" /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentDueDate: v }; setTransports(u); }} /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentStatus: v }; setTransports(u); }} options={PAY_OPTS} /></div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks / Notes</label>
+                      <Inp value={t.remarks || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], remarks: v }; setTransports(u); }} placeholder="e.g. Night transfers included, toll charges extra..." />
+                    </div>
+                  </>
+                )}
+
+                <div className="border-t border-slate-100 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Transfer Legs {t.legs.length > 1 ? `(${t.legs.length} segments — group transfer)` : "(single transfer)"}</p>
+                    <button
+                      onClick={() => {
+                        const u = [...transports];
+                        u[idx] = { ...u[idx], legs: [...u[idx].legs, { from: "", to: "", date: "", tripDay: "", vehicleType: "", notes: "" }] };
+                        setTransports(u);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-semibold hover:bg-slate-200 transition-colors"
+                    >
+                      <Plus size={10} /> Add Leg
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(t.legs || []).map((leg: any, li: number) => (
+                      <div key={li} className="bg-slate-50 rounded-lg p-2.5 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 w-5 shrink-0">{li + 1}.</span>
+                          <input
+                            type="text"
+                            value={leg.from}
+                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], from: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                            placeholder="From (e.g. Pune Airport)"
+                            className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                          />
+                          <span className="text-slate-300 text-xs shrink-0">→</span>
+                          <input
+                            type="text"
+                            value={leg.to}
+                            onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], to: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                            placeholder="To (e.g. Marriott Hotel)"
+                            className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                          />
+                          {t.legs.length > 1 && (
+                            <button
+                              onClick={() => { const u = [...transports]; u[idx] = { ...u[idx], legs: u[idx].legs.filter((_, i) => i !== li) }; setTransports(u); }}
+                              className="p-1 text-red-400 hover:text-red-600 shrink-0"
+                            ><Trash2 size={12} /></button>
+                          )}
+                        </div>
+                        <div className="pl-5 grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {(t.type === "flight" || t.type === "train") && (
+                            <>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">PNR / Ref</label><input type="text" value={leg.pnr || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], pnr: e.target.value }; setTransports(u); }} placeholder="e.g. ABC123" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], departureTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], arrivalTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            </>
+                          )}
+                          {(t.type === "road" || t.type === "other") && (
+                            <>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Driver Name</label><input type="text" value={leg.driverName || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], driverName: e.target.value }; setTransports(u); }} placeholder="Driver Name" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Driver Contact</label><input type="text" value={leg.driverContact || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], driverContact: e.target.value }; setTransports(u); }} placeholder="Phone" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle No.</label><input type="text" value={leg.vehicleNumber || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], vehicleNumber: e.target.value }; setTransports(u); }} placeholder="MH12..." className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            </>
+                          )}
+                          {(t.type === "road" || t.type === "ferry" || t.type === "cruise" || t.type === "other") && (
+                            <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Duration</label><input type="text" value={leg.duration || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], duration: e.target.value }; setTransports(u); }} placeholder="e.g. Full day" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                          )}
+                          <div>
+                            <label className="text-[8px] text-slate-400 uppercase block mb-1">Vehicle Type</label>
+                            <input
+                              list="vehicle-type-opts"
+                              type="text"
+                              value={leg.vehicleType}
+                              onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], vehicleType: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                              placeholder="Car, SUV, Bus..."
+                              className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-slate-400 uppercase block mb-1">Trip Day</label>
+                            <input
+                              type="text"
+                              value={leg.tripDay}
+                              onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], tripDay: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                              placeholder="Day 1, Arrival..."
+                              className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-slate-400 uppercase block mb-1">Date</label>
+                            <input
+                              type="date"
+                              value={leg.date?.split("T")[0] || ""}
+                              onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], date: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                              className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] text-slate-400 uppercase block mb-1">Notes</label>
+                            <input
+                              type="text"
+                              value={leg.notes}
+                              onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], notes: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                              placeholder="e.g. Night transfer, toll included"
+                              className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
+            );
 
-            </div>
-          ))}
+            return grouped.map((g) => {
+              if (!g.isGroup) {
+                return renderTransportCard(g.item, g.idx, false);
+              } else {
+                return (
+                  <div key={g.groupId} className="bg-indigo-50/20 rounded-xl border border-indigo-200 p-4 space-y-4 mb-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Transports</span>
+                      <button onClick={() => handleUngroup('transports', g.groupId)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-colors">
+                        Ungroup All
+                      </button>
+                    </div>
+                    <div className="space-y-3 border-l-2 border-indigo-200 pl-4 ml-1">
+                      {g.items.map(({ item: t, i: idx }: { item: any, i: number }) => renderTransportCard(t, idx, true))}
+                    </div>
+                    <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
+                        <button onClick={() => saveItem("transports", g.masterInfo.item._id, transports[g.masterInfo.i])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
+                          <Check size={10} /> Save Group
+                        </button>
+                      </div>
+                      
+                      {(() => {
+                        const t = g.masterInfo.item;
+                        const idx = g.masterInfo.i;
+                        return (
+                          <>
+                            <div className="mb-4">
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Name / Company</label><Inp value={t.vendorName} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorName: v }; setTransports(u); }} placeholder="e.g. Ravi Travels, IndiGo..." /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label><Inp value={t.vendorContact} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorContact: v }; setTransports(u); }} placeholder="+91 98765 43210" /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label><Inp value={t.vendorEmail} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorEmail: v }; setTransports(u); }} placeholder="vendor@email.com" /></div>
+                              </div>
+                            </div>
+                            <div className="mb-4">
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment</p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label><Inp type="number" value={t.vendorCost} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorCost: Number(v) }; setTransports(u); }} placeholder="0" /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label><Inp type="number" value={t.sellingPrice} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], sellingPrice: Number(v) }; setTransports(u); }} placeholder="0" /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentDueDate: v }; setTransports(u); }} /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentStatus: v }; setTransports(u); }} options={PAY_OPTS} /></div>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks / Notes</label>
+                              <Inp value={t.remarks || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], remarks: v }; setTransports(u); }} placeholder="e.g. Night transfers included, toll charges extra..." />
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              }
+            });
+          })()}
           {transports.length === 0 && <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No transfer groups yet. Add one above or import from itinerary.</div>}
         </div>
       )}
@@ -711,27 +803,127 @@ export default function OperationDetailPage() {
               </button>
             </div>
           )}
-          {accommodations.map((a, idx) => (
-            <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} <span className="capitalize text-slate-500">{a.type}</span></span><div className="flex gap-2"><button onClick={() => saveItem("accommodations", a._id, accommodations[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button><button onClick={() => delItem("accommodations", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Type</label><Sel value={a.type} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],type:v};setAccommodations(u);}} options={ACCOMMODATION_TYPES} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Property Name</label><Inp value={a.name} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],name:v};setAccommodations(u);}} placeholder="Marriott, Zostel..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Area</label><Inp value={a.area} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],area:v};setAccommodations(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Room</label><Inp value={a.roomCategory} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],roomCategory:v};setAccommodations(u);}} placeholder="Deluxe, Dorm..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Rooms (Qty)</label><Inp type="number" value={a.rooms || ""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],rooms:Number(v)};setAccommodations(u);}} placeholder="1" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Meal Plan</label><Sel value={a.mealPlan} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],mealPlan:v};setAccommodations(u);}} options={[{v:"EP",l:"EP (No meals)"},{v:"CP",l:"CP (Breakfast)"},{v:"MAP",l:"MAP (B+L/D)"},{v:"AP",l:"AP (All meals)"}]} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Check In</label><Inp type="date" value={a.checkIn?.split("T")[0]||""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],checkIn:v};setAccommodations(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Check Out</label><Inp type="date" value={a.checkOut?.split("T")[0]||""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],checkOut:v};setAccommodations(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Conf #</label><Inp value={a.confirmationNumber} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],confirmationNumber:v};setAccommodations(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],tripDay:v};setAccommodations(u);}} placeholder="Day 1-3" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setAccommodations(u);}} vendors={vendorList} filterType="hotel" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v};setAccommodations(u);}} />}</div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorCost:Number(v)};setAccommodations(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],sellingPrice:Number(v)};setAccommodations(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],paymentStatus:v};setAccommodations(u);}} options={PAY_OPTS} /></div>
-              </div>
+          {selectedAccommodations.size > 1 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+              <p className="text-sm font-bold text-indigo-900">{selectedAccommodations.size} items selected</p>
+              <button onClick={() => handleGroupItems('accommodations', Array.from(selectedAccommodations))} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                Merge Selected Services
+              </button>
             </div>
-          ))}
+          )}
+          {(() => {
+            const grouped: any[] = [];
+            const processed = new Set();
+            accommodations.forEach((a, idx) => {
+              if (processed.has(a._id)) return;
+              if (a.groupId) {
+                const groupItems = accommodations.map((item, i) => ({ item, i })).filter(x => x.item.groupId === a.groupId);
+                groupItems.forEach(x => processed.add(x.item._id));
+                const masterInfo = groupItems.find(x => x.item.isGroupMaster) || groupItems[0];
+                grouped.push({ isGroup: true, groupId: a.groupId, items: groupItems, masterInfo });
+              } else {
+                processed.add(a._id);
+                grouped.push({ isGroup: false, item: a, idx });
+              }
+            });
+
+            return grouped.map((g) => {
+              if (!g.isGroup) {
+                const a = g.item;
+                const idx = g.idx;
+                return (
+                  <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs font-bold text-cyan-700">
+                        <input type="checkbox" checked={selectedAccommodations.has(a._id)} onChange={(e) => {
+                          const s = new Set(selectedAccommodations);
+                          if (e.target.checked) s.add(a._id); else s.delete(a._id);
+                          setSelectedAccommodations(s);
+                        }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
+                        #{idx+1} <span className="capitalize text-slate-500">{a.type}</span>
+                      </span>
+                      <div className="flex gap-2">
+                        <button onClick={() => saveItem("accommodations", a._id, accommodations[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button>
+                        <button onClick={() => delItem("accommodations", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Type</label><Sel value={a.type} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],type:v};setAccommodations(u);}} options={ACCOMMODATION_TYPES} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Property Name</label><Inp value={a.name} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],name:v};setAccommodations(u);}} placeholder="Marriott, Zostel..." /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Area</label><Inp value={a.area} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],area:v};setAccommodations(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Room</label><Inp value={a.roomCategory} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],roomCategory:v};setAccommodations(u);}} placeholder="Deluxe, Dorm..." /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Rooms (Qty)</label><Inp type="number" value={a.rooms || ""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],rooms:Number(v)};setAccommodations(u);}} placeholder="1" /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Meal Plan</label><Sel value={a.mealPlan} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],mealPlan:v};setAccommodations(u);}} options={[{v:"EP",l:"EP (No meals)"},{v:"CP",l:"CP (Breakfast)"},{v:"MAP",l:"MAP (B+L/D)"},{v:"AP",l:"AP (All meals)"}]} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Check In</label><Inp type="date" value={a.checkIn?.split("T")[0]||""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],checkIn:v};setAccommodations(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Check Out</label><Inp type="date" value={a.checkOut?.split("T")[0]||""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],checkOut:v};setAccommodations(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Conf #</label><Inp value={a.confirmationNumber} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],confirmationNumber:v};setAccommodations(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],tripDay:v};setAccommodations(u);}} placeholder="Day 1-3" /></div>
+                      
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setAccommodations(u);}} vendors={vendorList} filterType="hotel" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v};setAccommodations(u);}} />}</div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorCost:Number(v)};setAccommodations(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],sellingPrice:Number(v)};setAccommodations(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],paymentStatus:v};setAccommodations(u);}} options={PAY_OPTS} /></div>
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={g.groupId} className="bg-indigo-50/20 rounded-xl border border-indigo-200 p-4 space-y-4 mb-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Accommodations</span>
+                      <button onClick={() => handleUngroup('accommodations', g.groupId)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-colors">
+                        Ungroup All
+                      </button>
+                    </div>
+                    <div className="space-y-3 border-l-2 border-indigo-200 pl-4 ml-1">
+                      {g.items.map(({ item: a, i: idx }: { item: any, i: number }) => (
+                        <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 relative shadow-sm">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-bold text-cyan-700 flex items-center gap-2">#{idx+1} <span className="capitalize text-slate-500">{a.type}</span></span>
+                            <button onClick={() => delItem("accommodations", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Type</label><Sel value={a.type} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],type:v};setAccommodations(u);}} options={ACCOMMODATION_TYPES} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Property Name</label><Inp value={a.name} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],name:v};setAccommodations(u);}} placeholder="Marriott, Zostel..." /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Area</label><Inp value={a.area} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],area:v};setAccommodations(u);}} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Room</label><Inp value={a.roomCategory} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],roomCategory:v};setAccommodations(u);}} placeholder="Deluxe, Dorm..." /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Rooms (Qty)</label><Inp type="number" value={a.rooms || ""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],rooms:Number(v)};setAccommodations(u);}} placeholder="1" /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Meal Plan</label><Sel value={a.mealPlan} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],mealPlan:v};setAccommodations(u);}} options={[{v:"EP",l:"EP (No meals)"},{v:"CP",l:"CP (Breakfast)"},{v:"MAP",l:"MAP (B+L/D)"},{v:"AP",l:"AP (All meals)"}]} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Check In</label><Inp type="date" value={a.checkIn?.split("T")[0]||""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],checkIn:v};setAccommodations(u);}} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Check Out</label><Inp type="date" value={a.checkOut?.split("T")[0]||""} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],checkOut:v};setAccommodations(u);}} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Conf #</label><Inp value={a.confirmationNumber} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],confirmationNumber:v};setAccommodations(u);}} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],tripDay:v};setAccommodations(u);}} placeholder="Day 1-3" /></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
+                        <button onClick={() => saveItem("accommodations", g.masterInfo.item._id, accommodations[g.masterInfo.i])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
+                          <Check size={10} /> Save Group
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {(() => {
+                          const a = g.masterInfo.item;
+                          const idx = g.masterInfo.i;
+                          return (
+                            <>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setAccommodations(u);}} vendors={vendorList} filterType="hotel" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v};setAccommodations(u);}} />}</div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorCost:Number(v)};setAccommodations(u);}} /></div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],sellingPrice:Number(v)};setAccommodations(u);}} /></div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],paymentStatus:v};setAccommodations(u);}} options={PAY_OPTS} /></div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+            });
+          })()}
           {accommodations.length===0&&<div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No accommodations yet.</div>}
         </div>
       )}
@@ -760,22 +952,117 @@ export default function OperationDetailPage() {
               </button>
             </div>
           )}
-          {activities.map((a, idx) => (
-            <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">Day #{idx+1} Expense</span><div className="flex gap-2"><button onClick={() => saveItem("activities", a._id, activities[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button><button onClick={() => delItem("activities", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Day Title</label><Inp value={a.title} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],title:v};setActivities(u);}} placeholder="Arrival & City Tour" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Date</label><Inp type="date" value={a.date?.split("T")[0]||""} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],date:v};setActivities(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Duration</label><Inp value={a.duration} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],duration:v};setActivities(u);}} placeholder="Full day" /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],tripDay:v};setActivities(u);}} placeholder="Day 1" /></div>
-                <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Activities / Description</label><Inp value={a.description} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],description:v};setActivities(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setActivities(u);}} vendors={vendorList} filterType="activity" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v};setActivities(u);}} />}</div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorCost:Number(v)};setActivities(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],sellingPrice:Number(v)};setActivities(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],paymentStatus:v};setActivities(u);}} options={PAY_OPTS} /></div>
-              </div>
+          {selectedActivities.size > 1 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+              <p className="text-sm font-bold text-indigo-900">{selectedActivities.size} items selected</p>
+              <button onClick={() => handleGroupItems('activities', Array.from(selectedActivities))} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                Merge Selected Services
+              </button>
             </div>
-          ))}
+          )}
+          {(() => {
+            const grouped: any[] = [];
+            const processed = new Set();
+            activities.forEach((a, idx) => {
+              if (processed.has(a._id)) return;
+              if (a.groupId) {
+                const groupItems = activities.map((item, i) => ({ item, i })).filter(x => x.item.groupId === a.groupId);
+                groupItems.forEach(x => processed.add(x.item._id));
+                const masterInfo = groupItems.find(x => x.item.isGroupMaster) || groupItems[0];
+                grouped.push({ isGroup: true, groupId: a.groupId, items: groupItems, masterInfo });
+              } else {
+                processed.add(a._id);
+                grouped.push({ isGroup: false, item: a, idx });
+              }
+            });
+
+            return grouped.map((g) => {
+              if (!g.isGroup) {
+                const a = g.item;
+                const idx = g.idx;
+                return (
+                  <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs font-bold text-cyan-700">
+                        <input type="checkbox" checked={selectedActivities.has(a._id)} onChange={(e) => {
+                          const s = new Set(selectedActivities);
+                          if (e.target.checked) s.add(a._id); else s.delete(a._id);
+                          setSelectedActivities(s);
+                        }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
+                        Day #{idx+1} Expense
+                      </span>
+                      <div className="flex gap-2">
+                        <button onClick={() => saveItem("activities", a._id, activities[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button>
+                        <button onClick={() => delItem("activities", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Day Title</label><Inp value={a.title} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],title:v};setActivities(u);}} placeholder="Arrival & City Tour" /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Date</label><Inp type="date" value={a.date?.split("T")[0]||""} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],date:v};setActivities(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Duration</label><Inp value={a.duration} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],duration:v};setActivities(u);}} placeholder="Full day" /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],tripDay:v};setActivities(u);}} placeholder="Day 1" /></div>
+                      <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Activities / Description</label><Inp value={a.description} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],description:v};setActivities(u);}} /></div>
+                      
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setActivities(u);}} vendors={vendorList} filterType="activity" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v};setActivities(u);}} />}</div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorCost:Number(v)};setActivities(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],sellingPrice:Number(v)};setActivities(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],paymentStatus:v};setActivities(u);}} options={PAY_OPTS} /></div>
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={g.groupId} className="bg-indigo-50/20 rounded-xl border border-indigo-200 p-4 space-y-4 mb-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Itinerary Days</span>
+                      <button onClick={() => handleUngroup('activities', g.groupId)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-colors">
+                        Ungroup All
+                      </button>
+                    </div>
+                    <div className="space-y-3 border-l-2 border-indigo-200 pl-4 ml-1">
+                      {g.items.map(({ item: a, i: idx }: { item: any, i: number }) => (
+                        <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 relative shadow-sm">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-bold text-cyan-700">Day #{idx+1} Expense</span>
+                            <button onClick={() => delItem("activities", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Day Title</label><Inp value={a.title} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],title:v};setActivities(u);}} placeholder="Arrival & City Tour" /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Date</label><Inp type="date" value={a.date?.split("T")[0]||""} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],date:v};setActivities(u);}} /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Duration</label><Inp value={a.duration} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],duration:v};setActivities(u);}} placeholder="Full day" /></div>
+                            <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],tripDay:v};setActivities(u);}} placeholder="Day 1" /></div>
+                            <div className="col-span-2"><label className="text-[9px] text-slate-400 uppercase block mb-1">Activities / Description</label><Inp value={a.description} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],description:v};setActivities(u);}} /></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
+                        <button onClick={() => saveItem("activities", g.masterInfo.item._id, activities[g.masterInfo.i])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
+                          <Check size={10} /> Save Group
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {(() => {
+                          const a = g.masterInfo.item;
+                          const idx = g.masterInfo.i;
+                          return (
+                            <>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setActivities(u);}} vendors={vendorList} filterType="activity" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorName:v};setActivities(u);}} />}</div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],vendorCost:Number(v)};setActivities(u);}} /></div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],sellingPrice:Number(v)};setActivities(u);}} /></div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...activities];u[idx]={...u[idx],paymentStatus:v};setActivities(u);}} options={PAY_OPTS} /></div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+            });
+          })()}
           {activities.length===0&&<div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No itinerary days yet.</div>}
         </div>
       )}
