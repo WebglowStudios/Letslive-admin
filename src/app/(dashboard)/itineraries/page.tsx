@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download, Files, Link2 } from "lucide-react";
@@ -25,12 +26,28 @@ interface CustomItinerary {
 }
 
 export default function ItinerariesPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [itineraries, setItineraries] = useState<CustomItinerary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [showMine, setShowMine] = useState(false);
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [showMine, setShowMine] = useState(searchParams.get("mine") === "true");
   const user = useAuthStore((s) => s.user);
   const role = useRole();
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (showMine) params.set("mine", "true");
+    
+    const newQuery = params.toString();
+    if (newQuery !== searchParams.toString()) {
+      router.replace(`${pathname}?${newQuery}`, { scroll: false });
+    }
+  }, [search, showMine, pathname, router, searchParams]);
 
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { Package, Destination } from "@/types";
 import { formatCurrency } from "@/lib/utils";
@@ -16,17 +16,21 @@ const PER_PAGE = 50;
 
 export default function PackagesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const destinationFilter = searchParams.get("destination") || "";
   const destNameFilter = searchParams.get("destName") || "";
 
   const [packages, setPackages] = useState<Package[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [selectedDestination, setSelectedDestination] = useState<string>(destinationFilter || "all");
-  const [approvalFilter, setApprovalFilter] = useState<string>("all");
-  const [featuredFilter, setFeaturedFilter] = useState<string>("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [approvalFilter, setApprovalFilter] = useState<string>(searchParams.get("approvalStatus") || "all");
+  const [featuredFilter, setFeaturedFilter] = useState<string>(searchParams.get("isFeatured") || "all");
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get("page") || "1", 10));
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const canCreate = usePermission("packages.create");
@@ -78,11 +82,26 @@ export default function PackagesPage() {
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      setCurrentPage(1);
-      fetchPackages(1, searchQuery);
+      fetchPackages(currentPage, searchQuery);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchPackages]);
+  }, [searchQuery, currentPage, fetchPackages]);
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (currentPage > 1) params.set("page", currentPage.toString());
+    if (searchQuery) params.set("search", searchQuery);
+    if (selectedDestination !== "all") params.set("destination", selectedDestination);
+    if (approvalFilter !== "all") params.set("approvalStatus", approvalFilter);
+    if (featuredFilter !== "all") params.set("isFeatured", featuredFilter);
+    if (destNameFilter) params.set("destName", destNameFilter); // preserve destName filter if present
+    
+    const newQuery = params.toString();
+    if (newQuery !== searchParams.toString()) {
+      router.replace(`${pathname}?${newQuery}`, { scroll: false });
+    }
+  }, [currentPage, searchQuery, selectedDestination, approvalFilter, featuredFilter, destNameFilter, pathname, router, searchParams]);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this package?")) return;

@@ -177,10 +177,13 @@ export default function EnquiriesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [destinationFilter, setDestinationFilter] = useState("");
+  const [paxFilter, setPaxFilter] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "follow-ups">("all");
   const [showAddLead, setShowAddLead] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
+  const [bulkAssignStaff, setBulkAssignStaff] = useState("");
 
 
   const canSeeAll = usePermission("enquiries.respond");
@@ -206,6 +209,8 @@ export default function EnquiriesPage() {
         if (search) params.set("search", search);
         if (dateFrom) params.set("from", dateFrom);
         if (dateTo) params.set("to", dateTo);
+        if (destinationFilter) params.set("destination", destinationFilter);
+        if (paxFilter) params.set("travellerCount", paxFilter);
         const res = await api.get(`${endpoint}?${params}`);
         setEnquiries(res?.data || []);
       }
@@ -214,7 +219,7 @@ export default function EnquiriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, channelFilter, search, dateFrom, dateTo, activeTab, isStaffOnly]);
+  }, [statusFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
 
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
@@ -262,15 +267,17 @@ export default function EnquiriesPage() {
 
   async function executeBulkAction() {
     if (!bulkAction || selected.size === 0) return;
+    if (bulkAction === "reassign" && !bulkAssignStaff) return;
     if (!confirm(`Apply "${bulkAction}" to ${selected.size} enquiries?`)) return;
     try {
       await api.post("/enquiries/bulk", {
         ids: Array.from(selected),
         action: bulkAction,
-        payload: bulkAction === "close" ? { lostReason: "other" } : {},
+        payload: bulkAction === "close" ? { lostReason: "other" } : bulkAction === "reassign" ? { assignedTo: bulkAssignStaff } : {},
       });
       setSelected(new Set());
       setBulkAction("");
+      setBulkAssignStaff("");
       fetchEnquiries();
     } catch {
       alert("Bulk action failed");
@@ -408,6 +415,33 @@ export default function EnquiriesPage() {
                 </button>
               )}
             </div>
+
+            {/* Location + PAX filter */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={destinationFilter}
+                onChange={(e) => setDestinationFilter(e.target.value)}
+                placeholder="Destination..."
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 w-28"
+              />
+              <input
+                type="number"
+                min="1"
+                value={paxFilter}
+                onChange={(e) => setPaxFilter(e.target.value)}
+                placeholder="PAX"
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 w-16"
+              />
+              {(destinationFilter || paxFilter) && (
+                <button
+                  onClick={() => { setDestinationFilter(""); setPaxFilter(""); }}
+                  className="flex items-center gap-0.5 text-[11px] text-red-500 hover:text-red-700"
+                >
+                  <X size={11} /> Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -421,12 +455,25 @@ export default function EnquiriesPage() {
               className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
             >
               <option value="">Choose action...</option>
+              <option value="reassign">Assign to Employee</option>
               <option value="mark-follow-up">Mark as Follow-up</option>
               <option value="close">Close (No Response)</option>
             </select>
+            {bulkAction === "reassign" && (
+              <select
+                value={bulkAssignStaff}
+                onChange={(e) => setBulkAssignStaff(e.target.value)}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
+              >
+                <option value="">Select Employee...</option>
+                {staffList.map((s) => (
+                  <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                ))}
+              </select>
+            )}
             <button
               onClick={executeBulkAction}
-              disabled={!bulkAction}
+              disabled={!bulkAction || (bulkAction === "reassign" && !bulkAssignStaff)}
               className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold disabled:opacity-40 hover:bg-cyan-700"
             >
               Apply

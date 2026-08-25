@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Search, Filter, Plus, Eye, AlertTriangle } from "lucide-react";
+import { Search, Filter, Plus, Eye, AlertTriangle, Trash2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
+import { useAuthStore } from "@/stores/authStore";
 
 interface OperationItem {
   _id: string;
@@ -31,6 +32,9 @@ export default function OperationsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [search, setSearch] = useState("");
+  
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     fetchOperations();
@@ -48,6 +52,20 @@ export default function OperationsPage() {
       setOperations([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this operation? This will delete all associated payments and records.")) return;
+    try {
+      const res = await api.del(`/operations/${id}`);
+      if (res?.status === "success" || !res) {
+        fetchOperations();
+      } else {
+        alert("Failed to delete operation");
+      }
+    } catch {
+      alert("Failed to delete operation");
     }
   }
 
@@ -176,9 +194,16 @@ export default function OperationsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <Link href={`/operations/${op._id}`} className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 inline-flex">
-                          <Eye size={16} />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/operations/${op._id}`} className="p-1.5 rounded-lg hover:bg-cyan-50 text-slate-400 hover:text-cyan-600 inline-flex">
+                            <Eye size={16} />
+                          </Link>
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(op._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete Operation">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
