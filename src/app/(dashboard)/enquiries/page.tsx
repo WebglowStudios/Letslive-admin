@@ -199,7 +199,7 @@ export default function EnquiriesPage() {
         const res = await api.get("/enquiries/follow-ups/today");
         setEnquiries(res?.data || []);
       } else {
-        const endpoint = isStaffOnly ? "/enquiries/mine" : "/enquiries";
+        const endpoint = "/enquiries";
         const params = new URLSearchParams({ limit: "100" });
         if (statusFilter !== "all") params.set("status", statusFilter);
         if (channelFilter !== "all") params.set("channel", channelFilter);
