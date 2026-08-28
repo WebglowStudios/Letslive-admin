@@ -429,7 +429,7 @@ export default function EditCustomItineraryPage() {
       const res = await api.put(`/packages/${id}`, payload);
       if (res?.status === "success") {
         setSuccess("Itinerary updated successfully!");
-        setTimeout(() => router.push("/itineraries"), 1500);
+        setTimeout(() => router.back(), 1500);
       } else { setError(res?.message || "Failed to update"); }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to update itinerary");
@@ -454,7 +454,7 @@ export default function EditCustomItineraryPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/itineraries" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
+        <button type="button" onClick={() => router.back()} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></button>
         <div>
           <h1 className="text-xl font-bold text-slate-800">Edit Custom Itinerary</h1>
           <p className="text-sm text-slate-500">Update the personalized trip plan</p>
@@ -1003,7 +1003,7 @@ export default function EditCustomItineraryPage() {
           <button type="submit" disabled={loading} className="px-6 py-3 bg-cyan-600 text-white rounded-xl font-semibold hover:bg-cyan-700 transition-colors disabled:opacity-50 flex items-center gap-2">
             <Save size={16} />{loading ? "Saving..." : "Save Changes"}
           </button>
-          <Link href="/itineraries" className="px-6 py-3 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">Cancel</Link>
+          <button type="button" onClick={() => router.back()} className="px-6 py-3 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
         </div>
       </form>
       <DayTemplateModal

@@ -614,7 +614,7 @@ export default function EditPackagePage() {
       const res = await api.put(`/packages/${id}`, payload);
       if (res?.status === "success") {
         setSuccess("Package updated successfully!");
-        setTimeout(() => router.push("/packages"), 1500);
+        setTimeout(() => router.back(), 1500);
       } else {
         setError(res?.message || "Failed to update package");
       }
@@ -648,9 +648,9 @@ export default function EditPackagePage() {
     <RoleGuard permission="packages.edit">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/packages" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={() => router.back()} className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
             <ArrowLeft size={20} />
-          </Link>
+          </button>
           <div>
             <h1 className="text-xl font-bold text-slate-800">Edit Package</h1>
             <p className="text-sm text-slate-500">Update package details</p>
@@ -1463,9 +1463,9 @@ export default function EditPackagePage() {
               <Save size={16} />
               {loading ? "Saving..." : "Save Changes"}
             </button>
-            <Link href="/packages" className="px-6 py-3 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
+            <button type="button" onClick={() => router.back()} className="px-6 py-3 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
               Cancel
-            </Link>
+            </button>
           </div>
         </form>
       </div>
