@@ -11,6 +11,7 @@ import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
 import { useRole } from "@/hooks/usePermission";
 import { generatePackagePdf } from "@/lib/generatePackagePdf";
+import { useRecentEdits } from "@/hooks/useRecentEdits";
 
 const PER_PAGE = 50;
 
@@ -37,6 +38,7 @@ export default function PackagesPage() {
   const canEdit = usePermission("packages.edit");
   const canDelete = usePermission("packages.delete");
   const role = useRole();
+  const { items: recentEdits, removeEditItem } = useRecentEdits("packages");
 
 
   const fetchPackages = useCallback(async (page: number, search: string) => {
@@ -234,6 +236,27 @@ export default function PackagesPage() {
             </Link>
           )}
         </div>
+
+        {/* Currently Editing */}
+        {recentEdits.length > 0 && (
+          <div className="bg-cyan-50/50 border border-cyan-100 rounded-xl p-4 flex gap-4 overflow-x-auto">
+            <div className="flex-shrink-0 flex items-center gap-2 text-sm font-semibold text-cyan-800">
+              <Edit size={16} /> Currently Editing:
+            </div>
+            <div className="flex items-center gap-3">
+              {recentEdits.map(edit => (
+                <div key={edit.id} className="flex items-center gap-2 bg-white border border-cyan-200 rounded-lg px-3 py-1.5 shadow-sm">
+                  <Link href={`/packages/${edit.id}/edit`} className="text-xs font-medium text-slate-700 hover:text-cyan-600 max-w-[200px] truncate" title={edit.name}>
+                    {edit.name}
+                  </Link>
+                  <button onClick={() => removeEditItem(edit.id)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5 rounded-md hover:bg-slate-50" title="Remove from list">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Info bar */}
         <div className="flex items-center justify-between">

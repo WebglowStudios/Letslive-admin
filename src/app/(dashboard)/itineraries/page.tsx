@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
-import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download, Files, Link2 } from "lucide-react";
+import { Plus, Eye, Edit, Copy, Trash2, Search, Filter, Download, Files, Link2, X } from "lucide-react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { useRole } from "@/hooks/usePermission";
 import { generatePackagePdf } from "@/lib/generatePackagePdf";
+import { useRecentEdits } from "@/hooks/useRecentEdits";
 
 interface CustomItinerary {
   _id: string;
@@ -36,6 +37,7 @@ export default function ItinerariesPage() {
   const [showMine, setShowMine] = useState(searchParams.get("mine") === "true");
   const user = useAuthStore((s) => s.user);
   const role = useRole();
+  const { items: recentEdits, removeEditItem } = useRecentEdits("itineraries");
 
   // Sync state to URL
   useEffect(() => {
@@ -173,6 +175,27 @@ export default function ItinerariesPage() {
           </button>
         </div>
       </div>
+
+      {/* Currently Editing */}
+      {recentEdits.length > 0 && (
+        <div className="bg-cyan-50/50 border border-cyan-100 rounded-xl p-4 flex gap-4 overflow-x-auto">
+          <div className="flex-shrink-0 flex items-center gap-2 text-sm font-semibold text-cyan-800">
+            <Edit size={16} /> Currently Editing:
+          </div>
+          <div className="flex items-center gap-3">
+            {recentEdits.map(edit => (
+              <div key={edit.id} className="flex items-center gap-2 bg-white border border-cyan-200 rounded-lg px-3 py-1.5 shadow-sm">
+                <Link href={`/itineraries/${edit.id}/edit`} className="text-xs font-medium text-slate-700 hover:text-cyan-600 max-w-[200px] truncate" title={edit.name}>
+                  {edit.name}
+                </Link>
+                <button onClick={() => removeEditItem(edit.id)} className="text-slate-400 hover:text-red-500 transition-colors p-0.5 rounded-md hover:bg-slate-50" title="Remove from list">
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
         <div className="overflow-x-auto min-h-[480px] pb-40">

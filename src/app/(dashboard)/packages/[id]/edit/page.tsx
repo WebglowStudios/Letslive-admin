@@ -14,6 +14,7 @@ import MealPicker from "@/components/ui/MealPicker";
 import TextTemplateControls from "@/components/ui/TextTemplateControls";
 import { DayTemplateModal } from "@/components/ui/DayTemplateModal";
 import { SaveDayTemplateModal } from "@/components/ui/SaveDayTemplateModal";
+import { useRecentEdits } from "@/hooks/useRecentEdits";
 
 interface ItineraryDay {
   day: number;
@@ -66,6 +67,7 @@ export default function EditPackagePage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [activeTab, setActiveTab] = useState("basic");
   const [tripDetailsSubTab, setTripDetailsSubTab] = useState("itinerary");
+  const { addEditItem } = useRecentEdits("packages");
 
   // Basic info
   const [name, setName] = useState("");
@@ -233,6 +235,12 @@ export default function EditPackagePage() {
     api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
     fetchPackage();
   }, [id]);
+
+  useEffect(() => {
+    if (name && id) {
+      addEditItem(id, name);
+    }
+  }, [name, id, addEditItem]);
 
   async function fetchPackage() {
     try {

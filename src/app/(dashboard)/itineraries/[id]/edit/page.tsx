@@ -14,6 +14,7 @@ import TemplateControls from "@/components/ui/TemplateControls";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { DayTemplateModal } from "@/components/ui/DayTemplateModal";
 import { SaveDayTemplateModal } from "@/components/ui/SaveDayTemplateModal";
+import { useRecentEdits } from "@/hooks/useRecentEdits";
 
 interface ItineraryDay {
   day: number; title: string; description: string;
@@ -42,6 +43,7 @@ export default function EditCustomItineraryPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [activeTab, setActiveTab] = useState("client");
   const [tripDetailsSubTab, setTripDetailsSubTab] = useState("itinerary");
+  const { addEditItem } = useRecentEdits("itineraries");
 
   // Client info
   const [clientName, setClientName] = useState("");
@@ -198,6 +200,12 @@ export default function EditCustomItineraryPage() {
     api.get("/destinations?limit=100&admin=true").then((res) => setDestinations(res?.data || [])).catch(() => {});
     fetchItinerary();
   }, [id]);
+
+  useEffect(() => {
+    if (name && id) {
+      addEditItem(id, name);
+    }
+  }, [name, id, addEditItem]);
 
   async function fetchItinerary() {
     try {
