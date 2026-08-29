@@ -9,7 +9,7 @@ import {
   Phone, Mail, MapPin, Package, Calendar, Users, DollarSign,
   Tag, User, ArrowLeft, MessageSquare, PhoneCall, PhoneOff,
   MessageCircle, Clock, CheckCircle, AlertTriangle, ChevronDown,
-  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2, Edit2
+  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2, Edit2, Banknote, Search
 } from "lucide-react";
 
 import Link from "next/link";
@@ -497,6 +497,314 @@ function DuplicateItineraryModal({ enquiryId, onClose }: { enquiryId: string; on
   );
 }
 
+// ─── Offline Booking Modal ────────────────────────────────────────────────────
+function OfflineBookingModal({
+  enquiry,
+  prefilledPackage,
+  onClose,
+  onSuccess,
+}: {
+  enquiry: Enquiry;
+  prefilledPackage: { _id: string; name: string; isInternational?: boolean } | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [step, setStep] = useState<'form' | 'success'>('form');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Customer search
+  const [emailSearch, setEmailSearch] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [foundUser, setFoundUser] = useState<{ _id: string; firstName: string; lastName: string; email: string; phone?: string } | null>(null);
+  const [userNotFound, setUserNotFound] = useState(false);
+
+  // Package info
+  const [isInternational, setIsInternational] = useState(prefilledPackage?.isInternational || false);
+
+  // Form state
+  const [form, setForm] = useState({
+    packageId: prefilledPackage?._id || '',
+    travelDate: enquiry.travelDate ? String(enquiry.travelDate).slice(0, 10) : '',
+    returnDate: '',
+    adults: 1,
+    children: 0,
+    infants: 0,
+    totalAmount: enquiry.budget || 0,
+    panCard: '',
+    specialRequests: '',
+    paymentMode: 'cash',
+    paidAmount: 0,
+    transactionId: '',
+    paymentRemarks: '',
+  });
+
+  // Traveller details (for international)
+  const totalPax = form.adults + form.children + form.infants;
+  const [travellersDetails, setTravellersDetails] = useState<{ name: string; age: string; type: string; passportNumber: string; passportExpiry: string; issuingCountry: string }[]>([]);
+
+  useEffect(() => {
+    const newDetails = Array.from({ length: totalPax }, (_, i) => travellersDetails[i] || {
+      name: '', age: '', type: i < form.adults ? 'adult' : i < form.adults + form.children ? 'child' : 'infant',
+      passportNumber: '', passportExpiry: '', issuingCountry: '',
+    });
+    setTravellersDetails(newDetails);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPax]);
+
+  async function handleSearchUser() {
+    if (!emailSearch.trim()) return;
+    setSearchLoading(true);
+    setFoundUser(null);
+    setUserNotFound(false);
+    try {
+      const res = await api.get(`/users/search?email=${encodeURIComponent(emailSearch.trim())}`);
+      setFoundUser(res.data);
+    } catch {
+      setUserNotFound(true);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!foundUser) { setError('Please search and select a customer account first.'); return; }
+    if (!form.packageId) { setError('Package is required.'); return; }
+    if (!form.travelDate) { setError('Travel date is required.'); return; }
+    if (!form.totalAmount) { setError('Total amount is required.'); return; }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.post('/bookings/manual', {
+        enquiryId: enquiry._id,
+        packageId: form.packageId,
+        userId: foundUser._id,
+        travelDate: form.travelDate,
+        returnDate: form.returnDate || undefined,
+        travellers: { adults: form.adults, children: form.children, infants: form.infants },
+        travellersDetails: isInternational ? travellersDetails : undefined,
+        primaryTraveller: {
+          firstName: foundUser.firstName,
+          lastName: foundUser.lastName,
+          email: foundUser.email,
+          phone: foundUser.phone || '',
+          ...(isInternational ? { panCard: form.panCard } : {}),
+        },
+        totalAmount: Number(form.totalAmount),
+        offlinePayment: {
+          paidAmount: Number(form.paidAmount),
+          mode: form.paymentMode,
+          transactionId: form.transactionId,
+          remarks: form.paymentRemarks,
+        },
+        specialRequests: form.specialRequests,
+      });
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Failed to create booking. Please check all fields.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputCls = "w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500";
+  const labelCls = "block text-xs font-semibold text-slate-600 mb-1";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Banknote size={18} className="text-emerald-600" /> Manual / Offline Booking</h3>
+            <p className="text-xs text-slate-400">Create a booking and post-sales operation for {enquiry.firstName}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
+
+          {/* ── Section 1: Customer Account ── */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">1. Customer Account</p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={emailSearch}
+                onChange={(e) => { setEmailSearch(e.target.value); setFoundUser(null); setUserNotFound(false); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchUser()}
+                placeholder="Search by customer email..."
+                className={inputCls}
+              />
+              <button
+                onClick={handleSearchUser}
+                disabled={searchLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 shrink-0"
+              >
+                <Search size={14} /> {searchLoading ? '...' : 'Search'}
+              </button>
+            </div>
+            {foundUser && (
+              <div className="mt-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                  {foundUser.firstName[0]}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{foundUser.firstName} {foundUser.lastName}</p>
+                  <p className="text-xs text-slate-500">{foundUser.email} {foundUser.phone ? `· ${foundUser.phone}` : ''}</p>
+                </div>
+                <CheckCircle size={16} className="text-emerald-600 ml-auto shrink-0" />
+              </div>
+            )}
+            {userNotFound && (
+              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-xs text-amber-700 font-semibold">No account found with this email.</p>
+                <p className="text-xs text-amber-600 mt-0.5">Please create a customer account first using the &quot;Create Customer Account&quot; button in the sidebar, then come back here.</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Section 2: Trip Details ── */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">2. Trip Details</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Travel Date *</label>
+                <input type="date" value={form.travelDate} onChange={(e) => setForm({ ...form, travelDate: e.target.value })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Return Date</label>
+                <input type="date" value={form.returnDate} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Adults *</label>
+                <input type="number" min={1} value={form.adults} onChange={(e) => setForm({ ...form, adults: Number(e.target.value) })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Children</label>
+                <input type="number" min={0} value={form.children} onChange={(e) => setForm({ ...form, children: Number(e.target.value) })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Infants</label>
+                <input type="number" min={0} value={form.infants} onChange={(e) => setForm({ ...form, infants: Number(e.target.value) })} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Total Amount (₹) *</label>
+                <input type="number" min={1} value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: Number(e.target.value) })} className={inputCls} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className={labelCls}>Special Requests</label>
+              <textarea rows={2} value={form.specialRequests} onChange={(e) => setForm({ ...form, specialRequests: e.target.value })} className={inputCls} placeholder="Window seat, vegetarian meals, etc." />
+            </div>
+          </div>
+
+          {/* ── Section 3: PAN Card (international only) ── */}
+          {isInternational && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">3. PAN Card (International)</p>
+              <div>
+                <label className={labelCls}>Primary Traveller PAN Card *</label>
+                <input type="text" value={form.panCard} onChange={(e) => setForm({ ...form, panCard: e.target.value })} className={inputCls} placeholder="ABCDE1234F" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Section 4: Passport Details (international only) ── */}
+          {isInternational && totalPax > 0 && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">4. Passport Details — {totalPax} Traveller{totalPax > 1 ? 's' : ''}</p>
+              <div className="space-y-4">
+                {travellersDetails.map((t, i) => (
+                  <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-xs font-semibold text-slate-600 mb-2">Traveller {i + 1} ({t.type})</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={labelCls}>Full Name *</label>
+                        <input value={t.name} onChange={(e) => { const d = [...travellersDetails]; d[i].name = e.target.value; setTravellersDetails(d); }} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Age</label>
+                        <input type="number" value={t.age} onChange={(e) => { const d = [...travellersDetails]; d[i].age = e.target.value; setTravellersDetails(d); }} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Passport No. *</label>
+                        <input value={t.passportNumber} onChange={(e) => { const d = [...travellersDetails]; d[i].passportNumber = e.target.value; setTravellersDetails(d); }} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Passport Expiry *</label>
+                        <input type="date" value={t.passportExpiry} onChange={(e) => { const d = [...travellersDetails]; d[i].passportExpiry = e.target.value; setTravellersDetails(d); }} className={inputCls} />
+                      </div>
+                      <div className="col-span-2">
+                        <label className={labelCls}>Issuing Country *</label>
+                        <input value={t.issuingCountry} onChange={(e) => { const d = [...travellersDetails]; d[i].issuingCountry = e.target.value; setTravellersDetails(d); }} className={inputCls} placeholder="India" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Section 5: Offline Payment ── */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{isInternational ? '5' : '3'}. Offline Payment</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Amount Paid (₹)</label>
+                <input type="number" min={0} value={form.paidAmount} onChange={(e) => setForm({ ...form, paidAmount: Number(e.target.value) })} className={inputCls} placeholder="0 if nothing paid yet" />
+              </div>
+              <div>
+                <label className={labelCls}>Payment Mode</label>
+                <select value={form.paymentMode} onChange={(e) => setForm({ ...form, paymentMode: e.target.value })} className={inputCls}>
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="upi">UPI</option>
+                  <option value="neft">NEFT</option>
+                  <option value="rtgs">RTGS</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Reference / Transaction ID</label>
+                <input value={form.transactionId} onChange={(e) => setForm({ ...form, transactionId: e.target.value })} className={inputCls} placeholder="Optional for cash" />
+              </div>
+              <div>
+                <label className={labelCls}>Remarks</label>
+                <input value={form.paymentRemarks} onChange={(e) => setForm({ ...form, paymentRemarks: e.target.value })} className={inputCls} placeholder="e.g. Collected at office" />
+              </div>
+            </div>
+            {form.paidAmount > 0 && form.totalAmount > 0 && (
+              <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
+                Payment Status: {form.paidAmount >= form.totalAmount ? '✅ Fully Paid' : `🟡 Partial — ₹${(form.totalAmount - form.paidAmount).toLocaleString('en-IN')} balance remaining`}
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !foundUser}
+            className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {submitting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Creating...</> : <><CheckCircle size={16} /> Confirm & Create Booking</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Send Booking Link Modal ─────────────────────────────────────────────────
 function SendBookingLinkModal({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => void }) {
   const [sendingLinkFor, setSendingLinkFor] = useState<string | null>(null);
@@ -602,6 +910,8 @@ export default function EnquiryDetailPage() {
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showSendLinkModal, setShowSendLinkModal] = useState(false);
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+  const [offlinePrefilledPackage, setOfflinePrefilledPackage] = useState<{ _id: string; name: string; isInternational?: boolean } | null>(null);
   const [sendingLink, setSendingLink] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -878,6 +1188,15 @@ export default function EnquiryDetailPage() {
       )}
       {showSendLinkModal && enquiry && (
         <SendBookingLinkModal enquiry={enquiry} onClose={() => setShowSendLinkModal(false)} />
+      )}
+
+      {showOfflineModal && enquiry && (
+        <OfflineBookingModal
+          enquiry={enquiry}
+          prefilledPackage={offlinePrefilledPackage}
+          onClose={() => setShowOfflineModal(false)}
+          onSuccess={() => { setShowOfflineModal(false); fetchEnquiry(); }}
+        />
       )}
 
       <div className="space-y-5 max-w-7xl mx-auto">
@@ -1467,6 +1786,21 @@ export default function EnquiryDetailPage() {
                 className="w-full flex items-center gap-3 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-700 rounded-xl text-sm font-semibold hover:bg-amber-100 transition-colors"
               >
                 <Send size={16} /> Send Booking Link
+              </button>
+
+              {/* Manual / Offline Booking */}
+              <button
+                onClick={() => {
+                  setOfflinePrefilledPackage(
+                    enquiry.package && typeof enquiry.package === 'object'
+                      ? { _id: (enquiry.package as any)._id, name: (enquiry.package as any).name || enquiry.packageName || 'Package', isInternational: (enquiry.package as any).isInternational }
+                      : null
+                  );
+                  setShowOfflineModal(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-semibold hover:bg-emerald-100 transition-colors"
+              >
+                <Banknote size={16} /> Proceed as Manual Booking
               </button>
 
               {/* Convert to Booking */}
