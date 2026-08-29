@@ -32,7 +32,7 @@ export default function PerformancePage() {
     const fetchPerformance = async () => {
       try {
         const res = await api.get('/users/me/performance');
-        setData(res.data.data);
+        setData(res.data);
       } catch (err) {
         console.error("Failed to load performance data", err);
       } finally {
