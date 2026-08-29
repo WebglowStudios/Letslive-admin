@@ -255,6 +255,7 @@ export default function EditPackagePage() {
         setShortDescription(p.shortDescription || "");
         setDurationNights(p.duration?.nights != null ? String(p.duration.nights) : "");
         setDurationDays(p.duration?.days != null ? String(p.duration.days) : "");
+        setHotelRating(p.hotelRating || "");
         setIsInternational(p.isInternational || false);
         setVisaIncluded(p.visaIncluded || false);
 
