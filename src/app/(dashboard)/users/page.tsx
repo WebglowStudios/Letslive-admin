@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { User } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Search, Trash2, UserPlus, X, Copy, Eye, EyeOff } from "lucide-react";
+import { Search, Trash2, UserPlus, X, Copy, Eye, EyeOff, KeyRound, Check } from "lucide-react";
 import RoleGuard from "@/components/guards/RoleGuard";
-import { usePermission } from "@/hooks/usePermission";
+import { usePermission, useRole } from "@/hooks/usePermission";
 import PhoneInput from "@/components/ui/PhoneInput";
 
 function generatePassword() {
@@ -144,7 +144,12 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
   const canDelete = usePermission("users.delete");
+  const currentRole = useRole();
+  const isAdmin = currentRole === "admin";
 
   useEffect(() => {
     fetchUsers();
@@ -168,6 +173,20 @@ export default function UsersPage() {
       setUsers((prev) => prev.filter((u) => u._id !== id));
     } catch {
       alert("Failed to delete");
+    }
+  }
+
+  async function resetPassword(id: string) {
+    if (!newPassword || newPassword.length < 8) {
+      alert("Password must be at least 8 characters.");
+      return;
+    }
+    try {
+      await api.put(`/users/${id}/password`, { password: newPassword });
+      setResetSuccess(id);
+      setTimeout(() => { setResetId(null); setNewPassword(""); setResetSuccess(""); }, 2000);
+    } catch {
+      alert("Failed to reset password");
     }
   }
 
@@ -231,7 +250,7 @@ export default function UsersPage() {
                   <th className="px-6 py-3">Phone</th>
                   <th className="px-6 py-3">Role</th>
                   <th className="px-6 py-3">Joined</th>
-                  {canDelete && <th className="px-6 py-3">Actions</th>}
+                  {(canDelete || isAdmin) && <th className="px-6 py-3">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -253,15 +272,64 @@ export default function UsersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-500">{formatDate(u.createdAt)}</td>
-                      {canDelete && (
+                      {(canDelete || isAdmin) && (
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => handleDelete(u._id, `${u.firstName} ${u.lastName}`)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
-                            title="Delete permanently"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {/* Reset Password */}
+                            {isAdmin && (
+                              resetId === u._id ? (
+                                <div className="flex items-center gap-1.5">
+                                  {resetSuccess === u._id ? (
+                                    <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                                      <Check size={14} /> Updated
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <input
+                                        type="text"
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="New password (8+ chars)"
+                                        className="w-36 px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                        autoFocus
+                                        onKeyDown={(e) => e.key === "Enter" && resetPassword(u._id)}
+                                      />
+                                      <button
+                                        onClick={() => resetPassword(u._id)}
+                                        className="px-2.5 py-1.5 bg-cyan-600 text-white rounded-lg text-[11px] font-bold hover:bg-cyan-700 transition-colors"
+                                      >
+                                        Set
+                                      </button>
+                                      <button
+                                        onClick={() => { setResetId(null); setNewPassword(""); }}
+                                        className="px-2 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-bold hover:bg-slate-200 transition-colors"
+                                      >
+                                        ✕
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setResetId(u._id); setNewPassword(""); }}
+                                  className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors"
+                                  title="Reset Password"
+                                >
+                                  <KeyRound size={15} />
+                                </button>
+                              )
+                            )}
+                            {/* Delete */}
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDelete(u._id, `${u.firstName} ${u.lastName}`)}
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                                title="Delete permanently"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
