@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const res = await api.post("/auth/login", { email, password });
       if (res?.status === "success" && res.data) {
         const user = res.data.user || res.data;
-        const allowedRoles: Role[] = ["admin", "manager", "staff"];
+        const allowedRoles: Role[] = ["admin", "manager", "staff", "sales-manager", "ops-manager", "sales-staff", "ops-staff"];
         if (!allowedRoles.includes(user.role)) {
           return { success: false, message: "Access denied. This panel is for authorized staff only." };
         }
@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const res = await api.get("/auth/me");
       if (res?.status === "success" && res.data) {
         const user = res.data.user || res.data;
-        const allowedRoles: Role[] = ["admin", "manager", "staff", "guest"];
+        const allowedRoles: Role[] = ["admin", "manager", "staff", "guest", "sales-manager", "ops-manager", "sales-staff", "ops-staff"];
         if (allowedRoles.includes(user.role)) {
           set({ user, loading: false });
           return;

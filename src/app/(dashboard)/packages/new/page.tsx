@@ -499,9 +499,14 @@ export default function NewPackagePage() {
       };
 
       const res = await api.post("/packages", payload);
-      if (res?.status === "success") {
-        setSuccess("Package created successfully!");
-        setTimeout(() => router.push("/packages"), 1500);
+      if (res?.status === "success" || res?.data?.status === "success") {
+        const responseData = res.data || res;
+        if (responseData.approvalRequired) {
+          setSuccess(responseData.message || "Package creation submitted for admin approval!");
+        } else {
+          setSuccess("Package created successfully!");
+        }
+        setTimeout(() => router.push("/packages"), 2000);
       } else {
         setError(res?.message || "Failed to create package");
       }

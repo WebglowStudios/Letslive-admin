@@ -55,8 +55,13 @@ export default function NewDestinationPage() {
       if (res?.error) {
         setError(res.error);
       } else {
-        setSuccess("Destination created successfully!");
-        setTimeout(() => router.push("/destinations"), 1500);
+        const responseData = res?.data || res;
+        if (responseData?.approvalRequired) {
+          setSuccess(responseData.message || "Destination creation submitted for admin approval!");
+        } else {
+          setSuccess("Destination created successfully!");
+        }
+        setTimeout(() => router.push("/destinations"), 2000);
       }
     } catch {
       setError("Failed to create destination");

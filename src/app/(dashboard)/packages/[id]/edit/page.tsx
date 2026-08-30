@@ -621,9 +621,14 @@ export default function EditPackagePage() {
       };
 
       const res = await api.put(`/packages/${id}`, payload);
-      if (res?.status === "success") {
-        setSuccess("Package updated successfully!");
-        setTimeout(() => router.back(), 1500);
+      if (res?.status === "success" || res?.data?.status === "success") {
+        const responseData = res.data || res;
+        if (responseData.approvalRequired) {
+          setSuccess(responseData.message || "Update submitted for admin approval!");
+        } else {
+          setSuccess("Package updated successfully!");
+        }
+        setTimeout(() => router.back(), 2000);
       } else {
         setError(res?.message || "Failed to update package");
       }
