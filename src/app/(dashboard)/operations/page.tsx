@@ -14,7 +14,7 @@ interface OperationItem {
   customer: { name: string; email: string; pax: number };
   destination: string;
   travelDates: { start: string; end: string };
-  assignedTo?: { firstName: string; lastName: string };
+  assignedTo?: { _id?: string; firstName: string; lastName: string };
   sellingPrice: number;
   effectiveSelling?: number;   // live total billed (from CustomerPayments)
   totalReceived?: number;      // live total received
@@ -41,6 +41,8 @@ export default function OperationsPage() {
   
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === "admin";
+  const isManager = user?.role === "admin" || user?.role === "manager" || user?.role === "ops-manager";
+  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
   useEffect(() => {
     fetchOperations();
@@ -59,6 +61,25 @@ export default function OperationsPage() {
       setOperations([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Fetch ops staff list for assignment
+  useEffect(() => {
+    if (!isManager) return;
+    api.get("/users/staff?department=ops").then((res) => {
+      const list = res?.data || res || [];
+      setStaffList(Array.isArray(list) ? list : []);
+    }).catch(() => {});
+  }, [isManager]);
+
+  async function quickAssign(opId: string, staffId: string) {
+    if (!staffId) return;
+    try {
+      await api.put(`/operations/${opId}`, { assignedTo: staffId });
+      fetchOperations();
+    } catch {
+      alert("Failed to assign operation");
     }
   }
 
@@ -213,6 +234,7 @@ export default function OperationsPage() {
                   <th className="px-5 py-3">Customer</th>
                   <th className="px-5 py-3">Destination</th>
                   <th className="px-5 py-3">Travel Date</th>
+                  <th className="px-5 py-3">Assignee</th>
                   <th className="px-5 py-3">Billed</th>
                   <th className="px-5 py-3">Received</th>
                   <th className="px-5 py-3">Pending</th>
@@ -240,6 +262,34 @@ export default function OperationsPage() {
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{op.destination}</td>
                       <td className="px-5 py-4 text-sm text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"}</td>
+                      <td className="px-5 py-4">
+                        {op.assignedTo ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200 uppercase">
+                              {op.assignedTo.firstName[0]}{op.assignedTo.lastName[0]}
+                            </div>
+                            <span className="text-xs font-medium text-slate-700 whitespace-nowrap">{op.assignedTo.firstName} {op.assignedTo.lastName}</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">
+                              Unassigned
+                            </span>
+                            {isManager && staffList.length > 0 && (
+                              <select
+                                defaultValue=""
+                                onChange={(ev) => quickAssign(op._id, ev.target.value)}
+                                className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white text-slate-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyan-500 max-w-[130px]"
+                              >
+                                <option value="">Assign to...</option>
+                                {staffList.map((s) => (
+                                  <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-5 py-4 text-sm font-semibold text-slate-700">{formatCurrency(op.effectiveSelling ?? op.sellingPrice)}</td>
                       <td className="px-5 py-4">
                         {op.totalReceived !== undefined && op.totalReceived > 0 ? (

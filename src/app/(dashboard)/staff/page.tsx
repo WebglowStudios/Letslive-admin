@@ -112,6 +112,10 @@ export default function StaffPage() {
   const roleColors: Record<string, string> = {
     admin: "bg-purple-100 text-purple-700",
     manager: "bg-cyan-100 text-cyan-700",
+    "sales-manager": "bg-blue-100 text-blue-700",
+    "ops-manager": "bg-amber-100 text-amber-700",
+    "sales-staff": "bg-indigo-100 text-indigo-700",
+    "ops-staff": "bg-orange-100 text-orange-700",
     staff: "bg-emerald-100 text-emerald-700",
     guest: "bg-slate-100 text-slate-600",
   };
@@ -188,9 +192,13 @@ export default function StaffPage() {
                             onChange={(e) => updateRole(member._id, e.target.value)}
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold border-none outline-none cursor-pointer ${roleColors[member.role] || "bg-slate-100 text-slate-600"}`}
                           >
+                            {member.role === "staff" && <option value="staff">Staff (Legacy)</option>}
                             <option value="admin">Admin</option>
-                            <option value="manager">Manager</option>
-                            <option value="staff">Staff</option>
+                            <option value="manager">Senior Manager</option>
+                            <option value="sales-manager">Sales Manager</option>
+                            <option value="ops-manager">Ops Manager</option>
+                            <option value="sales-staff">Sales Staff</option>
+                            <option value="ops-staff">Ops Staff</option>
                             <option value="guest">Guest</option>
                           </select>
                         ) : (

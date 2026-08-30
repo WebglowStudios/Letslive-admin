@@ -1067,7 +1067,7 @@ export default function EnquiryDetailPage() {
   // Fetch staff list for reassign dropdown (manager+ only)
   useEffect(() => {
     if (!isManager) return;
-    api.get("/users/staff").then((res) => {
+    api.get("/users/staff?department=sales").then((res) => {
       const list = res?.data || res || [];
       setStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});

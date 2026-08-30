@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User } from "lucide-react";
 import Link from "next/link";
 import { useRole } from "@/hooks/usePermission";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
@@ -28,7 +28,7 @@ interface Transport {
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -72,6 +72,7 @@ export default function OperationDetailPage() {
   const [paymentLinkLoading, setPaymentLinkLoading] = useState<string | null>(null);
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
+  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
   const [passengerModalOpen, setPassengerModalOpen] = useState(false);
   const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
@@ -79,6 +80,7 @@ export default function OperationDetailPage() {
   
   const currentRole = useRole();
   const isAdmin = currentRole === "admin";
+  const isManager = currentRole ? ["admin", "manager", "ops-manager"].includes(currentRole) : false;
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -89,6 +91,25 @@ export default function OperationDetailPage() {
     } catch {} finally { setLoading(false); }
   }, [id]);
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Fetch ops staff list for assignment
+  useEffect(() => {
+    if (!isManager) return;
+    api.get("/users/staff?department=ops").then((res) => {
+      const list = res?.data || res || [];
+      setStaffList(Array.isArray(list) ? list : []);
+    }).catch(() => {});
+  }, [isManager]);
+
+  async function assignOperation(staffId: string) {
+    if (!op) return;
+    try {
+      await api.put(`/operations/${op._id}`, { assignedTo: staffId || null });
+      fetchAll();
+    } catch (err) {
+      alert("Failed to assign operation");
+    }
+  }
 
 
   async function saveItem(endpoint: string, itemId: string, data: any) { 
@@ -366,6 +387,9 @@ export default function OperationDetailPage() {
             <Download size={14} />
             {downloadingVoucher ? "Generating..." : "Download Voucher"}
           </button>
+          
+
+
           <select value={op.status} onChange={(e) => updateStatus(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white"><option value="planning">Planning</option><option value="booked">Booked</option><option value="in-progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select>
         </div>
       </div>
@@ -377,7 +401,7 @@ export default function OperationDetailPage() {
       {/* OVERVIEW */}
       {tab === "overview" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p><p className="text-sm font-semibold text-slate-800">{op.customer.name}</p><p className="text-xs text-slate-500">{op.customer.email} | {op.customer.phone}</p><p className="text-xs text-slate-400 mt-1">{op.customer.pax} pax</p></div>
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
@@ -412,6 +436,33 @@ export default function OperationDetailPage() {
                 </div>
               )}
             </div>
+            
+            {/* Assignment Card */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-1.5">
+                <User size={12} /> Assigned To
+              </p>
+              {isManager && staffList.length > 0 ? (
+                <select
+                  value={op.assignedTo?._id || ""}
+                  onChange={(e) => assignOperation(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="">Unassigned</option>
+                  {staffList.map((s) => (
+                    <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-slate-700 font-medium">
+                  {op.assignedTo
+                    ? `${op.assignedTo.firstName} ${op.assignedTo.lastName}`
+                    : <span className="text-slate-400 italic font-medium bg-slate-100 px-2 py-0.5 rounded-full text-xs">Unassigned</span>
+                  }
+                </p>
+              )}
+            </div>
+
             <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p>

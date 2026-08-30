@@ -189,7 +189,7 @@ export default function EnquiriesPage() {
   const canSeeAll = usePermission("enquiries.respond");
   const canBulk = usePermission("bookings.update"); // manager+
   const user = useAuthStore((s) => s.user);
-  const isStaffOnly = user?.role === "staff";
+  const isStaffOnly = user?.role === "staff" || user?.role === "sales-staff";
   const isManager = user?.role === "admin" || user?.role === "manager";
 
   // Staff list for quick-assign dropdown (manager+ only)
@@ -227,7 +227,7 @@ export default function EnquiriesPage() {
   // Fetch staff list for quick-assign (manager+ only)
   useEffect(() => {
     if (!isManager) return;
-    api.get("/users/staff").then((res) => {
+    api.get("/users/staff?department=sales").then((res) => {
       const list = res?.data || res || [];
       setStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});

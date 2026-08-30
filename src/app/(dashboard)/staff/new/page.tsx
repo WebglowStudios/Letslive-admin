@@ -20,7 +20,7 @@ const roles = [
   },
   {
     value: "manager",
-    label: "Manager",
+    label: "Senior Manager",
     icon: Shield,
     color: "border-cyan-300 bg-cyan-50",
     activeColor: "border-cyan-500 bg-cyan-100 ring-2 ring-cyan-200",
@@ -28,13 +28,40 @@ const roles = [
     description: "Can manage packages, destinations, bookings, itineraries, and view all staff work.",
   },
   {
-    value: "staff",
-    label: "Staff",
+    value: "sales-manager",
+    label: "Sales Manager",
+    icon: Shield,
+    color: "border-blue-300 bg-blue-50",
+    activeColor: "border-blue-500 bg-blue-100 ring-2 ring-blue-200",
+    badge: "bg-blue-100 text-blue-700",
+    description: "Leads sales team. Can view/respond to enquiries, delete leads, but no ops access.",
+  },
+  {
+    value: "ops-manager",
+    label: "Ops Manager",
+    icon: Shield,
+    color: "border-amber-300 bg-amber-50",
+    activeColor: "border-amber-500 bg-amber-100 ring-2 ring-amber-200",
+    badge: "bg-amber-100 text-amber-700",
+    description: "Leads operations team. Full access to post-sales bookings and vendor payments.",
+  },
+  {
+    value: "sales-staff",
+    label: "Sales Staff",
     icon: UserCog,
-    color: "border-emerald-300 bg-emerald-50",
-    activeColor: "border-emerald-500 bg-emerald-100 ring-2 ring-emerald-200",
-    badge: "bg-emerald-100 text-emerald-700",
-    description: "Can create packages, itineraries, handle enquiries, and manage their own content.",
+    color: "border-indigo-300 bg-indigo-50",
+    activeColor: "border-indigo-500 bg-indigo-100 ring-2 ring-indigo-200",
+    badge: "bg-indigo-100 text-indigo-700",
+    description: "Handles enquiries and sales. Cannot manage post-sales bookings.",
+  },
+  {
+    value: "ops-staff",
+    label: "Ops Staff",
+    icon: UserCog,
+    color: "border-orange-300 bg-orange-50",
+    activeColor: "border-orange-500 bg-orange-100 ring-2 ring-orange-200",
+    badge: "bg-orange-100 text-orange-700",
+    description: "Handles bookings and vendor operations. Cannot view incoming enquiries.",
   },
   {
     value: "guest",
@@ -81,7 +108,7 @@ export default function NewStaffPage() {
     lastName: "",
     email: "",
     phone: "",
-    role: "staff",
+    role: "sales-staff",
     password: "",
   });
 
@@ -224,7 +251,7 @@ export default function NewStaffPage() {
 
           <div className="flex items-center justify-center gap-3">
             <button
-              onClick={() => { setCreatedUser(null); setForm({ firstName: "", lastName: "", email: "", phone: "", role: "staff", password: "" }); }}
+              onClick={() => { setCreatedUser(null); setForm({ firstName: "", lastName: "", email: "", phone: "", role: "sales-staff", password: "" }); }}
               className="px-5 py-2.5 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors"
             >
               Create Another User
@@ -385,7 +412,7 @@ export default function NewStaffPage() {
               className="px-6 py-3 bg-cyan-600 text-white rounded-xl font-semibold hover:bg-cyan-700 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <UserPlus size={16} />
-              {loading ? "Creating..." : `Create ${selectedRole.label}`}
+              {loading ? "Creating..." : `Create ${selectedRole?.label || 'User'}`}
             </button>
             <Link href="/staff" className="px-6 py-3 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
               Cancel
