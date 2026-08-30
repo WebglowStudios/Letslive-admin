@@ -520,16 +520,27 @@ function OfflineBookingModal({
   const [userNotFound, setUserNotFound] = useState(false);
 
   // Package info
+  const [packages, setPackages] = useState<{ _id: string; name: string; isInternational: boolean }[]>([]);
   const [isInternational, setIsInternational] = useState(prefilledPackage?.isInternational || false);
+
+  useEffect(() => {
+    api.get('/packages?limit=1000&admin=true').then((res) => {
+      if (res.data) {
+        setPackages(res.data);
+        // If prefilled package exists, update isInternational from the fetched list to ensure accuracy
+        if (prefilledPackage?._id) {
+          const matched = res.data.find((p: any) => p._id === prefilledPackage._id);
+          if (matched) setIsInternational(!!matched.isInternational);
+        }
+      }
+    }).catch(console.error);
+  }, [prefilledPackage?._id]);
 
   // Form state
   const [form, setForm] = useState({
     packageId: prefilledPackage?._id || '',
     travelDate: enquiry.travelDate ? String(enquiry.travelDate).slice(0, 10) : '',
     returnDate: '',
-    adults: 1,
-    children: 0,
-    infants: 0,
     totalAmount: enquiry.budget || 0,
     panCard: '',
     specialRequests: '',
@@ -539,18 +550,25 @@ function OfflineBookingModal({
     paymentRemarks: '',
   });
 
-  // Traveller details (for international)
-  const totalPax = form.adults + form.children + form.infants;
-  const [travellersDetails, setTravellersDetails] = useState<{ name: string; age: string; type: string; passportNumber: string; passportExpiry: string; issuingCountry: string }[]>([]);
+  // Primary traveller passport (international)
+  const [primaryPassport, setPrimaryPassport] = useState('');
+  const [primaryPassportExpiry, setPrimaryPassportExpiry] = useState('');
+  const [primaryIssuingCountry, setPrimaryIssuingCountry] = useState('');
 
-  useEffect(() => {
-    const newDetails = Array.from({ length: totalPax }, (_, i) => travellersDetails[i] || {
-      name: '', age: '', type: i < form.adults ? 'adult' : i < form.adults + form.children ? 'child' : 'infant',
-      passportNumber: '', passportExpiry: '', issuingCountry: '',
-    });
-    setTravellersDetails(newDetails);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalPax]);
+  // Additional travellers
+  const [travellers, setTravellers] = useState<{ name: string; age: string; type: 'adult'|'child'|'infant'; passportNumber: string; passportExpiry: string; issuingCountry: string }[]>([]);
+
+  const addTraveller = (type: 'adult' | 'child' | 'infant') => setTravellers([...travellers, { name: '', age: '', type, passportNumber: '', passportExpiry: '', issuingCountry: '' }]);
+  const removeTraveller = (i: number) => setTravellers(travellers.filter((_, idx) => idx !== i));
+  const updateTraveller = (i: number, field: string, value: string) => {
+    const newT = [...travellers];
+    newT[i] = { ...newT[i], [field]: value };
+    setTravellers(newT);
+  };
+
+  const adultsCount = 1 + travellers.filter(t => t.type === 'adult').length;
+  const childrenCount = travellers.filter(t => t.type === 'child').length;
+  const infantsCount = travellers.filter(t => t.type === 'infant').length;
 
   async function handleSearchUser() {
     if (!emailSearch.trim()) return;
@@ -582,8 +600,13 @@ function OfflineBookingModal({
         userId: foundUser._id,
         travelDate: form.travelDate,
         returnDate: form.returnDate || undefined,
-        travellers: { adults: form.adults, children: form.children, infants: form.infants },
-        travellersDetails: isInternational ? travellersDetails : undefined,
+        travellers: { adults: adultsCount, children: childrenCount, infants: infantsCount },
+        travellersDetails: isInternational 
+          ? [
+              { name: `${foundUser.firstName} ${foundUser.lastName}`, age: "Adult", type: "adult", passportNumber: primaryPassport, passportExpiry: primaryPassportExpiry, issuingCountry: primaryIssuingCountry },
+              ...travellers
+            ]
+          : travellers.map(t => ({ name: t.name, age: t.age, type: t.type })),
         primaryTraveller: {
           firstName: foundUser.firstName,
           lastName: foundUser.lastName,
@@ -669,6 +692,19 @@ function OfflineBookingModal({
           {/* ── Section 2: Trip Details ── */}
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">2. Trip Details</p>
+            <div className="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Linked Package / Itinerary</p>
+                {prefilledPackage ? (
+                  <p className="text-sm font-bold text-slate-800">{prefilledPackage.name}</p>
+                ) : (
+                  <p className="text-sm font-semibold text-rose-600">No itinerary linked!</p>
+                )}
+              </div>
+              {!prefilledPackage && (
+                <span className="text-xs text-rose-600 bg-rose-100 px-2 py-1 rounded font-bold">Required</span>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Travel Date *</label>
@@ -677,18 +713,6 @@ function OfflineBookingModal({
               <div>
                 <label className={labelCls}>Return Date</label>
                 <input type="date" value={form.returnDate} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Adults *</label>
-                <input type="number" min={1} value={form.adults} onChange={(e) => setForm({ ...form, adults: Number(e.target.value) })} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Children</label>
-                <input type="number" min={0} value={form.children} onChange={(e) => setForm({ ...form, children: Number(e.target.value) })} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Infants</label>
-                <input type="number" min={0} value={form.infants} onChange={(e) => setForm({ ...form, infants: Number(e.target.value) })} className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Total Amount (₹) *</label>
@@ -701,49 +725,77 @@ function OfflineBookingModal({
             </div>
           </div>
 
-          {/* ── Section 3: PAN Card (international only) ── */}
-          {isInternational && (
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">3. PAN Card (International)</p>
-              <div>
-                <label className={labelCls}>Primary Traveller PAN Card *</label>
-                <input type="text" value={form.panCard} onChange={(e) => setForm({ ...form, panCard: e.target.value })} className={inputCls} placeholder="ABCDE1234F" />
-              </div>
+          {/* ── Additional Travellers ── */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">Additional Travellers</p>
+            <div className="flex gap-2 mb-3">
+              <button type="button" onClick={() => addTraveller('adult')} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100">+ Adult</button>
+              <button type="button" onClick={() => addTraveller('child')} className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold hover:bg-amber-100">+ Child (2-11)</button>
+              <button type="button" onClick={() => addTraveller('infant')} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-lg text-xs font-semibold hover:bg-cyan-100">+ Infant (0-2)</button>
             </div>
-          )}
-
-          {/* ── Section 4: Passport Details (international only) ── */}
-          {isInternational && totalPax > 0 && (
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">4. Passport Details — {totalPax} Traveller{totalPax > 1 ? 's' : ''}</p>
-              <div className="space-y-4">
-                {travellersDetails.map((t, i) => (
-                  <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <p className="text-xs font-semibold text-slate-600 mb-2">Traveller {i + 1} ({t.type})</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
+            {travellers.length === 0 ? (
+              <p className="text-xs text-slate-400">No additional travellers. Primary traveller is already counted as 1 Adult.</p>
+            ) : (
+              <div className="space-y-3">
+                {travellers.map((t, i) => (
+                  <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-emerald-100 text-emerald-700' : t.type === 'child' ? 'bg-amber-100 text-amber-700' : 'bg-cyan-100 text-cyan-700'}`}>{t.type}</span>
+                      <button type="button" onClick={() => removeTraveller(i)} className="ml-auto text-rose-500 hover:bg-rose-50 p-1 rounded"><X size={14} /></button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
                         <label className={labelCls}>Full Name *</label>
-                        <input value={t.name} onChange={(e) => { const d = [...travellersDetails]; d[i].name = e.target.value; setTravellersDetails(d); }} className={inputCls} />
+                        <input value={t.name} onChange={(e) => updateTraveller(i, 'name', e.target.value)} className={inputCls} placeholder="Traveller Name" />
                       </div>
                       <div>
                         <label className={labelCls}>Age</label>
-                        <input type="number" value={t.age} onChange={(e) => { const d = [...travellersDetails]; d[i].age = e.target.value; setTravellersDetails(d); }} className={inputCls} />
+                        <input type="number" value={t.age} onChange={(e) => updateTraveller(i, 'age', e.target.value)} className={inputCls} placeholder="Age" />
                       </div>
-                      <div>
-                        <label className={labelCls}>Passport No. *</label>
-                        <input value={t.passportNumber} onChange={(e) => { const d = [...travellersDetails]; d[i].passportNumber = e.target.value; setTravellersDetails(d); }} className={inputCls} />
-                      </div>
-                      <div>
-                        <label className={labelCls}>Passport Expiry *</label>
-                        <input type="date" value={t.passportExpiry} onChange={(e) => { const d = [...travellersDetails]; d[i].passportExpiry = e.target.value; setTravellersDetails(d); }} className={inputCls} />
-                      </div>
-                      <div className="col-span-2">
-                        <label className={labelCls}>Issuing Country *</label>
-                        <input value={t.issuingCountry} onChange={(e) => { const d = [...travellersDetails]; d[i].issuingCountry = e.target.value; setTravellersDetails(d); }} className={inputCls} placeholder="India" />
-                      </div>
+                      {isInternational && (
+                        <>
+                          <div>
+                            <label className={labelCls}>Passport No. *</label>
+                            <input value={t.passportNumber} onChange={(e) => updateTraveller(i, 'passportNumber', e.target.value)} className={inputCls} />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Passport Expiry *</label>
+                            <input type="date" value={t.passportExpiry} onChange={(e) => updateTraveller(i, 'passportExpiry', e.target.value)} className={inputCls} />
+                          </div>
+                          <div>
+                            <label className={labelCls}>Country *</label>
+                            <input value={t.issuingCountry} onChange={(e) => updateTraveller(i, 'issuingCountry', e.target.value)} className={inputCls} placeholder="India" />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Section 3: PAN Card & Primary Passport (international only) ── */}
+          {isInternational && (
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">3. Primary Traveller International Details</p>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="col-span-2">
+                  <label className={labelCls}>Primary Traveller PAN Card *</label>
+                  <input type="text" value={form.panCard} onChange={(e) => setForm({ ...form, panCard: e.target.value.toUpperCase() })} className={inputCls} placeholder="ABCDE1234F" />
+                </div>
+                <div>
+                  <label className={labelCls}>Passport Number *</label>
+                  <input type="text" value={primaryPassport} onChange={(e) => setPrimaryPassport(e.target.value)} className={inputCls} placeholder="Z1234567" />
+                </div>
+                <div>
+                  <label className={labelCls}>Passport Expiry *</label>
+                  <input type="date" value={primaryPassportExpiry} onChange={(e) => setPrimaryPassportExpiry(e.target.value)} className={inputCls} />
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Issuing Country *</label>
+                  <input type="text" value={primaryIssuingCountry} onChange={(e) => setPrimaryIssuingCountry(e.target.value)} className={inputCls} placeholder="India" />
+                </div>
               </div>
             </div>
           )}
@@ -1791,11 +1843,22 @@ export default function EnquiryDetailPage() {
               {/* Manual / Offline Booking */}
               <button
                 onClick={() => {
-                  setOfflinePrefilledPackage(
-                    enquiry.package && typeof enquiry.package === 'object'
-                      ? { _id: (enquiry.package as any)._id, name: (enquiry.package as any).name || enquiry.packageName || 'Package', isInternational: (enquiry.package as any).isInternational }
-                      : null
-                  );
+                  let selectedPackage = null;
+                  if (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0) {
+                    const firstLinked = enquiry.linkedItineraries[0];
+                    selectedPackage = { 
+                      _id: firstLinked._id, 
+                      name: firstLinked.name, 
+                      isInternational: (firstLinked as any).isInternational 
+                    };
+                  } else if (enquiry.package && typeof enquiry.package === 'object') {
+                    selectedPackage = { 
+                      _id: (enquiry.package as any)._id, 
+                      name: (enquiry.package as any).name || enquiry.packageName || 'Package', 
+                      isInternational: (enquiry.package as any).isInternational 
+                    };
+                  }
+                  setOfflinePrefilledPackage(selectedPackage);
                   setShowOfflineModal(true);
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-semibold hover:bg-emerald-100 transition-colors"

@@ -13,9 +13,10 @@ export default function AboutCMSPage() {
     const fetchContent = async () => {
       try {
         const res = await api.get('/about');
-        setContent(res.data.data);
+        setContent(res.data?.data || {});
       } catch (error) {
         console.error("Failed to load about content", error);
+        setContent({});
       } finally {
         setLoading(false);
       }
