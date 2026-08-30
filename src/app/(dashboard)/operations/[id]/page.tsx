@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X } from "lucide-react";
 import Link from "next/link";
+import { useRole } from "@/hooks/usePermission";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
 interface Transport {
@@ -27,7 +28,7 @@ interface Transport {
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; status: string; }
+interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -75,6 +76,9 @@ export default function OperationDetailPage() {
   const [passengerModalOpen, setPassengerModalOpen] = useState(false);
   const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
   const [addingPassenger, setAddingPassenger] = useState(false);
+  
+  const currentRole = useRole();
+  const isAdmin = currentRole === "admin";
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -408,7 +412,49 @@ export default function OperationDetailPage() {
                 </div>
               )}
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p><div className="flex justify-between"><div><p className="text-xs text-slate-500">Selling</p><p className="text-lg font-bold text-slate-800">{formatCurrency(op.sellingPrice)}</p></div><div className="text-right"><p className="text-xs text-slate-500">Profit</p><p className={`text-lg font-bold ${op.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatCurrency(op.grossProfit)}</p></div></div><button onClick={recalculate} className="mt-3 text-[10px] text-cyan-600 font-semibold hover:underline">Recalculate</button></div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p>
+                <div className="flex justify-between">
+                  <div><p className="text-xs text-slate-500">Selling</p><p className="text-lg font-bold text-slate-800">{formatCurrency(op.sellingPrice)}</p></div>
+                  <div className="text-right"><p className="text-xs text-slate-500">Profit</p><p className={`text-lg font-bold ${op.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatCurrency(op.grossProfit)}</p></div>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">Staff Incentive</p>
+                  {isAdmin ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs text-slate-500">₹</span>
+                      <input 
+                        type="number" 
+                        value={op.incentiveAmount === undefined || op.incentiveAmount === null ? "" : op.incentiveAmount} 
+                        onChange={(e) => setOp({...op, incentiveAmount: e.target.value ? Number(e.target.value) : undefined})} 
+                        onBlur={async () => {
+                          try {
+                            await api.put(`/operations/${op._id}`, { incentiveAmount: op.incentiveAmount === undefined ? null : op.incentiveAmount });
+                            const t = document.createElement('div');
+                            t.className = 'fixed bottom-4 right-4 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-xl';
+                            t.innerText = '✓ Incentive saved';
+                            document.body.appendChild(t);
+                            setTimeout(() => t.remove(), 2000);
+                          } catch {
+                            alert("Failed to save incentive");
+                          }
+                        }}
+                        placeholder="Pending"
+                        className="w-20 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-cyan-500" 
+                      />
+                    </div>
+                  ) : (
+                    <p className={`text-sm font-bold mt-1 ${op.incentiveAmount === undefined || op.incentiveAmount === null ? "text-amber-500" : "text-emerald-600"}`}>
+                      {op.incentiveAmount === undefined || op.incentiveAmount === null ? "Pending" : formatCurrency(op.incentiveAmount)}
+                    </p>
+                  )}
+                </div>
+                <button onClick={recalculate} className="text-[10px] text-cyan-600 font-semibold hover:underline mt-auto mb-1">Recalculate</button>
+              </div>
+            </div>
           </div>
           
           {op.booking && (

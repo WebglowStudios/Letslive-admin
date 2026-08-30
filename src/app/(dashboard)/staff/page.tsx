@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, Fragment } from "react";
+
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { User } from "@/types";
@@ -128,6 +129,12 @@ export default function StaffPage() {
   return (
     <RoleGuard permission="staff.view">
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+            <Link href="/users" className="px-5 py-2 text-sm font-semibold rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 transition-colors">Customers</Link>
+            <span className="px-5 py-2 text-sm font-bold rounded-lg bg-white text-slate-800 shadow-sm">Staff & Management</span>
+          </div>
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-72">
             <Search size={16} className="text-slate-400" />

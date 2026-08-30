@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { User } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { Search, Trash2, UserPlus, X, Copy, Eye, EyeOff, KeyRound, Check } from "lucide-react";
+import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission, useRole } from "@/hooks/usePermission";
 import PhoneInput from "@/components/ui/PhoneInput";
@@ -218,6 +219,12 @@ export default function UsersPage() {
       )}
 
       <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+            <span className="px-5 py-2 text-sm font-bold rounded-lg bg-white text-slate-800 shadow-sm">Customers</span>
+            <Link href="/staff" className="px-5 py-2 text-sm font-semibold rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 transition-colors">Staff & Management</Link>
+          </div>
+        </div>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-2 w-72">
             <Search size={16} className="text-slate-400" />

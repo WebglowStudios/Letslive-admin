@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Search, Filter, Plus, Eye, AlertTriangle, Trash2 } from "lucide-react";
+import { Search, Filter, Plus, Eye, AlertTriangle, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { useAuthStore } from "@/stores/authStore";
@@ -31,21 +31,28 @@ export default function OperationsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
+  const [pendingIncentivesOnly, setPendingIncentivesOnly] = useState(false);
   const [search, setSearch] = useState("");
+  
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [operationToDelete, setOperationToDelete] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     fetchOperations();
-  }, [statusFilter, hasPendingPayment]);
+  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly]);
 
   async function fetchOperations() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "50" });
-      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (statusFilter !== "all" && !pendingIncentivesOnly) params.set("status", statusFilter);
       if (hasPendingPayment) params.set("hasPendingPayment", "true");
+      if (pendingIncentivesOnly) params.set("incentiveStatus", "pending");
       const res = await api.get(`/operations?${params}`);
       setOperations(res?.data || []);
     } catch {
@@ -55,17 +62,34 @@ export default function OperationsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this operation? This will delete all associated payments and records.")) return;
+  function confirmDelete(id: string) {
+    setOperationToDelete(id);
+    setDeleteReason("");
+    setDeleteModalOpen(true);
+  }
+
+  async function executeDelete() {
+    if (!operationToDelete) return;
+    if (!deleteReason.trim()) {
+      alert("A reason is required to delete an operation.");
+      return;
+    }
+
+    setIsDeleting(true);
     try {
-      const res = await api.del(`/operations/${id}`);
+      const res = await api.del(`/operations/${operationToDelete}`, { body: JSON.stringify({ reason: deleteReason }) });
       if (res?.status === "success" || !res) {
+        setDeleteModalOpen(false);
+        setOperationToDelete(null);
+        setDeleteReason("");
         fetchOperations();
       } else {
         alert("Failed to delete operation");
       }
-    } catch {
-      alert("Failed to delete operation");
+    } catch (error: any) {
+      alert(error.message || "Failed to delete operation");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -89,6 +113,48 @@ export default function OperationsPage() {
 
   return (
     <RoleGuard permission="bookings.view">
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertTriangle size={18} />
+                <h2 className="font-bold">Delete Operation</h2>
+              </div>
+              <button onClick={() => setDeleteModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-slate-600 mb-4">
+                Are you sure you want to delete this operation? This will permanently remove all associated vendor payments, customer payments, and records.
+              </p>
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase block mb-1">Reason for Deletion <span className="text-red-500">*</span></label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="E.g., Customer cancelled trip, duplicate operation..."
+                  className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 min-h-[80px]"
+                ></textarea>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 flex items-center gap-3 justify-end">
+              <button onClick={() => setDeleteModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">
+                Cancel
+              </button>
+              <button 
+                onClick={executeDelete} 
+                disabled={isDeleting || !deleteReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -115,14 +181,22 @@ export default function OperationsPage() {
             <Search size={16} className="text-slate-400" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by ID, customer, destination..." className="bg-transparent border-none outline-none text-sm w-full" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 mt-2 lg:mt-0">
             <button onClick={() => setHasPendingPayment(!hasPendingPayment)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${hasPendingPayment ? "bg-amber-100 text-amber-700 border-amber-200 border" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-              {hasPendingPayment ? "Show All" : "Pending Payments Only"}
+              {hasPendingPayment ? "Clear Unpaid" : "Show Unpaid"}
             </button>
+            {isAdmin && (
+              <button 
+                onClick={() => { setPendingIncentivesOnly(!pendingIncentivesOnly); if(!pendingIncentivesOnly) setStatusFilter("all"); }} 
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${pendingIncentivesOnly ? "bg-indigo-100 text-indigo-700 border-indigo-200 border" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+              >
+                {pendingIncentivesOnly ? "Clear Incentives Filter" : "Pending Incentives"}
+              </button>
+            )}
             <div className="w-px h-6 bg-slate-200 mx-1"></div>
             <Filter size={14} className="text-slate-400" />
             {["all", "planning", "booked", "in-progress", "completed"].map((s) => (
-              <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${statusFilter === s ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+              <button key={s} onClick={() => { setStatusFilter(s); setPendingIncentivesOnly(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${statusFilter === s && !pendingIncentivesOnly ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
                 {s === "all" ? "All" : s.replace("-", " ")}
               </button>
             ))}
@@ -199,7 +273,7 @@ export default function OperationsPage() {
                             <Eye size={16} />
                           </Link>
                           {isAdmin && (
-                            <button onClick={() => handleDelete(op._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete Operation">
+                            <button onClick={() => confirmDelete(op._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600" title="Delete Operation">
                               <Trash2 size={16} />
                             </button>
                           )}

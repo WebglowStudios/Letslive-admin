@@ -21,6 +21,7 @@ interface PerformanceData {
   revenueGenerated: number;
   profitGenerated: number;
   incentivesEarned: number;
+  pendingIncentives: number;
   recentActivity: any[];
 }
 
@@ -86,6 +87,8 @@ export default function PerformancePage() {
       value: formatCurrency(data?.incentivesEarned || 0),
       icon: <DollarSign className="text-amber-500" size={24} />,
       bg: "bg-amber-50",
+      subtext: data?.pendingIncentives ? `${data.pendingIncentives} booking(s) pending` : undefined,
+      subtextColor: "text-amber-600",
     },
   ];
 
@@ -107,6 +110,11 @@ export default function PerformancePage() {
             <div>
               <p className="text-sm text-slate-500 font-medium">{s.title}</p>
               <h3 className="text-2xl font-bold text-slate-800">{s.value}</h3>
+              {s.subtext && (
+                <p className={`text-[10px] font-semibold mt-0.5 ${s.subtextColor || 'text-slate-400'}`}>
+                  {s.subtext}
+                </p>
+              )}
             </div>
           </div>
         ))}
