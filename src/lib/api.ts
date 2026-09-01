@@ -41,9 +41,11 @@ async function request(endpoint: string, options: RequestInit = {}) {
       return retryRes.json();
     }
 
-    // Refresh failed — redirect to login
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
+    // Refresh failed with auth error — redirect to login
+    if (refreshRes.status === 401 || refreshRes.status === 403 || refreshRes.status === 400) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
     }
     return data;
   }

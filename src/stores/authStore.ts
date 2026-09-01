@@ -80,8 +80,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: true };
       }
       return { success: false, message: res?.message || "Invalid credentials" };
-    } catch {
-      return { success: false, message: "Invalid email or password." };
+    } catch (err: any) {
+      return { success: false, message: err?.message || "Invalid email or password." };
     }
   },
 
