@@ -86,7 +86,7 @@ export default function NewPackagePage() {
   const [showImportModal, setShowImportModal] = useState(false);
 
   const handleImportData = (p: any) => {
-    if (p.name) setName(p.name);
+    if (p.name) setName(p.name + " (Copy " + Math.floor(Math.random() * 10000) + ")");
     if (p.destination?._id) setDestination(p.destination._id);
     else if (p.destination) setDestination(p.destination);
     if (p.description) setDescription(p.description);

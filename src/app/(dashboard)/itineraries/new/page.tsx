@@ -86,7 +86,7 @@ export default function NewCustomItineraryPage() {
 
   const handleImportData = (p: any) => {
     // Intentionally omit client info if it exists, since this is usually for a new client
-    if (p.name) setName(p.name);
+    if (p.name) setName(p.name + " (Copy " + Math.floor(Math.random() * 10000) + ")");
     if (p.destination?._id) setDestination(p.destination._id);
     else if (p.destination) setDestination(p.destination);
     if (p.description) setDescription(p.description);

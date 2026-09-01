@@ -77,17 +77,13 @@ export default function PackagesPage() {
     }).catch(console.error);
   }, []);
 
-  useEffect(() => {
-    fetchPackages(currentPage, searchQuery);
-  }, [currentPage, fetchPackages]);
-
-  // Debounced search
+  // Unified debounced fetch for all filters, search, and page changes
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchPackages(currentPage, searchQuery);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery, currentPage, fetchPackages]);
+  }, [currentPage, searchQuery, fetchPackages]);
 
   // Sync state to URL
   useEffect(() => {
@@ -183,11 +179,11 @@ export default function PackagesPage() {
               type="text"
               placeholder="Search packages by name..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="bg-transparent border-none outline-none text-sm w-full"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
+              <button onClick={() => { setSearchQuery(""); setCurrentPage(1); }} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
                 <span className="text-xs font-bold">✕</span>
               </button>
             )}
@@ -197,7 +193,7 @@ export default function PackagesPage() {
               <Filter size={14} className="text-slate-400" />
               <select
                 value={selectedDestination}
-                onChange={(e) => setSelectedDestination(e.target.value)}
+                onChange={(e) => { setSelectedDestination(e.target.value); setCurrentPage(1); }}
                 className="bg-transparent border-none outline-none text-xs font-semibold text-slate-600 cursor-pointer w-28"
               >
                 <option value="all">All Destinations</option>
@@ -209,7 +205,7 @@ export default function PackagesPage() {
             <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
               <select
                 value={approvalFilter}
-                onChange={(e) => setApprovalFilter(e.target.value)}
+                onChange={(e) => { setApprovalFilter(e.target.value); setCurrentPage(1); }}
                 className="bg-transparent border-none outline-none text-xs font-semibold text-slate-600 cursor-pointer w-24"
               >
                 <option value="all">All Status</option>
@@ -221,7 +217,7 @@ export default function PackagesPage() {
             <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
               <select
                 value={featuredFilter}
-                onChange={(e) => setFeaturedFilter(e.target.value)}
+                onChange={(e) => { setFeaturedFilter(e.target.value); setCurrentPage(1); }}
                 className="bg-transparent border-none outline-none text-xs font-semibold text-slate-600 cursor-pointer w-24"
               >
                 <option value="all">Any Feature</option>
