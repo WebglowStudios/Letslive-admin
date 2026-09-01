@@ -28,7 +28,7 @@ interface Transport {
 }
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
-interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
+interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; booking?: any; }
 interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; bookings?: any[]; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
@@ -76,7 +76,7 @@ export default function OperationDetailPage() {
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
   const [passengerModalOpen, setPassengerModalOpen] = useState(false);
-  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
+  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
   const [addPassengerMode, setAddPassengerMode] = useState<"existing" | "new">("existing");
   const [linkedBookingId, setLinkedBookingId] = useState("");
   const [newPassengerEmail, setNewPassengerEmail] = useState("");
@@ -351,7 +351,7 @@ export default function OperationDetailPage() {
         phone: modeToUse === "new" ? newPassengerPhone : undefined
       });
       setPassengerModalOpen(false);
-      setNewPassenger({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
+      setNewPassenger({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
       setNewPassengerEmail("");
       setNewPassengerPhone("");
       fetchAll();
@@ -362,12 +362,14 @@ export default function OperationDetailPage() {
     }
   };
 
-  const handleRemovePassenger = async (index: number) => {
+  const handleRemovePassenger = async (bookingId: string, index: number) => {
     if (!confirm("Remove this passenger?")) return;
     try {
-      const updatedTravellers = [...(op?.booking?.travellersDetails || [])];
+      const targetBooking = op?.bookings?.find((b: any) => b._id === bookingId) || op?.booking;
+      if (!targetBooking) return;
+      const updatedTravellers = [...(targetBooking.travellersDetails || [])];
       updatedTravellers.splice(index, 1);
-      await api.put(`/bookings/${op?.booking?._id}/passengers`, {
+      await api.put(`/bookings/${targetBooking._id}/passengers`, {
         travellersDetails: updatedTravellers
       });
       fetchAll();
@@ -533,7 +535,18 @@ export default function OperationDetailPage() {
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Passenger Details</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Base Package Pax: {op.bookings && op.bookings.length > 0 ? op.bookings.reduce((sum: number, b: any) => sum + (b.package?.adultCount || 1), 0) : op.booking?.package?.adultCount || 1} Adult(s) {(op.bookings && op.bookings.length > 0 ? op.bookings.reduce((sum: number, b: any) => sum + (b.package?.childCount || 0), 0) : op.booking?.package?.childCount || 0) > 0 ? `, ${(op.bookings && op.bookings.length > 0 ? op.bookings.reduce((sum: number, b: any) => sum + (b.package?.childCount || 0), 0) : op.booking?.package?.childCount || 0)} Child(ren)` : ''}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {(() => {
+                      const totalAdults = op.customers && op.customers.length > 0 
+                        ? op.customers.reduce((sum, c) => sum + (c.adults || c.pax || 1), 0) 
+                        : (op.customer?.adults || op.customer?.pax || op.booking?.package?.adultCount || 1);
+                      const totalChildren = op.customers && op.customers.length > 0 
+                        ? op.customers.reduce((sum, c) => sum + (c.children || 0), 0) 
+                        : (op.customer?.children || op.booking?.package?.childCount || 0);
+                      
+                      return `Total Pax: ${totalAdults} Adult(s)${totalChildren > 0 ? `, ${totalChildren} Child(ren)` : ''}`;
+                    })()}
+                  </p>
                 </div>
                 <button onClick={() => setPassengerModalOpen(true)} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
                   <Plus size={14} /> Add Passenger
@@ -541,50 +554,83 @@ export default function OperationDetailPage() {
               </div>
               
               {(() => {
-                let allTravellers: any[] = [];
                 if (op.bookings && op.bookings.length > 0) {
-                  allTravellers = op.bookings.flatMap((b: any, bIdx: number) => 
-                    (b.travellersDetails || []).map((t: any, idx: number) => ({ ...t, _bIdx: bIdx, _localIdx: idx, _bookingId: b._id }))
+                  return (
+                    <div className="space-y-4">
+                      {op.bookings.map((b: any, bIdx: number) => (
+                        <div key={b._id} className="border border-slate-200 rounded-lg overflow-hidden">
+                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                            <span className="text-xs font-bold text-slate-700">{op.customers?.[bIdx]?.name || 'Customer'} Booking (ID: {b.bookingId || b._id})</span>
+                            <span className="text-[10px] text-slate-500">{b.travellersDetails?.length || 0} Pax</span>
+                          </div>
+                          <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {(b.travellersDetails || []).length === 0 && <p className="text-xs text-slate-400 p-2">No passengers added to this booking yet.</p>}
+                            {(b.travellersDetails || []).map((t: any, idx: number) => (
+                              <div key={idx} className="p-3 border border-slate-100 bg-white shadow-sm rounded-lg relative group">
+                                <button onClick={() => handleRemovePassenger(b._id, idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
+                                  <Trash2 size={14} />
+                                </button>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {t.type || 'Adult'}
+                                  </span>
+                                  <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                                  {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
+                                </div>
+                                {(t.passportNumber || t.issuingCountry) && (
+                                  <div className="mt-2 pt-2 border-t border-slate-100">
+                                    <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
+                                    <div className="flex gap-3 mt-0.5">
+                                      <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
+                                      <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   );
                 } else if (op.booking) {
-                  allTravellers = (op.booking.travellersDetails || []).map((t: any, idx: number) => ({ ...t, _localIdx: idx, _bookingId: op.booking!._id }));
-                }
-
-                if (allTravellers.length === 0) {
+                  const allTravellers = op.booking.travellersDetails || [];
+                  if (allTravellers.length === 0) {
+                    return (
+                      <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                        <p className="text-xs text-slate-500">No passenger details added yet.</p>
+                      </div>
+                    );
+                  }
                   return (
-                    <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                      <p className="text-xs text-slate-500">No passenger details added yet.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {allTravellers.map((t: any, idx: number) => (
+                        <div key={idx} className="p-3 border border-slate-100 bg-slate-50 rounded-lg relative group">
+                          <button onClick={() => handleRemovePassenger(op.booking!._id, idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
+                            <Trash2 size={14} />
+                          </button>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {t.type || 'Adult'}
+                            </span>
+                            <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                            {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
+                          </div>
+                          {(t.passportNumber || t.issuingCountry) && (
+                            <div className="mt-2 pt-2 border-t border-slate-200">
+                              <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
+                              <div className="flex gap-3 mt-0.5">
+                                <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
+                                <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   );
                 }
-
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {allTravellers.map((t: any, globalIdx: number) => (
-                      <div key={globalIdx} className="p-3 border border-slate-100 bg-slate-50 rounded-lg relative group">
-                        <button onClick={() => handleRemovePassenger(t._localIdx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
-                          <Trash2 size={14} />
-                        </button>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {t.type || 'Adult'}
-                          </span>
-                          <p className="text-sm font-bold text-slate-800">{t.name}</p>
-                          {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
-                        </div>
-                        {(t.passportNumber || t.issuingCountry) && (
-                          <div className="mt-2 pt-2 border-t border-slate-200">
-                            <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
-                            <div className="flex gap-3 mt-0.5">
-                              <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
-                              <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                );
+                return null;
               })()}
             </div>
           )}
@@ -1236,48 +1282,97 @@ export default function OperationDetailPage() {
             </div>
           </div>
           {customerPayments.length>0&&<div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between"><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Total</p><p className="text-sm font-bold text-slate-800">{formatCurrency(customerPayments.reduce((s,p)=>s+p.amount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Received</p><p className="text-sm font-bold text-emerald-600">{formatCurrency(customerPayments.reduce((s,p)=>s+p.paidAmount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Pending</p><p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</p></div></div>}
-          {customerPayments.map((p, idx) => (
-            <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
-              <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-max mb-4">
-                <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: false}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!p._isManual ? "bg-white shadow text-indigo-700" : "text-slate-500 hover:text-slate-700"}`}>Razorpay Link</button>
-                <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: true}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${p._isManual ? "bg-white shadow text-cyan-700" : "text-slate-500 hover:text-slate-700"}`}>Manual / Offline</button>
-              </div>
+          
+          {(() => {
+            const groupedPayments: Record<string, any[]> = {};
+            const unassigned: any[] = [];
+            customerPayments.forEach((p, idx) => {
+              const pWithGlobalIdx = { ...p, _globalIdx: idx };
+              if (p.booking?._id) {
+                if (!groupedPayments[p.booking._id]) groupedPayments[p.booking._id] = [];
+                groupedPayments[p.booking._id].push(pWithGlobalIdx);
+              } else {
+                unassigned.push(pWithGlobalIdx);
+              }
+            });
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Milestone</label><Inp value={p.milestone} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],milestone:v};setCustomerPayments(u);}} placeholder="Advance, Final..." /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Total Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Due Date</label><Inp type="date" value={p.dueDate?.split("T")[0]||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],dueDate:v};setCustomerPayments(u);}} /></div>
-                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={p.status} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],status:v};setCustomerPayments(u);}} options={[{v:"upcoming",l:"Pending"},{v:"paid",l:"Paid"}]} /></div>
+            const renderPaymentCard = (p: any, idx: number) => (
+              <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
+                <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-max mb-4">
+                  <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: false}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!p._isManual ? "bg-white shadow text-indigo-700" : "text-slate-500 hover:text-slate-700"}`}>Razorpay Link</button>
+                  <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: true}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${p._isManual ? "bg-white shadow text-cyan-700" : "text-slate-500 hover:text-slate-700"}`}>Manual / Offline</button>
+                </div>
+  
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Milestone</label><Inp value={p.milestone} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],milestone:v};setCustomerPayments(u);}} placeholder="Advance, Final..." /></div>
+                  <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Total Amount</label><Inp type="number" value={p.amount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],amount:Number(v)};setCustomerPayments(u);}} /></div>
+                  <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Due Date</label><Inp type="date" value={p.dueDate?.split("T")[0]||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],dueDate:v};setCustomerPayments(u);}} /></div>
+                  <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={p.status} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],status:v};setCustomerPayments(u);}} options={[{v:"upcoming",l:"Pending"},{v:"paid",l:"Paid"}]} /></div>
+                  
+                  {p._isManual && (
+                    <>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Paid Received</label><Inp type="number" value={p.paidAmount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paidAmount:Number(v)};setCustomerPayments(u);}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Mode (Manual)</label><Inp value={p.paymentMode} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentMode:v};setCustomerPayments(u);}} placeholder="UPI/NEFT/Cash" /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">TXN ID</label><Inp value={p.transactionId} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],transactionId:v};setCustomerPayments(u);}} /></div>
+                    </>
+                  )}
+                </div>
                 
-                {p._isManual && (
-                  <>
-                    <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Paid Received</label><Inp type="number" value={p.paidAmount} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paidAmount:Number(v)};setCustomerPayments(u);}} /></div>
-                    <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Mode (Manual)</label><Inp value={p.paymentMode} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentMode:v};setCustomerPayments(u);}} placeholder="UPI/NEFT/Cash" /></div>
-                    <div><label className="text-[9px] text-slate-400 uppercase block mb-1">TXN ID</label><Inp value={p.transactionId} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],transactionId:v};setCustomerPayments(u);}} /></div>
-                  </>
+                {!p._isManual && (
+                  p.status === "paid" && p.paymentLink ? (
+                    <div className="pt-2 border-t border-slate-100 mt-2">
+                      <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2 rounded-lg text-xs font-semibold">
+                        <Check size={14} /> Paid via Link: <a href={p.paymentLink} target="_blank" rel="noopener noreferrer" className="underline truncate max-w-sm">{p.paymentLink}</a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 mt-2">
+                      <div className="flex items-end gap-3">
+                        <div className="flex-1"><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Link URL</label><Inp value={p.paymentLink||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLink:v};setCustomerPayments(u);}} placeholder="https://razorpay.me/..." /></div>
+                        {p.status !== "paid" && <button onClick={() => handleGeneratePaymentLink(p, idx)} disabled={paymentLinkLoading === p._id} className="flex items-center gap-1.5 px-4 py-2 h-9 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors whitespace-nowrap disabled:opacity-50"><LinkIcon size={14}/> {paymentLinkLoading === p._id ? "Generating..." : "Generate Link for ₹" + (p.amount - (p.paidAmount || 0))}</button>}
+                      </div>
+                      <div className="flex items-end pb-1"><label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={p.paymentLinkEnabled} onChange={(e)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLinkEnabled:e.target.checked};setCustomerPayments(u);}} className="w-3.5 h-3.5 rounded" /><span className="text-slate-600">Include payment link in invoice</span></label></div>
+                    </div>
+                  )
                 )}
               </div>
-              
-              {!p._isManual && (
-                p.status === "paid" && p.paymentLink ? (
-                  <div className="pt-2 border-t border-slate-100 mt-2">
-                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-2 rounded-lg text-xs font-semibold">
-                      <Check size={14} /> Paid via Link: <a href={p.paymentLink} target="_blank" rel="noopener noreferrer" className="underline truncate max-w-sm">{p.paymentLink}</a>
+            );
+
+            return (
+              <div className="space-y-6 mt-4">
+                {Object.entries(groupedPayments).map(([bookingId, payments]) => {
+                  const bInfo = op.bookings?.find((b: any) => b._id === bookingId) || op.booking;
+                  const cIndex = op.bookings?.findIndex((b: any) => b._id === bookingId) || 0;
+                  const cName = op.customers?.[cIndex]?.name || 'Customer';
+                  
+                  return (
+                    <div key={bookingId} className="border border-indigo-100 bg-indigo-50/20 rounded-xl overflow-hidden">
+                      <div className="bg-indigo-100/50 px-4 py-3 border-b border-indigo-100 flex justify-between items-center">
+                        <span className="text-xs font-bold text-indigo-800">{cName}'s Payments <span className="font-normal text-[10px] ml-2 bg-white px-1.5 py-0.5 rounded text-indigo-600 border border-indigo-200 uppercase">ID: {bInfo?.bookingId || bookingId}</span></span>
+                        <div className="text-[10px] text-indigo-600 font-bold bg-white px-2 py-1 rounded-md border border-indigo-100">
+                          Total: {formatCurrency(payments.reduce((s,p)=>s+p.amount,0))} | Pending: <span className="text-amber-600">{formatCurrency(payments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</span>
+                        </div>
+                      </div>
+                      <div className="p-4 space-y-3">
+                         {payments.map(p => renderPaymentCard(p, p._globalIdx))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {unassigned.length > 0 && (
+                  <div className="border border-slate-200 bg-slate-50/50 rounded-xl overflow-hidden">
+                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-700">General / Unassigned Payments</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                       {unassigned.map(p => renderPaymentCard(p, p._globalIdx))}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 mt-2">
-                    <div className="flex items-end gap-3">
-                      <div className="flex-1"><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Link URL</label><Inp value={p.paymentLink||""} onChange={(v)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLink:v};setCustomerPayments(u);}} placeholder="https://razorpay.me/..." /></div>
-                      {p.status !== "paid" && <button onClick={() => handleGeneratePaymentLink(p, idx)} disabled={paymentLinkLoading === p._id} className="flex items-center gap-1.5 px-4 py-2 h-9 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors whitespace-nowrap disabled:opacity-50"><LinkIcon size={14}/> {paymentLinkLoading === p._id ? "Generating..." : "Generate Link for ₹" + (p.amount - (p.paidAmount || 0))}</button>}
-                    </div>
-                    <div className="flex items-end pb-1"><label className="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" checked={p.paymentLinkEnabled} onChange={(e)=>{const u=[...customerPayments];u[idx]={...u[idx],paymentLinkEnabled:e.target.checked};setCustomerPayments(u);}} className="w-3.5 h-3.5 rounded" /><span className="text-slate-600">Include payment link in invoice</span></label></div>
-                  </div>
-                )
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })()}
           {customerPayments.length===0&&<div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-xs text-slate-400">No payments yet.</div>}
         </div>
       )}
@@ -1325,7 +1420,24 @@ export default function OperationDetailPage() {
             <p className="text-xs text-slate-500 mb-5">How would you like to record this payment?</p>
 
             <div className="space-y-4">
-              <button onClick={async () => { setSplitModalOpen(false); await api.post(`/operations/${id}/customer-payments`, {}); fetchAll(); }} className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-colors group">
+              {((op?.bookings && op.bookings.length > 1) || op?.departureId) && (
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Assign to Booking Group</label>
+                  <select value={splitData.primaryPaymentId} onChange={e => setSplitData({...splitData, primaryPaymentId: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                    <option value="">General Operation / Unassigned</option>
+                    {op.bookings?.map((b: any, i: number) => (
+                      <option key={b._id} value={b._id}>{op.customers?.[i]?.name || 'Customer'} (ID: {b.bookingId || b._id})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <button onClick={async () => { 
+                setSplitModalOpen(false); 
+                const bookingId = splitData.primaryPaymentId || (op?.bookings && op.bookings.length === 1 ? op.bookings[0]._id : op?.booking?._id);
+                await api.post(`/operations/${id}/customer-payments`, { booking: bookingId || undefined }); 
+                fetchAll(); 
+              }} className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-colors group">
                 <p className="text-sm font-bold text-slate-800 group-hover:text-cyan-700">Add Extra Charge (Increases Trip Cost)</p>
                 <p className="text-xs text-slate-500 mt-1">Use this if the customer added a new activity or penalty.</p>
               </button>
@@ -1385,7 +1497,7 @@ export default function OperationDetailPage() {
                         )}
 
                         {addPassengerMode === "new" && (
-                          <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
                             <div>
                               <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">Email <span className="text-red-500">*</span></label>
                               <input type="email" value={newPassengerEmail} onChange={e => setNewPassengerEmail(e.target.value)} className="w-full px-3 py-1.5 border border-amber-200 rounded-md text-sm" placeholder="guest@email.com" />
@@ -1393,6 +1505,10 @@ export default function OperationDetailPage() {
                             <div>
                               <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">Phone</label>
                               <input type="text" value={newPassengerPhone} onChange={e => setNewPassengerPhone(e.target.value)} className="w-full px-3 py-1.5 border border-amber-200 rounded-md text-sm" placeholder="+123456789" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">PAN Card</label>
+                              <input type="text" value={newPassenger.panCard || ''} onChange={e => setNewPassenger({...newPassenger, panCard: e.target.value})} className="w-full px-3 py-1.5 border border-amber-200 rounded-md text-sm uppercase" placeholder="ABCDE1234F" />
                             </div>
                           </div>
                         )}
