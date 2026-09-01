@@ -400,9 +400,11 @@ export default function EditPackagePage() {
   }
 
   function updateItinerary(index: number, field: string, value: unknown) {
-    const updated = [...itinerary];
-    updated[index] = { ...updated[index], [field]: value };
-    setItinerary(updated);
+    setItinerary(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   }
   function moveItineraryDay(index: number, direction: 'up' | 'down') {
     if (direction === 'up' && index === 0) return;
@@ -427,6 +429,12 @@ export default function EditPackagePage() {
             }));
             setItinerary((prev) => [...prev, ...extras]);
           } else {
+            // Check if any of the days being removed contain content
+            const extraDays = itinerary.slice(days);
+            const hasContent = extraDays.some(d => d.title || d.description || (d.images && d.images.length > 0) || (d.activities && d.activities.length > 0));
+            if (hasContent) {
+              if (!confirm(`Reducing from ${itinerary.length} to ${days} days will remove ${itinerary.length - days} day(s) that contain content (including images). Continue?`)) return;
+            }
             setItinerary((prev) => prev.slice(0, days).map((d, i) => ({ ...d, day: i + 1 })));
           }
         }
@@ -439,6 +447,11 @@ export default function EditPackagePage() {
             }));
             setTransfers((prev) => [...prev, ...extraTransfers]);
           } else {
+            const extraTransfers = transfers.slice(days);
+            const hasTransferContent = extraTransfers.some(t => t.title || t.description || (t.images && t.images.length > 0));
+            if (hasTransferContent) {
+              if (!confirm(`Reducing transfers from ${transfers.length} to ${days} will remove transfer(s) that contain content. Continue?`)) return;
+            }
             setTransfers((prev) => prev.slice(0, days).map((t, i) => ({ ...t, day: i + 1 })));
           }
         }
@@ -556,7 +569,7 @@ export default function EditPackagePage() {
         paymentPolicy,
         cancellationPolicy,
         flightCancellationPolicy,
-        itinerary: itinerary.filter((d) => d.title).map((d) => ({
+        itinerary: itinerary.filter((d) => d.title || d.description || (d.images && d.images.length > 0) || (d.activities && d.activities.length > 0)).map((d) => ({
           day: d.day,
           title: d.title,
           description: d.description,
@@ -1489,12 +1502,12 @@ export default function EditPackagePage() {
         onClose={() => { setShowDayTemplateModal(false); setLoadTemplateDayIndex(null); }}
         onSelect={(template) => {
           if (loadTemplateDayIndex !== null) {
-            updateItinerary(loadTemplateDayIndex, "title", template.title || "");
-            updateItinerary(loadTemplateDayIndex, "description", template.description || "");
-            updateItinerary(loadTemplateDayIndex, "activities", template.activities || []);
-            updateItinerary(loadTemplateDayIndex, "meals", template.meals || []);
-            updateItinerary(loadTemplateDayIndex, "accommodation", template.accommodation || "");
-            updateItinerary(loadTemplateDayIndex, "images", template.images || []);
+            // Apply all template fields atomically to prevent stale-closure overwrites
+            setItinerary(prev => prev.map((d, i) =>
+              i === loadTemplateDayIndex
+                ? { ...d, title: template.title || "", description: template.description || "", activities: template.activities || [], meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                : d
+            ));
           }
           setShowDayTemplateModal(false);
           setLoadTemplateDayIndex(null);

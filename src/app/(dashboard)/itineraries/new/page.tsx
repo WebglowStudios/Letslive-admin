@@ -289,7 +289,7 @@ export default function NewCustomItineraryPage() {
     setItinerary(itinerary.filter((_, i) => i !== index).map((d, i) => ({ ...d, day: i + 1 })));
   }
   function updateItinerary(index: number, field: string, value: unknown) {
-    const updated = [...itinerary]; updated[index] = { ...updated[index], [field]: value }; setItinerary(updated);
+    setItinerary(prev => { const updated = [...prev]; updated[index] = { ...updated[index], [field]: value }; return updated; });
   }
   function moveItineraryDay(index: number, direction: 'up' | 'down') {
     if (direction === 'up' && index === 0) return;
@@ -314,6 +314,11 @@ export default function NewCustomItineraryPage() {
             }));
             setItinerary((prev) => [...prev, ...extras]);
           } else {
+            const extraDays = itinerary.slice(days);
+            const hasContent = extraDays.some(d => d.title || d.description || (d.images && d.images.length > 0) || (d.activities && d.activities.length > 0));
+            if (hasContent) {
+              if (!confirm(`Reducing from ${itinerary.length} to ${days} days will remove ${itinerary.length - days} day(s) that contain content (including images). Continue?`)) return;
+            }
             setItinerary((prev) => prev.slice(0, days).map((d, i) => ({ ...d, day: i + 1 })));
           }
         }
@@ -326,6 +331,11 @@ export default function NewCustomItineraryPage() {
             }));
             setTransfers((prev) => [...prev, ...extraTransfers]);
           } else {
+            const extraTransfers = transfers.slice(days);
+            const hasTransferContent = extraTransfers.some(t => t.title || t.description || (t.images && t.images.length > 0));
+            if (hasTransferContent) {
+              if (!confirm(`Reducing transfers from ${transfers.length} to ${days} will remove transfer(s) that contain content. Continue?`)) return;
+            }
             setTransfers((prev) => prev.slice(0, days).map((t, i) => ({ ...t, day: i + 1 })));
           }
         }
@@ -417,7 +427,7 @@ export default function NewCustomItineraryPage() {
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentPolicy, cancellationPolicy, flightCancellationPolicy,
         paymentConfig: { mode: paymentMode, depositType, depositValue: Number(depositValue) || 30, depositLabel: depositLabel.trim() || undefined, balanceDueDays: Number(balanceDueDays) || 30 },
-        itinerary: itinerary.filter((d) => d.title).map((d) => ({ day: d.day, title: d.title, description: d.description, activities: d.activities, meals: d.meals, accommodation: d.accommodation, images: d.images })),
+        itinerary: itinerary.filter((d) => d.title || d.description || (d.images && d.images.length > 0) || (d.activities && d.activities.length > 0)).map((d) => ({ day: d.day, title: d.title, description: d.description, activities: d.activities, meals: d.meals, accommodation: d.accommodation, images: d.images })),
         stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, rooms: Number(s.rooms) || 1, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
@@ -1227,12 +1237,12 @@ export default function NewCustomItineraryPage() {
         onClose={() => { setShowDayTemplateModal(false); setLoadTemplateDayIndex(null); }}
         onSelect={(template) => {
           if (loadTemplateDayIndex !== null) {
-            updateItinerary(loadTemplateDayIndex, "title", template.title || "");
-            updateItinerary(loadTemplateDayIndex, "description", template.description || "");
-            updateItinerary(loadTemplateDayIndex, "activities", template.activities || []);
-            updateItinerary(loadTemplateDayIndex, "meals", template.meals || []);
-            updateItinerary(loadTemplateDayIndex, "accommodation", template.accommodation || "");
-            updateItinerary(loadTemplateDayIndex, "images", template.images || []);
+            // Apply all template fields atomically to prevent stale-closure overwrites
+            setItinerary(prev => prev.map((d, i) =>
+              i === loadTemplateDayIndex
+                ? { ...d, title: template.title || "", description: template.description || "", activities: template.activities || [], meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                : d
+            ));
           }
           setShowDayTemplateModal(false);
           setLoadTemplateDayIndex(null);
