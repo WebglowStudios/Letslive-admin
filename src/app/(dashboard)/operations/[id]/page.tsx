@@ -24,11 +24,12 @@ interface Transport {
   legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string; pnr?: string; departureTime?: string; arrivalTime?: string; driverName?: string; driverContact?: string; vehicleNumber?: string; duration?: string }[];
   isGroupMaster?: boolean;
   groupId?: string;
+  linkedBooking?: string;
 }
-interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
-interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; }
+interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
+interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; _isManual?: boolean; }
-interface OpData { _id: string; operationId: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; bookings?: any[]; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -76,6 +77,10 @@ export default function OperationDetailPage() {
 
   const [passengerModalOpen, setPassengerModalOpen] = useState(false);
   const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
+  const [addPassengerMode, setAddPassengerMode] = useState<"existing" | "new">("existing");
+  const [linkedBookingId, setLinkedBookingId] = useState("");
+  const [newPassengerEmail, setNewPassengerEmail] = useState("");
+  const [newPassengerPhone, setNewPassengerPhone] = useState("");
   const [addingPassenger, setAddingPassenger] = useState(false);
   
   const currentRole = useRole();
@@ -327,18 +332,28 @@ export default function OperationDetailPage() {
   };
 
   const handleAddPassenger = async () => {
-    if (!newPassenger.name) {
-      alert("Please enter passenger name");
-      return;
-    }
+    if (!newPassenger.name) return alert("Please enter passenger name");
+    
+    const isGroupTour = op?.departureId || (op?.bookings && op.bookings.length > 1);
+    const modeToUse = isGroupTour ? addPassengerMode : "existing";
+    const targetBookingId = isGroupTour ? linkedBookingId : (op?.booking?._id || (op?.bookings && op.bookings[0]?._id));
+
+    if (modeToUse === "existing" && !targetBookingId) return alert("Please select a booking to add this passenger to");
+    if (modeToUse === "new" && !newPassengerEmail) return alert("Email is required for new bookings");
+
     setAddingPassenger(true);
     try {
-      const updatedTravellers = [...(op?.booking?.travellersDetails || []), newPassenger];
-      await api.put(`/bookings/${op?.booking?._id}/passengers`, {
-        travellersDetails: updatedTravellers
+      await api.post(`/operations/${id}/passengers`, {
+        mode: modeToUse,
+        passengerData: newPassenger,
+        bookingId: modeToUse === "existing" ? targetBookingId : undefined,
+        email: modeToUse === "new" ? newPassengerEmail : undefined,
+        phone: modeToUse === "new" ? newPassengerPhone : undefined
       });
       setPassengerModalOpen(false);
       setNewPassenger({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "" });
+      setNewPassengerEmail("");
+      setNewPassengerPhone("");
       fetchAll();
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to add passenger");
@@ -373,6 +388,11 @@ export default function OperationDetailPage() {
     { id: "pnl", label: "P&L", icon: <TrendingUp size={14} /> },
   ];
 
+  const displayCustomerName = op.customers && op.customers.length > 1 ? `Group Tour (${op.customers.length} bookings)` : (op.customers?.[0]?.name || op.customer?.name || "Unknown");
+  const displayCustomerEmail = op.customers?.[0]?.email || op.customer?.email || "";
+  const displayCustomerPhone = op.customers?.[0]?.phone || op.customer?.phone || "";
+  const displayPax = op.customers ? op.customers.reduce((sum, c) => sum + (c.pax || 0), 0) : (op.customer?.pax || 0);
+
   return (
     <>
       <div className="space-y-5">
@@ -380,7 +400,7 @@ export default function OperationDetailPage() {
         <Link href="/operations" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
         <div className="flex-1">
           <div className="flex items-center gap-3"><h1 className="text-lg font-bold text-slate-800">{op.operationId}</h1><span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${op.status === "completed" ? "bg-emerald-100 text-emerald-700" : op.status === "planning" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>{op.status}</span></div>
-          <p className="text-xs text-slate-400">{op.customer.name} | {op.destination} | {op.customer.pax} pax</p>
+          <p className="text-xs text-slate-400">{displayCustomerName} | {op.destination} | {displayPax} pax</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={handleDownloadVoucher} disabled={downloadingVoucher} className="flex items-center gap-2 text-xs border border-cyan-200 text-cyan-700 hover:bg-cyan-50 px-3 py-2 rounded-lg font-medium transition-colors disabled:opacity-50">
@@ -402,7 +422,7 @@ export default function OperationDetailPage() {
       {tab === "overview" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p><p className="text-sm font-semibold text-slate-800">{op.customer.name}</p><p className="text-xs text-slate-500">{op.customer.email} | {op.customer.phone}</p><p className="text-xs text-slate-400 mt-1">{op.customer.pax} pax</p></div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p><p className="text-sm font-semibold text-slate-800">{displayCustomerName}</p><p className="text-xs text-slate-500">{displayCustomerEmail} | {displayCustomerPhone}</p><p className="text-xs text-slate-400 mt-1">{displayPax} pax</p></div>
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
               <p className="text-sm font-semibold text-slate-800">{op.destination}</p>
@@ -508,91 +528,117 @@ export default function OperationDetailPage() {
             </div>
           </div>
           
-          {op.booking && (
+          {(op.booking || (op.bookings && op.bookings.length > 0)) && (
             <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Passenger Details</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Base Package Pax: {op.booking.package?.adultCount || 1} Adult(s) {op.booking.package?.childCount ? `, ${op.booking.package.childCount} Child(ren)` : ''}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Base Package Pax: {op.bookings && op.bookings.length > 0 ? op.bookings.reduce((sum: number, b: any) => sum + (b.package?.adultCount || 1), 0) : op.booking?.package?.adultCount || 1} Adult(s) {(op.bookings && op.bookings.length > 0 ? op.bookings.reduce((sum: number, b: any) => sum + (b.package?.childCount || 0), 0) : op.booking?.package?.childCount || 0) > 0 ? `, ${(op.bookings && op.bookings.length > 0 ? op.bookings.reduce((sum: number, b: any) => sum + (b.package?.childCount || 0), 0) : op.booking?.package?.childCount || 0)} Child(ren)` : ''}</p>
                 </div>
                 <button onClick={() => setPassengerModalOpen(true)} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
                   <Plus size={14} /> Add Passenger
                 </button>
               </div>
               
-              {(!op.booking.travellersDetails || op.booking.travellersDetails.length === 0) ? (
-                <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                  <p className="text-xs text-slate-500">No passenger details added yet.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {op.booking.travellersDetails.map((t: any, idx: number) => (
-                    <div key={idx} className="p-3 border border-slate-100 bg-slate-50 rounded-lg relative group">
-                      <button onClick={() => handleRemovePassenger(idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all">
-                        <Trash2 size={14} />
-                      </button>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {t.type || 'Adult'}
-                        </span>
-                        <p className="text-sm font-bold text-slate-800">{t.name}</p>
-                        {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
-                      </div>
-                      {(t.passportNumber || t.issuingCountry) && (
-                        <div className="mt-2 pt-2 border-t border-slate-200">
-                          <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
-                          <div className="flex gap-3 mt-0.5">
-                            <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
-                            <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
-                          </div>
+              {(() => {
+                let allTravellers: any[] = [];
+                if (op.bookings && op.bookings.length > 0) {
+                  allTravellers = op.bookings.flatMap((b: any, bIdx: number) => 
+                    (b.travellersDetails || []).map((t: any, idx: number) => ({ ...t, _bIdx: bIdx, _localIdx: idx, _bookingId: b._id }))
+                  );
+                } else if (op.booking) {
+                  allTravellers = (op.booking.travellersDetails || []).map((t: any, idx: number) => ({ ...t, _localIdx: idx, _bookingId: op.booking!._id }));
+                }
+
+                if (allTravellers.length === 0) {
+                  return (
+                    <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                      <p className="text-xs text-slate-500">No passenger details added yet.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {allTravellers.map((t: any, globalIdx: number) => (
+                      <div key={globalIdx} className="p-3 border border-slate-100 bg-slate-50 rounded-lg relative group">
+                        <button onClick={() => handleRemovePassenger(t._localIdx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
+                          <Trash2 size={14} />
+                        </button>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {t.type || 'Adult'}
+                          </span>
+                          <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                          {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
                         </div>
+                        {(t.passportNumber || t.issuingCountry) && (
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
+                            <div className="flex gap-3 mt-0.5">
+                              <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
+                              <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {(op.booking?.package?.description || op.package?.description || op.bookings?.[0]?.package?.description) && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Package Description</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{op.booking?.package?.description || op.package?.description || op.bookings?.[0]?.package?.description}</p>
+            </div>
+          )}
+
+          {(() => {
+            let changes: any[] = [];
+            if (op.bookings && op.bookings.length > 0) changes = op.bookings.flatMap((b: any) => b.dateChangeHistory || []);
+            else if (op.booking) changes = op.booking.dateChangeHistory || [];
+            
+            if (changes.length === 0) return null;
+            return (
+              <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 mt-4">
+                <p className="text-[10px] font-bold text-amber-800 uppercase flex items-center gap-2 mb-2">
+                  <Wand2 size={14} /> Date Change History
+                </p>
+                <div className="space-y-2">
+                  {changes.map((h: any, i: number) => (
+                    <div key={i} className="text-xs text-amber-900 border-l-2 border-amber-300 pl-2">
+                      <p>Travel dates changed from <span className="font-bold">{formatDate(h.oldDate)}</span> to <span className="font-bold">{formatDate(h.newDate)}</span></p>
+                      <p className="italic opacity-80 mt-1">"{h.reason}"</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          
+          {(() => {
+            const it = op.booking?.package?.itinerary || op.package?.itinerary || op.bookings?.[0]?.package?.itinerary;
+            if (!it || it.length === 0) return null;
+            return (
+              <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Package Itinerary ({it.length} Days)</p>
+                <div className="space-y-4">
+                  {it.map((day: any, i: number) => (
+                    <div key={i} className="border-l-2 border-cyan-300 pl-4 py-1">
+                      <p className="text-xs font-bold text-slate-800">Day {day.day}: {day.title}</p>
+                      {day.description && <p className="text-xs text-slate-600 mt-1">{day.description}</p>}
+                      {day.activities && day.activities.length > 0 && (
+                        <p className="text-[10px] text-slate-500 mt-1.5 font-medium bg-slate-50 px-2 py-1 rounded inline-block">Activities: {day.activities.join(', ')}</p>
                       )}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {op.booking?.package?.description && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Package Description</p>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{op.booking.package.description}</p>
-            </div>
-          )}
-
-          {op.booking?.dateChangeHistory && op.booking.dateChangeHistory.length > 0 && (
-            <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 mt-4">
-              <p className="text-[10px] font-bold text-amber-800 uppercase flex items-center gap-2 mb-2">
-                <Wand2 size={14} /> Date Change History
-              </p>
-              <div className="space-y-2">
-                {op.booking.dateChangeHistory.map((h, i) => (
-                  <div key={i} className="text-xs text-amber-900 border-l-2 border-amber-300 pl-2">
-                    <p>Travel dates changed from <span className="font-bold">{formatDate(h.oldDate)}</span> to <span className="font-bold">{formatDate(h.newDate)}</span></p>
-                    <p className="italic opacity-80 mt-1">"{h.reason}"</p>
-                  </div>
-                ))}
               </div>
-            </div>
-          )}
-          
-          {op.booking?.package?.itinerary && op.booking.package.itinerary.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Package Itinerary ({op.booking.package.itinerary.length} Days)</p>
-              <div className="space-y-4">
-                {op.booking.package.itinerary.map((day: any, i: number) => (
-                  <div key={i} className="border-l-2 border-cyan-300 pl-4 py-1">
-                    <p className="text-xs font-bold text-slate-800">Day {day.day}: {day.title}</p>
-                    {day.description && <p className="text-xs text-slate-600 mt-1">{day.description}</p>}
-                    {day.activities && day.activities.length > 0 && (
-                      <p className="text-[10px] text-slate-500 mt-1.5 font-medium bg-slate-50 px-2 py-1 rounded inline-block">Activities: {day.activities.join(', ')}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -938,6 +984,12 @@ export default function OperationDetailPage() {
                           setSelectedAccommodations(s);
                         }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
                         #{idx+1} <span className="capitalize text-slate-500">{a.type}</span>
+                        {op?.bookings && op.bookings.length > 1 && (
+                          <select value={a.linkedBooking || ""} onChange={(e) => { const u = [...accommodations]; u[idx] = { ...u[idx], linkedBooking: e.target.value }; setAccommodations(u); }} className="ml-2 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                            <option value="">Group Expense</option>
+                            {op.bookings.map((b: any, i: number) => <option key={b._id} value={b._id}>{op.customers?.[i]?.name || 'Customer'}</option>)}
+                          </select>
+                        )}
                       </span>
                       <div className="flex gap-2">
                         <button onClick={() => saveItem("accommodations", a._id, accommodations[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button>
@@ -1087,6 +1139,12 @@ export default function OperationDetailPage() {
                           setSelectedActivities(s);
                         }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
                         Day #{idx+1} Expense
+                        {op?.bookings && op.bookings.length > 1 && (
+                          <select value={a.linkedBooking || ""} onChange={(e) => { const u = [...activities]; u[idx] = { ...u[idx], linkedBooking: e.target.value }; setActivities(u); }} className="ml-2 text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500">
+                            <option value="">Group Expense</option>
+                            {op.bookings.map((b: any, i: number) => <option key={b._id} value={b._id}>{op.customers?.[i]?.name || 'Customer'}</option>)}
+                          </select>
+                        )}
                       </span>
                       <div className="flex gap-2">
                         <button onClick={() => saveItem("activities", a._id, activities[idx])} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold"><Check size={10}/> Save</button>
@@ -1173,14 +1231,14 @@ export default function OperationDetailPage() {
               <p className="text-[10px] text-slate-400 mt-1">Track installments received from the customer</p>
             </div>
             <div className="flex gap-2">
-              {customerPayments.length > 0 && <button onClick={() => generateInvoicePdf({ mode: "summary", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: "Full Statement", amount: customerPayments.reduce((s,p)=>s+p.amount,0), dueDate: undefined, paidAmount: customerPayments.reduce((s,p)=>s+p.paidAmount,0), status: "statement", sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp=>({milestone:cp.milestone,amount:cp.amount,paidAmount:cp.paidAmount,status:cp.status})) })} className="flex items-center gap-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200"><Download size={14} /> Statement</button>}
+              {customerPayments.length > 0 && <button onClick={() => generateInvoicePdf({ mode: "summary", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: "Full Statement", amount: customerPayments.reduce((s,p)=>s+p.amount,0), dueDate: undefined, paidAmount: customerPayments.reduce((s,p)=>s+p.paidAmount,0), status: "statement", sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp=>({milestone:cp.milestone,amount:cp.amount,paidAmount:cp.paidAmount,status:cp.status})) })} className="flex items-center gap-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200"><Download size={14} /> Statement</button>}
               <button onClick={() => setSplitModalOpen(true)} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Installment</button>
             </div>
           </div>
           {customerPayments.length>0&&<div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between"><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Total</p><p className="text-sm font-bold text-slate-800">{formatCurrency(customerPayments.reduce((s,p)=>s+p.amount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Received</p><p className="text-sm font-bold text-emerald-600">{formatCurrency(customerPayments.reduce((s,p)=>s+p.paidAmount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Pending</p><p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</p></div></div>}
           {customerPayments.map((p, idx) => (
             <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customer, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
+              <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
               <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-max mb-4">
                 <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: false}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!p._isManual ? "bg-white shadow text-indigo-700" : "text-slate-500 hover:text-slate-700"}`}>Razorpay Link</button>
                 <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: true}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${p._isManual ? "bg-white shadow text-cyan-700" : "text-slate-500 hover:text-slate-700"}`}>Manual / Offline</button>
@@ -1302,8 +1360,50 @@ export default function OperationDetailPage() {
             </div>
             
             <div className="p-5 overflow-y-auto space-y-4">
+              {(() => {
+                const isGroupTour = op?.departureId || (op?.bookings && op.bookings.length > 1);
+                return (
+                  <>
+                    {isGroupTour && (
+                      <>
+                        <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+                          <button onClick={() => setAddPassengerMode("existing")} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${addPassengerMode === "existing" ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>Add to Existing Booking</button>
+                          <button onClick={() => setAddPassengerMode("new")} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${addPassengerMode === "new" ? "bg-white shadow-sm text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>Treat as New Booking</button>
+                        </div>
+                        
+                        {addPassengerMode === "existing" && op?.bookings && op.bookings.length > 0 && (
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Select Booking Group</label>
+                            <select value={linkedBookingId} onChange={e => setLinkedBookingId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                              <option value="">-- Choose Booking --</option>
+                              {op.bookings.map((b: any, i: number) => {
+                                 const c = op.customers?.[i];
+                                 return <option key={b._id} value={b._id}>{c?.name || 'Customer'} (Booking ID: {b.bookingId || b._id})</option>
+                              })}
+                            </select>
+                          </div>
+                        )}
+
+                        {addPassengerMode === "new" && (
+                          <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                            <div>
+                              <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">Email <span className="text-red-500">*</span></label>
+                              <input type="email" value={newPassengerEmail} onChange={e => setNewPassengerEmail(e.target.value)} className="w-full px-3 py-1.5 border border-amber-200 rounded-md text-sm" placeholder="guest@email.com" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">Phone</label>
+                              <input type="text" value={newPassengerPhone} onChange={e => setNewPassengerPhone(e.target.value)} className="w-full px-3 py-1.5 border border-amber-200 rounded-md text-sm" placeholder="+123456789" />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Full Name</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Full Name <span className="text-red-500">*</span></label>
                 <input type="text" value={newPassenger.name} onChange={e => setNewPassenger({...newPassenger, name: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="John Doe" />
               </div>
               <div className="grid grid-cols-2 gap-3">

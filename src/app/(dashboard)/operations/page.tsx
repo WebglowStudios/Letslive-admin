@@ -11,7 +11,9 @@ import { useAuthStore } from "@/stores/authStore";
 interface OperationItem {
   _id: string;
   operationId: string;
-  customer: { name: string; email: string; pax: number };
+  customers?: { name: string; email: string; pax: number }[];
+  customer?: { name: string; email: string; pax: number };
+  departureId?: string;
   destination: string;
   travelDates: { start: string; end: string };
   assignedTo?: { _id?: string; firstName: string; lastName: string };
@@ -127,7 +129,7 @@ export default function OperationsPage() {
     const q = search.toLowerCase();
     return (
       op.operationId.toLowerCase().includes(q) ||
-      op.customer.name.toLowerCase().includes(q) ||
+      (op.customers ? op.customers.some((c: any) => c.name.toLowerCase().includes(q)) : op.customer?.name?.toLowerCase().includes(q)) ||
       op.destination.toLowerCase().includes(q)
     );
   });
@@ -257,8 +259,25 @@ export default function OperationsPage() {
                         <p className="text-[10px] text-slate-400">{formatDate(op.createdAt)}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="text-sm font-medium text-slate-700">{op.customer.name}</p>
-                        <p className="text-[10px] text-slate-400">{op.customer.pax} pax</p>
+                        {(op.customers && op.customers.length > 1) || op.departureId ? (
+                          <>
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <p className="text-sm font-medium text-slate-700">Group Tour</p>
+                              <span className="text-[9px] font-bold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded uppercase border border-indigo-200">Group</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-bold bg-slate-100 inline-block px-1.5 py-0.5 rounded mt-0.5 border border-slate-200">
+                              {op.customers ? op.customers.reduce((sum, c) => sum + (c.pax || 0), 0) : (op.customer?.pax || 0)} Total Pax
+                            </p>
+                            {op.customers && op.customers.length > 0 && (
+                              <p className="text-[9px] text-slate-400 mt-1">{op.customers.length} booking(s)</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium text-slate-700">{op.customers?.[0]?.name || op.customer?.name || 'Unknown'}</p>
+                            <p className="text-[10px] text-slate-400">{op.customers?.[0]?.pax || op.customer?.pax || 0} pax</p>
+                          </>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{op.destination}</td>
                       <td className="px-5 py-4 text-sm text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"}</td>
