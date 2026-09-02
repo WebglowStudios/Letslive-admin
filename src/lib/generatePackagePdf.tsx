@@ -1362,21 +1362,7 @@ const InclusionsExclusionsSection = ({ pkg }: { pkg: PackageData }) => {
   let inclusions = [...(pkg.inclusions || [])];
   let exclusions = [...(pkg.exclusions || [])];
 
-  if (pkg.isInternational) {
-    if (pkg.visaIncluded) {
-      inclusions.unshift("Visa");
-    } else {
-      exclusions.unshift("Visa");
-    }
-  }
 
-  if (pkg.flightsIncluded !== undefined) {
-    if (pkg.flightsIncluded) {
-      inclusions.unshift("Flights");
-    } else {
-      exclusions.unshift("Flights");
-    }
-  }
 
   const hasInc = inclusions.length > 0;
   const hasExc = exclusions.length > 0;
