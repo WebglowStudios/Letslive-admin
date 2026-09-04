@@ -419,10 +419,11 @@ export default function OperationDetailPage() {
     { id: "pnl", label: "P&L", icon: <TrendingUp size={14} /> },
   ];
 
+  const hasCustomers = op.customers && op.customers.length > 0;
   const displayCustomerName = op.customers && op.customers.length > 1 ? `Group Tour (${op.customers.length} bookings)` : (op.customers?.[0]?.name || op.customer?.name || "Unknown");
   const displayCustomerEmail = op.customers?.[0]?.email || op.customer?.email || "";
   const displayCustomerPhone = op.customers?.[0]?.phone || op.customer?.phone || "";
-  const displayPax = op.customers ? op.customers.reduce((sum, c) => sum + (c.pax || 0), 0) : (op.customer?.pax || 0);
+  const displayPax = hasCustomers ? op.customers.reduce((sum: number, c: any) => sum + (c.pax || 0), 0) : (op.customer?.pax || 0);
 
   return (
     <>
@@ -586,11 +587,11 @@ export default function OperationDetailPage() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Passenger Details</p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {(() => {
-                      const totalAdults = op.customers && op.customers.length > 0 
-                        ? op.customers.reduce((sum, c) => sum + (c.adults || c.pax || 1), 0) 
+                      const totalAdults = hasCustomers
+                        ? op.customers.reduce((sum: number, c: any) => sum + (c.adults || c.pax || 1), 0)
                         : (op.customer?.adults || op.customer?.pax || op.booking?.package?.adultCount || 1);
-                      const totalChildren = op.customers && op.customers.length > 0 
-                        ? op.customers.reduce((sum, c) => sum + (c.children || 0), 0) 
+                      const totalChildren = hasCustomers
+                        ? op.customers.reduce((sum: number, c: any) => sum + (c.children || 0), 0)
                         : (op.customer?.children || op.booking?.package?.childCount || 0);
                       
                       return `Total Pax: ${totalAdults} Adult(s)${totalChildren > 0 ? `, ${totalChildren} Child(ren)` : ''}`;
@@ -705,8 +706,18 @@ export default function OperationDetailPage() {
                 // PRIVATE TOUR: single booking
                 const singleBooking = (op.bookings && op.bookings.length === 1 ? op.bookings[0] : op.booking) as any;
                 if (singleBooking) {
-                  const { list, details } = buildPassengerList(singleBooking);
-                  if (list.length === 0) {
+                  const { list } = buildPassengerList(singleBooking);
+                  
+                  // Fallback: if booking has no primaryTraveller, use op.customer snapshot
+                  const fallbackList = list.length === 0 && op.customer?.name ? [{
+                    name: op.customer.name,
+                    email: op.customer.email,
+                    phone: op.customer.phone,
+                    type: 'adult',
+                    _isPrimary: true,
+                  }] : list;
+
+                  if (fallbackList.length === 0) {
                     return (
                       <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
                         <p className="text-xs text-slate-500">No passenger details added yet.</p>
@@ -715,11 +726,11 @@ export default function OperationDetailPage() {
                   }
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {list.map((t: any, idx: number) => (
+                      {fallbackList.map((t: any, idx: number) => (
                         <PassengerCard
                           key={idx}
                           t={t}
-                          onEdit={t._isPrimary ? () => openEditCustomerModal(singleBooking._id, singleBooking.primaryTraveller) : undefined}
+                          onEdit={t._isPrimary ? () => openEditCustomerModal(singleBooking._id, singleBooking.primaryTraveller || { firstName: op.customer?.name?.split(' ')?.[0] || '', lastName: op.customer?.name?.split(' ').slice(1).join(' ') || '', email: op.customer?.email || '', phone: op.customer?.phone || '', panCard: '' }) : undefined}
                           onRemove={t._isPrimary ? undefined : () => {
                             const detailsIdx = idx - (singleBooking.primaryTraveller?.firstName ? 1 : 0);
                             handleRemovePassenger(singleBooking._id, detailsIdx);
