@@ -488,11 +488,16 @@ export default function OperationDetailPage() {
             <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Financials</p>
-                <div className="flex justify-between">
-                  <div><p className="text-xs text-slate-500">Selling</p><p className="text-lg font-bold text-slate-800">{formatCurrency(op.sellingPrice)}</p></div>
+                <div className="flex justify-between mb-3">
+                  <div><p className="text-xs text-slate-500">Total Billed</p><p className="text-lg font-bold text-slate-800">{formatCurrency((op as any).effectiveSelling ?? op.sellingPrice)}</p></div>
                   <div className="text-right"><p className="text-xs text-slate-500">Profit</p><p className={`text-lg font-bold ${op.grossProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatCurrency(op.grossProfit)}</p></div>
                 </div>
+                <div className="flex justify-between text-xs border-t border-slate-100 pt-2">
+                  <div><p className="text-slate-400">Received</p><p className="font-bold text-emerald-600">{formatCurrency((op as any).totalReceived ?? 0)}</p></div>
+                  <div className="text-right"><p className="text-slate-400">Pending</p><p className="font-bold text-amber-600">{formatCurrency((op as any).pendingPayment ?? 0)}</p></div>
+                </div>
               </div>
+
               <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold text-slate-700">Staff Incentive</p>
@@ -554,48 +559,102 @@ export default function OperationDetailPage() {
               </div>
               
               {(() => {
-                if (op.bookings && op.bookings.length > 0) {
+                // Shared passenger card renderer
+                const PassengerCard = ({ t, onRemove }: { t: any; onRemove?: () => void }) => (
+                  <div className="p-3 border border-slate-100 bg-white shadow-sm rounded-lg relative group">
+                    {onRemove && (
+                      <button onClick={onRemove} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : t.type === 'infant' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                        {t.type || 'Adult'}
+                      </span>
+                      <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                      {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
+                      {t._isPrimary && <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded-full uppercase">Lead</span>}
+                    </div>
+                    {(t.email || t.phone) && <p className="text-[10px] text-slate-400 mt-0.5">{[t.email, t.phone].filter(Boolean).join(' · ')}</p>}
+                    {(t.passportNumber || t.issuingCountry) && (
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        <p className="text-[10px] text-slate-500">Passport: <span className="text-slate-700 font-medium">{t.passportNumber || '—'}</span></p>
+                        <div className="flex gap-3 mt-0.5">
+                          <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
+                          <p className="text-[10px] text-slate-500">Country: {t.issuingCountry || '—'}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+
+                // Build passenger list for a single booking object
+                const buildPassengerList = (b: any) => {
+                  const primary = b.primaryTraveller;
+                  const details: any[] = b.travellersDetails || [];
+                  const list: any[] = [];
+                  // Always include primaryTraveller as the lead card
+                  if (primary?.firstName) {
+                    list.push({
+                      name: `${primary.firstName} ${primary.lastName || ''}`.trim(),
+                      email: primary.email,
+                      phone: primary.phone,
+                      type: 'adult',
+                      _isPrimary: true,
+                    });
+                  }
+                  // Add travellersDetails, skipping if name matches primary (dedup)
+                  details.forEach(d => {
+                    const isDuplicate = primary?.firstName && d.name?.toLowerCase() === `${primary.firstName} ${primary.lastName || ''}`.trim().toLowerCase();
+                    if (!isDuplicate) list.push(d);
+                  });
+                  return { list, details };
+                };
+
+                // GROUP TOUR: 2+ bookings — one section per booking/family
+                if (op.bookings && op.bookings.length > 1) {
                   return (
                     <div className="space-y-4">
-                      {op.bookings.map((b: any, bIdx: number) => (
-                        <div key={b._id} className="border border-slate-200 rounded-lg overflow-hidden">
-                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-700">{op.customers?.[bIdx]?.name || 'Customer'} Booking (ID: {b.bookingId || b._id})</span>
-                            <span className="text-[10px] text-slate-500">{b.travellersDetails?.length || 0} Pax</span>
-                          </div>
-                          <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {(b.travellersDetails || []).length === 0 && <p className="text-xs text-slate-400 p-2">No passengers added to this booking yet.</p>}
-                            {(b.travellersDetails || []).map((t: any, idx: number) => (
-                              <div key={idx} className="p-3 border border-slate-100 bg-white shadow-sm rounded-lg relative group">
-                                <button onClick={() => handleRemovePassenger(b._id, idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
-                                  <Trash2 size={14} />
-                                </button>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                    {t.type || 'Adult'}
-                                  </span>
-                                  <p className="text-sm font-bold text-slate-800">{t.name}</p>
-                                  {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
-                                </div>
-                                {(t.passportNumber || t.issuingCountry) && (
-                                  <div className="mt-2 pt-2 border-t border-slate-100">
-                                    <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
-                                    <div className="flex gap-3 mt-0.5">
-                                      <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
-                                      <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
-                                    </div>
-                                  </div>
-                                )}
+                      {op.bookings.map((b: any, bIdx: number) => {
+                        const { list, details } = buildPassengerList(b);
+                        const primaryName = b.primaryTraveller?.firstName
+                          ? `${b.primaryTraveller.firstName} ${b.primaryTraveller.lastName || ''}`.trim()
+                          : (op.customers?.[bIdx]?.name || `Customer ${bIdx + 1}`);
+                        return (
+                          <div key={b._id} className="border border-slate-200 rounded-xl overflow-hidden">
+                            <div className="bg-indigo-50/60 px-4 py-2.5 border-b border-slate-200 flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-indigo-900">{primaryName}</span>
+                                <span className="text-[10px] text-slate-400 font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded">{b.bookingId || b._id}</span>
                               </div>
-                            ))}
+                              <span className="text-[10px] font-semibold text-indigo-700 bg-white border border-indigo-200 px-2 py-0.5 rounded">{list.length} Pax</span>
+                            </div>
+                            <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {list.length === 0 && <p className="text-xs text-slate-400 p-2 col-span-2">No passenger details on this booking yet.</p>}
+                              {list.map((t: any, idx: number) => (
+                                <PassengerCard
+                                  key={idx}
+                                  t={t}
+                                  onRemove={t._isPrimary ? undefined : () => {
+                                    // idx in details = idx - 1 (accounting for primary card at top)
+                                    const detailsIdx = idx - (b.primaryTraveller?.firstName ? 1 : 0);
+                                    handleRemovePassenger(b._id, detailsIdx);
+                                  }}
+                                />
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   );
-                } else if (op.booking) {
-                  const allTravellers = op.booking.travellersDetails || [];
-                  if (allTravellers.length === 0) {
+                }
+
+                // PRIVATE TOUR: single booking
+                const singleBooking = (op.bookings && op.bookings.length === 1 ? op.bookings[0] : op.booking) as any;
+                if (singleBooking) {
+                  const { list, details } = buildPassengerList(singleBooking);
+                  if (list.length === 0) {
                     return (
                       <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
                         <p className="text-xs text-slate-500">No passenger details added yet.</p>
@@ -604,28 +663,15 @@ export default function OperationDetailPage() {
                   }
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {allTravellers.map((t: any, idx: number) => (
-                        <div key={idx} className="p-3 border border-slate-100 bg-slate-50 rounded-lg relative group">
-                          <button onClick={() => handleRemovePassenger(op.booking!._id, idx)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
-                            <Trash2 size={14} />
-                          </button>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'adult' ? 'bg-indigo-100 text-indigo-700' : t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {t.type || 'Adult'}
-                            </span>
-                            <p className="text-sm font-bold text-slate-800">{t.name}</p>
-                            {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
-                          </div>
-                          {(t.passportNumber || t.issuingCountry) && (
-                            <div className="mt-2 pt-2 border-t border-slate-200">
-                              <p className="text-[10px] text-slate-500 font-medium">Passport: <span className="text-slate-700">{t.passportNumber}</span></p>
-                              <div className="flex gap-3 mt-0.5">
-                                <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
-                                <p className="text-[10px] text-slate-500">Country: {t.issuingCountry}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                      {list.map((t: any, idx: number) => (
+                        <PassengerCard
+                          key={idx}
+                          t={t}
+                          onRemove={t._isPrimary ? undefined : () => {
+                            const detailsIdx = idx - (singleBooking.primaryTraveller?.firstName ? 1 : 0);
+                            handleRemovePassenger(singleBooking._id, detailsIdx);
+                          }}
+                        />
                       ))}
                     </div>
                   );
@@ -634,6 +680,7 @@ export default function OperationDetailPage() {
               })()}
             </div>
           )}
+
 
           {(op.booking?.package?.description || op.package?.description || op.bookings?.[0]?.package?.description) && (
             <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
