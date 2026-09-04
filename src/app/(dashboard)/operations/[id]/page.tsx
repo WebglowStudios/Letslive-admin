@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2 } from "lucide-react";
 import Link from "next/link";
 import { useRole } from "@/hooks/usePermission";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
@@ -29,7 +29,7 @@ interface Transport {
 interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
 interface Activity { _id: string; title: string; description: string; date: string; duration: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[] }; bookings?: any[]; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -59,6 +59,12 @@ export default function OperationDetailPage() {
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [op, setOp] = useState<OpData | null>(null);
+  
+  // Modals
+  const [passengerModalOpen, setPassengerModalOpen] = useState(false);
+  const [editCustomerModalOpen, setEditCustomerModalOpen] = useState(false);
+  const [editCustomerData, setEditCustomerData] = useState<{ bookingId: string, firstName: string, lastName: string, email: string, phone: string, panCard: string } | null>(null);
+  
   const [transports, setTransports] = useState<Transport[]>([]);
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -75,7 +81,6 @@ export default function OperationDetailPage() {
   const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
-  const [passengerModalOpen, setPassengerModalOpen] = useState(false);
   const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
   const [addPassengerMode, setAddPassengerMode] = useState<"existing" | "new">("existing");
   const [linkedBookingId, setLinkedBookingId] = useState("");
@@ -153,6 +158,30 @@ export default function OperationDetailPage() {
   async function delItem(endpoint: string, itemId: string) { if (!confirm("Delete?")) return; await api.del(`/operations/${id}/${endpoint}/${itemId}`); fetchAll(); }
   async function recalculate() { await api.put(`/operations/${id}/recalculate`); fetchAll(); }
   async function updateStatus(s: string) { await api.put(`/operations/${id}`, { status: s }); fetchAll(); }
+
+  function openEditCustomerModal(bookingId: string, currentPrimary: any) {
+    setEditCustomerData({
+      bookingId,
+      firstName: currentPrimary?.firstName || "",
+      lastName: currentPrimary?.lastName || "",
+      email: currentPrimary?.email || "",
+      phone: currentPrimary?.phone || "",
+      panCard: currentPrimary?.panCard || ""
+    });
+    setEditCustomerModalOpen(true);
+  }
+
+  async function saveCustomerDetails() {
+    if (!editCustomerData) return;
+    try {
+      await api.put(`/bookings/${editCustomerData.bookingId}/primary-traveller`, editCustomerData);
+      setEditCustomerModalOpen(false);
+      fetchAll();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to update customer details");
+    }
+  }
+
   async function sendReminder(paymentId: string) { if (!confirm("Send a payment reminder email to the customer?")) return; try { await api.post(`/operations/${id}/customer-payments/${paymentId}/notify`); alert("Reminder sent successfully!"); } catch { alert("Failed to send reminder."); } }
 
   async function handleGroupItems(type: string, itemIds: string[]) {
@@ -420,11 +449,26 @@ export default function OperationDetailPage() {
         {tabs.map((t) => (<button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t.icon}{t.label}</button>))}
       </div>
 
-      {/* OVERVIEW */}
+    {/* OVERVIEW */}
       {tab === "overview" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-5"><p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p><p className="text-sm font-semibold text-slate-800">{displayCustomerName}</p><p className="text-xs text-slate-500">{displayCustomerEmail} | {displayCustomerPhone}</p><p className="text-xs text-slate-400 mt-1">{displayPax} pax</p></div>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 relative group">
+              {op.bookings && op.bookings.length === 1 && (
+                <button onClick={() => openEditCustomerModal(op.bookings![0]._id, op.bookings![0].primaryTraveller)} className="absolute top-4 right-4 text-slate-400 hover:text-cyan-600 transition-colors bg-white p-1 rounded border border-slate-100 shadow-sm opacity-0 group-hover:opacity-100" title="Edit Customer Details">
+                  <Edit2 size={12} />
+                </button>
+              )}
+              {op.booking && (!op.bookings || op.bookings.length === 0) && (
+                <button onClick={() => openEditCustomerModal(op.booking!._id, op.booking!.primaryTraveller)} className="absolute top-4 right-4 text-slate-400 hover:text-cyan-600 transition-colors bg-white p-1 rounded border border-slate-100 shadow-sm opacity-0 group-hover:opacity-100" title="Edit Customer Details">
+                  <Edit2 size={12} />
+                </button>
+              )}
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p>
+              <p className="text-sm font-semibold text-slate-800">{displayCustomerName}</p>
+              <p className="text-xs text-slate-500">{displayCustomerEmail} | {displayCustomerPhone}</p>
+              <p className="text-xs text-slate-400 mt-1">{displayPax} pax</p>
+            </div>
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
               <p className="text-sm font-semibold text-slate-800">{op.destination}</p>
@@ -560,13 +604,20 @@ export default function OperationDetailPage() {
               
               {(() => {
                 // Shared passenger card renderer
-                const PassengerCard = ({ t, onRemove }: { t: any; onRemove?: () => void }) => (
+                const PassengerCard = ({ t, onRemove, onEdit }: { t: any; onRemove?: () => void, onEdit?: () => void }) => (
                   <div className="p-3 border border-slate-100 bg-white shadow-sm rounded-lg relative group">
-                    {onRemove && (
-                      <button onClick={onRemove} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all" title="Remove">
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1">
+                      {onEdit && (
+                        <button onClick={onEdit} className="text-slate-400 hover:text-cyan-600 p-1" title="Edit Contact Details">
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                      {onRemove && (
+                        <button onClick={onRemove} className="text-red-400 hover:text-red-600 p-1" title="Remove">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : t.type === 'infant' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
                         {t.type || 'Adult'}
@@ -635,6 +686,7 @@ export default function OperationDetailPage() {
                                 <PassengerCard
                                   key={idx}
                                   t={t}
+                                  onEdit={t._isPrimary ? () => openEditCustomerModal(b._id, b.primaryTraveller) : undefined}
                                   onRemove={t._isPrimary ? undefined : () => {
                                     // idx in details = idx - 1 (accounting for primary card at top)
                                     const detailsIdx = idx - (b.primaryTraveller?.firstName ? 1 : 0);
@@ -667,6 +719,7 @@ export default function OperationDetailPage() {
                         <PassengerCard
                           key={idx}
                           t={t}
+                          onEdit={t._isPrimary ? () => openEditCustomerModal(singleBooking._id, singleBooking.primaryTraveller) : undefined}
                           onRemove={t._isPrimary ? undefined : () => {
                             const detailsIdx = idx - (singleBooking.primaryTraveller?.firstName ? 1 : 0);
                             handleRemovePassenger(singleBooking._id, detailsIdx);
@@ -1608,6 +1661,56 @@ export default function OperationDetailPage() {
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end">
               <button onClick={handleAddPassenger} disabled={addingPassenger} className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-xs disabled:opacity-50">
                 {addingPassenger ? "Adding..." : "Add Passenger"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Customer Details Modal */}
+      {editCustomerModalOpen && editCustomerData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-0 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Edit Customer Details</h3>
+                <p className="text-xs text-slate-500 mt-1">Update the primary traveller info for this booking.</p>
+              </div>
+              <button onClick={() => setEditCustomerModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">First Name</label>
+                  <Inp value={editCustomerData.firstName} onChange={(v) => setEditCustomerData({ ...editCustomerData, firstName: v })} placeholder="First Name" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Last Name</label>
+                  <Inp value={editCustomerData.lastName} onChange={(v) => setEditCustomerData({ ...editCustomerData, lastName: v })} placeholder="Last Name" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+                  <Inp value={editCustomerData.email} onChange={(v) => setEditCustomerData({ ...editCustomerData, email: v })} placeholder="Email Address" type="email" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
+                  <Inp value={editCustomerData.phone} onChange={(v) => setEditCustomerData({ ...editCustomerData, phone: v })} placeholder="Phone Number" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">PAN Card (Optional)</label>
+                <Inp value={editCustomerData.panCard} onChange={(v) => setEditCustomerData({ ...editCustomerData, panCard: v })} placeholder="PAN Number" />
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 mt-auto">
+              <button onClick={() => setEditCustomerModalOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors">
+                Cancel
+              </button>
+              <button onClick={saveCustomerDetails} className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-cyan-600 hover:bg-cyan-700 text-white transition-colors flex items-center gap-2">
+                <Save size={16} /> Save Changes
               </button>
             </div>
           </div>
