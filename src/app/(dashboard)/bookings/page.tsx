@@ -154,13 +154,22 @@ export default function BookingsPage() {
                 ) : (
                   bookings.map((b) => {
                     const user = typeof b.user === "object" ? b.user : null;
+                    const primary = b.primaryTraveller;
                     const pkg = typeof b.package === "object" ? b.package : null;
                     const bStatus = b.bookingStatus || b.status || "pending";
+                    
+                    const displayName = primary?.firstName 
+                      ? `${primary.firstName} ${primary.lastName || ''}`.trim() 
+                      : user 
+                        ? `${user.firstName} ${user.lastName || ''}`.trim() 
+                        : "—";
+                    const displayEmail = primary?.email || user?.email || "—";
+
                     return (
                       <tr key={b._id} className="hover:bg-slate-50">
                         <td className="px-6 py-4">
-                          <p className="text-sm font-medium text-slate-700">{user ? `${user.firstName} ${user.lastName}` : "—"}</p>
-                          <p className="text-xs text-slate-400">{user?.email}</p>
+                          <p className="text-sm font-medium text-slate-700">{displayName}</p>
+                          <p className="text-xs text-slate-400">{displayEmail}</p>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600 max-w-[180px] truncate">{pkg?.name || "—"}</td>
                         <td className="px-6 py-4 text-sm text-slate-500">{formatDate(b.travelDate)}</td>

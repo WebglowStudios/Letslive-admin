@@ -70,6 +70,7 @@ export interface Booking {
   _id: string;
   bookingId?: string;
   user: { _id: string; firstName: string; lastName: string; email: string } | string;
+  primaryTraveller?: { firstName: string; lastName: string; email: string; phone?: string; panCard?: string };
   package: { _id: string; name: string; slug?: string } | string;
   travelDate: string;
   travellers: number;
