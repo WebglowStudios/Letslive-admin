@@ -363,12 +363,24 @@ export default function OperationDetailPage() {
   const handleAddPassenger = async () => {
     if (!newPassenger.name) return alert("Please enter passenger name");
     
-    const isGroupTour = op?.departureId || (op?.bookings && op.bookings.length > 1);
+    const isGroupTour = !!(op?.departureId || (op?.bookings && op.bookings.length > 1));
     const modeToUse = isGroupTour ? addPassengerMode : "existing";
-    const targetBookingId = isGroupTour ? linkedBookingId : (op?.booking?._id || (op?.bookings && op.bookings[0]?._id));
 
-    if (modeToUse === "existing" && !targetBookingId) return alert("Please select a booking to add this passenger to");
-    if (modeToUse === "new" && !newPassengerEmail) return alert("Email is required for new bookings");
+    // Resolve target booking:
+    // - Group tour: user must pick from dropdown (linkedBookingId)
+    // - New ops (bookings array): use first booking in bookings[]
+    // - Legacy ops (booking singular): use op.booking._id
+    const targetBookingId = isGroupTour
+      ? linkedBookingId
+      : (
+          (op?.bookings && op.bookings.length > 0 ? op.bookings[0]._id : null) ||
+          (op?.booking && typeof op.booking === 'object' ? (op.booking as any)._id : op?.booking) ||
+          null
+        );
+
+    if (modeToUse === "existing" && !targetBookingId) return alert("No booking linked to this operation. Cannot add passenger.");
+    if (isGroupTour && modeToUse === "existing" && !linkedBookingId) return alert("Please select which booking group to add this passenger to.");
+    if (modeToUse === "new" && !newPassengerEmail) return alert("Email is required for new bookings.");
 
     setAddingPassenger(true);
     try {
@@ -455,16 +467,22 @@ export default function OperationDetailPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-5 relative group">
-              {op.bookings && op.bookings.length === 1 && (
-                <button onClick={() => openEditCustomerModal(op.bookings![0]._id, op.bookings![0].primaryTraveller)} className="absolute top-4 right-4 text-slate-400 hover:text-cyan-600 transition-colors bg-white p-1 rounded border border-slate-100 shadow-sm opacity-0 group-hover:opacity-100" title="Edit Customer Details">
-                  <Edit2 size={12} />
-                </button>
-              )}
-              {op.booking && (!op.bookings || op.bookings.length === 0) && (
-                <button onClick={() => openEditCustomerModal(op.booking!._id, op.booking!.primaryTraveller)} className="absolute top-4 right-4 text-slate-400 hover:text-cyan-600 transition-colors bg-white p-1 rounded border border-slate-100 shadow-sm opacity-0 group-hover:opacity-100" title="Edit Customer Details">
-                  <Edit2 size={12} />
-                </button>
-              )}
+              {(op.booking || (op.bookings && op.bookings.length > 0)) && (() => {
+                const singleB = op.bookings && op.bookings.length > 0 ? op.bookings[0] : op.booking as any;
+                if (!singleB || (op.bookings && op.bookings.length > 1)) return null;
+                const prefill = (singleB as any).primaryTraveller || {
+                  firstName: op.customer?.name?.split(' ')[0] || op.customers?.[0]?.name?.split(' ')[0] || '',
+                  lastName: op.customer?.name?.split(' ').slice(1).join(' ') || op.customers?.[0]?.name?.split(' ').slice(1).join(' ') || '',
+                  email: op.customer?.email || op.customers?.[0]?.email || '',
+                  phone: op.customer?.phone || op.customers?.[0]?.phone || '',
+                  panCard: '',
+                };
+                return (
+                  <button onClick={() => openEditCustomerModal(singleB._id, prefill)} className="absolute top-4 right-4 text-slate-400 hover:text-cyan-600 transition-colors bg-white p-1 rounded border border-slate-100 shadow-sm opacity-0 group-hover:opacity-100" title="Edit Customer Details">
+                    <Edit2 size={12} />
+                  </button>
+                );
+              })()}
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Customer</p>
               <p className="text-sm font-semibold text-slate-800">{displayCustomerName}</p>
               <p className="text-xs text-slate-500">{displayCustomerEmail} | {displayCustomerPhone}</p>
