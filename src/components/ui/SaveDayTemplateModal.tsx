@@ -45,6 +45,9 @@ export function SaveDayTemplateModal({ open, onClose, dayData }: Props) {
             images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
           };
         }),
+        recommendations: (dayData.recommendations || [])
+          .map((a: any) => (typeof a === "string" ? a : (a.title || a.name || "")).trim())
+          .filter(Boolean),
         meals: dayData.meals,
         accommodation: dayData.accommodation,
         images: dayData.images

@@ -12,6 +12,7 @@ interface DayTemplate {
   title: string;
   description: string;
   activities: (string | any)[];
+  recommendations?: (string | any)[];
   meals: string[];
   accommodation: string;
   images: string[];

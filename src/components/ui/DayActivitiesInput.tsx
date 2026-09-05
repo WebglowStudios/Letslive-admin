@@ -18,6 +18,9 @@ interface DayActivitiesInputProps {
   onChange: (activities: DayActivityItem[]) => void;
   placeholder?: string;
   folder?: string;
+  hideImages?: boolean;
+  hideDescription?: boolean;
+  theme?: "cyan" | "amber";
 }
 
 function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
@@ -50,18 +53,23 @@ export default function DayActivitiesInput({
   activities = [],
   onChange,
   placeholder,
+  hideImages = false,
+  hideDescription = false,
+  theme = "cyan",
 }: DayActivitiesInputProps) {
+  const isAmber = theme === "amber";
+
   // Normalize incoming activities to DayActivityItem[]
   const items: DayActivityItem[] = activities.map((a) => {
     if (typeof a === "string") {
       return { title: a, description: "", image: "", images: [] };
     }
-    const img = a.image || (a.images && a.images[0]) || "";
+    const img = hideImages ? "" : (a.image || (a.images && a.images[0]) || "");
     return {
       title: a.title || "",
-      description: a.description || "",
+      description: hideDescription ? "" : (a.description || ""),
       image: img,
-      images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
+      images: hideImages ? [] : (a.images && a.images.length > 0 ? a.images : (img ? [img] : [])),
     };
   });
 
@@ -213,18 +221,24 @@ export default function DayActivitiesInput({
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || "Add activity (e.g. Shikara Ride on Dal Lake) · Use | for multiple"}
-          className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
+          className={`flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white ${
+            isAmber ? "focus:ring-amber-500" : "focus:ring-cyan-500"
+          }`}
         />
         <button
           type="button"
           onClick={addItem}
-          className="px-3.5 py-2 bg-cyan-50 text-cyan-700 rounded-xl hover:bg-cyan-100 transition-colors flex items-center gap-1 text-sm font-medium shrink-0"
+          className={`px-3.5 py-2 rounded-xl transition-colors flex items-center gap-1 text-sm font-medium shrink-0 ${
+            isAmber
+              ? "bg-amber-50 text-amber-800 hover:bg-amber-100"
+              : "bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
+          }`}
         >
           <Plus size={16} /> Add
         </button>
       </div>
 
-      {/* Activity list */}
+      {/* Activity / Recommendation list */}
       {items.length > 0 && (
         <ul className="mt-2.5 space-y-2">
           {items.map((item, i) => (
@@ -235,28 +249,36 @@ export default function DayActivitiesInput({
               onDragEnter={() => handleDragEnter(i)}
               onDragEnd={handleDragEnd}
               onDragOver={(e) => e.preventDefault()}
-              className={`flex items-start gap-2.5 px-3 py-2.5 border rounded-xl group transition-all ${
+              className={`flex ${hideDescription ? "items-center py-2" : "items-start py-2.5"} gap-2.5 px-3 border rounded-xl group transition-all ${
                 editingIndex === i
-                  ? "bg-cyan-50/60 border-cyan-300 shadow-sm"
+                  ? isAmber
+                    ? "bg-amber-50/60 border-amber-300 shadow-sm"
+                    : "bg-cyan-50/60 border-cyan-300 shadow-sm"
                   : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
               }`}
             >
               <span
-                className={`transition-colors cursor-grab active:cursor-grabbing shrink-0 mt-1 ${
-                  editingIndex === i ? "text-cyan-400" : "text-slate-300 group-hover:text-slate-500"
+                className={`transition-colors cursor-grab active:cursor-grabbing shrink-0 ${hideDescription ? "" : "mt-1"} ${
+                  editingIndex === i
+                    ? isAmber ? "text-amber-400" : "text-cyan-400"
+                    : "text-slate-300 group-hover:text-slate-500"
                 }`}
               >
                 <GripVertical size={14} />
               </span>
 
-              <span className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+              <span
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${hideDescription ? "" : "mt-0.5"} ${
+                  isAmber ? "bg-amber-100 text-amber-800" : "bg-cyan-100 text-cyan-700"
+                }`}
+              >
                 {i + 1}
               </span>
 
               {/* Title & Description display or edit */}
               <div className="flex-1 min-w-0">
                 {editingIndex === i ? (
-                  <div className="flex items-center gap-1.5 mb-1">
+                  <div className={`flex items-center gap-1.5 ${hideDescription ? "" : "mb-1"}`}>
                     <input
                       ref={editRef}
                       type="text"
@@ -264,7 +286,9 @@ export default function DayActivitiesInput({
                       onChange={(e) => setEditingValue(e.target.value)}
                       onKeyDown={handleEditKeyDown}
                       onBlur={commitEdit}
-                      className="flex-1 bg-white border border-cyan-400 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 min-w-0"
+                      className={`flex-1 bg-white border rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 min-w-0 ${
+                        isAmber ? "border-amber-400 focus:ring-amber-500" : "border-cyan-400 focus:ring-cyan-500"
+                      }`}
                     />
                     <button
                       type="button"
@@ -294,88 +318,96 @@ export default function DayActivitiesInput({
                     <span
                       className="text-sm font-semibold text-slate-800 truncate cursor-pointer select-none"
                       onDoubleClick={() => startEdit(i)}
-                      title="Double-click to edit activity name"
+                      title="Double-click to edit name"
                     >
                       {item.title}
                     </span>
                     <button
                       type="button"
                       onClick={() => startEdit(i)}
-                      className="p-1 text-slate-300 hover:text-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      title="Edit activity name"
+                      className={`p-1 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ${
+                        isAmber ? "hover:text-amber-600" : "hover:text-cyan-600"
+                      }`}
+                      title="Edit name"
                     >
                       <Pencil size={12} />
                     </button>
                   </div>
                 )}
 
-                {/* Optional description input */}
-                <input
-                  type="text"
-                  value={item.description || ""}
-                  onChange={(e) => handleUpdateDescription(i, e.target.value)}
-                  placeholder="+ Add short details / description (optional)..."
-                  className="w-full text-xs text-slate-600 bg-transparent border-0 border-b border-transparent hover:border-slate-200 focus:border-cyan-400 focus:bg-slate-50 focus:outline-none px-1 py-0.5 rounded transition-colors placeholder:text-slate-300 mt-0.5"
-                />
-              </div>
-
-              {/* Linked Image Section for this Activity */}
-              <div className="flex items-center shrink-0">
-                {item.image ? (
-                  <div className="relative group/img flex items-center">
-                    <div className="relative w-14 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-xs">
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewUrl(item.image || null)}
-                          className="w-5 h-5 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center transition-colors"
-                          title="Preview image"
-                        >
-                          <ZoomIn size={10} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setModalItemIndex(i)}
-                          className="w-5 h-5 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center transition-colors"
-                          title="Change image"
-                        >
-                          <RefreshCw size={9} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveActivityImage(i)}
-                          className="w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
-                          title="Remove image"
-                        >
-                          <Trash2 size={10} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setModalItemIndex(i)}
-                    className="px-2.5 py-1.5 border border-dashed border-slate-300 hover:border-cyan-500 rounded-lg text-xs font-medium text-slate-500 hover:text-cyan-700 bg-slate-50/50 hover:bg-cyan-50/50 flex items-center gap-1.5 transition-all"
-                    title="Attach photo to this activity"
-                  >
-                    <ImageIcon size={13} className="text-slate-400 group-hover:text-cyan-500" />
-                    <span>+ Photo</span>
-                  </button>
+                {/* Optional description input (hidden if hideDescription is true) */}
+                {!hideDescription && (
+                  <input
+                    type="text"
+                    value={item.description || ""}
+                    onChange={(e) => handleUpdateDescription(i, e.target.value)}
+                    placeholder="+ Add short details / description (optional)..."
+                    className={`w-full text-xs text-slate-600 bg-transparent border-0 border-b border-transparent hover:border-slate-200 focus:bg-slate-50 focus:outline-none px-1 py-0.5 rounded transition-colors placeholder:text-slate-300 mt-0.5 ${
+                      isAmber ? "focus:border-amber-400" : "focus:border-cyan-400"
+                    }`}
+                  />
                 )}
               </div>
 
-              {/* Remove Activity Button */}
+              {/* Linked Image Section for this Activity (hidden for recommendations) */}
+              {!hideImages && (
+                <div className="flex items-center shrink-0">
+                  {item.image ? (
+                    <div className="relative group/img flex items-center">
+                      <div className="relative w-14 h-10 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-xs">
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewUrl(item.image || null)}
+                            className="w-5 h-5 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center transition-colors"
+                            title="Preview image"
+                          >
+                            <ZoomIn size={10} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setModalItemIndex(i)}
+                            className="w-5 h-5 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center transition-colors"
+                            title="Change image"
+                          >
+                            <RefreshCw size={9} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveActivityImage(i)}
+                            className="w-5 h-5 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
+                            title="Remove image"
+                          >
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setModalItemIndex(i)}
+                      className="px-2.5 py-1.5 border border-dashed border-slate-300 hover:border-cyan-500 rounded-lg text-xs font-medium text-slate-500 hover:text-cyan-700 bg-slate-50/50 hover:bg-cyan-50/50 flex items-center gap-1.5 transition-all"
+                      title="Attach photo to this activity"
+                    >
+                      <ImageIcon size={13} className="text-slate-400 group-hover:text-cyan-500" />
+                      <span>+ Photo</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Remove Button */}
               <button
                 type="button"
                 onClick={() => removeItem(i)}
                 className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                title="Remove activity"
+                title="Remove item"
               >
                 <X size={15} />
               </button>
@@ -387,12 +419,15 @@ export default function DayActivitiesInput({
       {/* Helpful Hint */}
       {items.length > 0 && editingIndex === null && (
         <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
-          <GripVertical size={10} /> Drag to reorder · Double-click to edit · Click <strong>+ Photo</strong> to attach a photo to each activity
+          <GripVertical size={10} /> Drag to reorder · Double-click to edit
+          {!hideImages && (
+            <span> · Click <strong>+ Photo</strong> to attach a photo to each activity</span>
+          )}
         </p>
       )}
 
       {/* Media Library Modal for choosing activity image */}
-      {modalItemIndex !== null && (
+      {!hideImages && modalItemIndex !== null && (
         <MediaLibraryModal
           open={true}
           onClose={() => setModalItemIndex(null)}
@@ -407,7 +442,7 @@ export default function DayActivitiesInput({
       )}
 
       {/* Lightbox for previewing activity image */}
-      {previewUrl && <Lightbox url={previewUrl} onClose={() => setPreviewUrl(null)} />}
+      {!hideImages && previewUrl && <Lightbox url={previewUrl} onClose={() => setPreviewUrl(null)} />}
     </div>
   );
 }

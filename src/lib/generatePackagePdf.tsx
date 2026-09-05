@@ -68,6 +68,7 @@ interface ItineraryDay {
   title: string;
   description: string;
   activities: (string | { title: string; image?: string; images?: string[] })[];
+  recommendations?: (string | { title: string; image?: string; images?: string[] })[];
   meals: string[];
   accommodation: string;
 }
@@ -1274,7 +1275,6 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                   </View>
                 </View>
               )}
-
               {/* Transfers for this day */}
               {dayTransfers.length > 0 && (
                 <View style={{ marginTop: 2, marginBottom: 8 }}>
