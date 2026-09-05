@@ -425,7 +425,10 @@ export default function EditCustomItineraryPage() {
     setLoading(true); setError(""); setSuccess("");
     try {
       const payload = {
-        name, clientName, clientEmail: clientEmail || undefined, clientPhone: clientPhone || undefined,
+        name,
+        clientName: clientName?.trim() || undefined,
+        clientEmail: clientEmail?.trim() || undefined,
+        clientPhone: clientPhone?.trim() || undefined,
         destination: destination || undefined, customDestinationText: (!destination && customDestinationText) ? customDestinationText.trim() : undefined, description, shortDescription,
         heroImage: heroImage || undefined, images, destinationImages, stayImages, activityImages,
         isInternational,
@@ -532,11 +535,21 @@ export default function EditCustomItineraryPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Client Email</label>
-                <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Client Email <span className="text-xs font-normal text-slate-400">(optional)</span>
+                </label>
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="client@email.com (optional)"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Client Phone</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Client Phone <span className="text-xs font-normal text-slate-400">(optional)</span>
+                </label>
                 <PhoneInput value={clientPhone} onChange={setClientPhone} />
               </div>
             </div>

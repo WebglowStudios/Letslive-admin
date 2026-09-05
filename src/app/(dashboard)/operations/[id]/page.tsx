@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2 } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRole } from "@/hooks/usePermission";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
@@ -121,8 +121,20 @@ export default function OperationDetailPage() {
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
+  const calculateAgeFromDob = (dobStr?: string): number | undefined => {
+    if (!dobStr) return undefined;
+    const birthDate = new Date(dobStr);
+    if (isNaN(birthDate.getTime())) return undefined;
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : undefined;
+  };
 
-  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
+  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", dob: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
   const [addPassengerMode, setAddPassengerMode] = useState<"existing" | "new">("existing");
   const [linkedBookingId, setLinkedBookingId] = useState("");
   const [newPassengerEmail, setNewPassengerEmail] = useState("");
@@ -197,8 +209,23 @@ export default function OperationDetailPage() {
     }
   }
   async function delItem(endpoint: string, itemId: string) { if (!confirm("Delete?")) return; await api.del(`/operations/${id}/${endpoint}/${itemId}`); fetchAll(); }
-  async function recalculate() { await api.put(`/operations/${id}/recalculate`); fetchAll(); }
   async function updateStatus(s: string) { await api.put(`/operations/${id}`, { status: s }); fetchAll(); }
+  async function recalculate() {
+    try {
+      await api.put(`/operations/${id}/recalculate`);
+      await fetchAll();
+      const existing = document.getElementById('save-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'save-toast';
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-cyan-600 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300';
+      toast.innerHTML = `✓ Pricing, vendor costs & payments recalculated successfully!`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to recalculate operation pricing.");
+    }
+  }
 
   function openEditCustomerModal(bookingId: string, currentPrimary: any) {
     setEditCustomerData({
@@ -456,13 +483,17 @@ export default function OperationDetailPage() {
     try {
       await api.post(`/operations/${id}/passengers`, {
         mode: modeToUse,
-        passengerData: newPassenger,
+        passengerData: {
+          ...newPassenger,
+          age: newPassenger.age ? Number(newPassenger.age) : undefined,
+          dob: newPassenger.dob ? new Date(newPassenger.dob) : undefined,
+        },
         bookingId: modeToUse === "existing" ? targetBookingId : undefined,
         email: modeToUse === "new" ? newPassengerEmail : undefined,
         phone: modeToUse === "new" ? newPassengerPhone : undefined
       });
       setPassengerModalOpen(false);
-      setNewPassenger({ name: "", age: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
+      setNewPassenger({ name: "", age: "", dob: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
       setNewPassengerEmail("");
       setNewPassengerPhone("");
       fetchAll();
@@ -707,14 +738,32 @@ export default function OperationDetailPage() {
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : t.type === 'infant' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
                         {t.type || 'Adult'}
                       </span>
                       <p className="text-sm font-bold text-slate-800">{t.name}</p>
-                      {t.age && <p className="text-xs text-slate-500">({t.age} yrs)</p>}
                       {t._isPrimary && <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded-full uppercase">Lead</span>}
                     </div>
+                    {/* Both DOB and Age clearly displayed together */}
+                    {(() => {
+                      const displayAge = (t.age !== undefined && t.age !== null && t.age !== '') ? t.age : calculateAgeFromDob(t.dob);
+                      if (!t.dob && (displayAge === undefined || displayAge === null || displayAge === '')) return null;
+                      return (
+                        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                          {t.dob && (
+                            <span className="text-[10.5px] text-slate-600 font-medium bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                              DOB: {formatDate(t.dob)}
+                            </span>
+                          )}
+                          {displayAge !== undefined && displayAge !== null && displayAge !== '' && (
+                            <span className="text-[10.5px] font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                              Age: {displayAge} yrs
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {(t.email || t.phone) && <p className="text-[10px] text-slate-400 mt-0.5">{[t.email, t.phone].filter(Boolean).join(' · ')}</p>}
                     {(t.passportNumber || t.issuingCountry) && (
                       <div className="mt-2 pt-2 border-t border-slate-100">
@@ -735,11 +784,14 @@ export default function OperationDetailPage() {
                   const list: any[] = [];
                   // Always include primaryTraveller as the lead card
                   if (primary?.firstName) {
+                    const matchedDetail = details.find(d => d.name?.toLowerCase() === `${primary.firstName} ${primary.lastName || ''}`.trim().toLowerCase());
                     list.push({
                       name: `${primary.firstName} ${primary.lastName || ''}`.trim(),
                       email: primary.email,
                       phone: primary.phone,
                       type: 'adult',
+                      dob: matchedDetail?.dob || (primary as any).dob,
+                      age: matchedDetail?.age || (primary as any).age,
                       _isPrimary: true,
                     });
                   }
@@ -2166,11 +2218,47 @@ export default function OperationDetailPage() {
               <p className="text-[10px] text-slate-400 mt-1">Track installments received from the customer</p>
             </div>
             <div className="flex gap-2">
+              <button onClick={recalculate} className="flex items-center gap-1.5 px-3 py-2 bg-cyan-50 border border-cyan-200 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100 transition-colors" title="Recalculate pricing and sync customer payments with operation totals">
+                <RefreshCw size={13} /> Recalculate
+              </button>
               {customerPayments.length > 0 && <button onClick={() => generateInvoicePdf({ mode: "summary", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: "Full Statement", amount: customerPayments.reduce((s,p)=>s+p.amount,0), dueDate: undefined, paidAmount: customerPayments.reduce((s,p)=>s+p.paidAmount,0), status: "statement", sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp=>({milestone:cp.milestone,amount:cp.amount,paidAmount:cp.paidAmount,status:cp.status})) })} className="flex items-center gap-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200"><Download size={14} /> Statement</button>}
               <button onClick={() => setSplitModalOpen(true)} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Installment</button>
             </div>
           </div>
-          {customerPayments.length>0&&<div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between"><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Total</p><p className="text-sm font-bold text-slate-800">{formatCurrency(customerPayments.reduce((s,p)=>s+p.amount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Received</p><p className="text-sm font-bold text-emerald-600">{formatCurrency(customerPayments.reduce((s,p)=>s+p.paidAmount,0))}</p></div><div className="text-center"><p className="text-[9px] text-slate-400 uppercase">Pending</p><p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s,p)=>s+(p.amount-p.paidAmount),0))}</p></div></div>}
+          {customerPayments.length > 0 && (() => {
+            const totalBilled = customerPayments.reduce((s, p) => s + p.amount, 0);
+            const totalPaid = customerPayments.reduce((s, p) => s + p.paidAmount, 0);
+            const isOutOfSync = op && (op as any).effectiveSelling !== totalBilled && totalBilled > 0;
+
+            return (
+              <div className="space-y-2">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+                  <div className="text-center">
+                    <p className="text-[9px] text-slate-400 uppercase">Total Billed</p>
+                    <p className="text-sm font-bold text-slate-800">{formatCurrency(totalBilled)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] text-slate-400 uppercase">Received</p>
+                    <p className="text-sm font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] text-slate-400 uppercase">Pending</p>
+                    <p className="text-sm font-bold text-amber-600">{formatCurrency(customerPayments.reduce((s, p) => s + (p.amount - p.paidAmount), 0))}</p>
+                  </div>
+                </div>
+                {isOutOfSync && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                    <p className="text-xs text-amber-800">
+                      Payment schedule total ({formatCurrency(totalBilled)}) differs from current billed amount ({formatCurrency((op as any).effectiveSelling ?? op.sellingPrice)}).
+                    </p>
+                    <button onClick={recalculate} className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1 rounded-lg flex items-center gap-1 transition-colors">
+                      <RefreshCw size={12} /> Sync Now
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           
           {(() => {
             const groupedPayments: Record<string, any[]> = {};
@@ -2430,8 +2518,37 @@ export default function OperationDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Age</label>
-                  <input type="number" value={newPassenger.age} onChange={e => setNewPassenger({...newPassenger, age: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g. 30" />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Date of Birth</label>
+                    {newPassenger.age !== "" && (
+                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
+                        {newPassenger.age} yrs
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={newPassenger.dob || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const calculatedAge = calculateAgeFromDob(val);
+                      let autoType = newPassenger.type;
+                      if (calculatedAge !== undefined) {
+                        if (calculatedAge < 2) autoType = "infant";
+                        else if (calculatedAge < 12) autoType = "child";
+                        else autoType = "adult";
+                      }
+                      setNewPassenger({
+                        ...newPassenger,
+                        dob: val,
+                        age: calculatedAge !== undefined ? String(calculatedAge) : "",
+                        type: autoType,
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <p className="text-[9px] text-slate-400 mt-0.5">Optional · Age is calculated automatically</p>
                 </div>
               </div>
               <div className="pt-3 border-t border-slate-100">

@@ -228,7 +228,7 @@ export default function ItinerariesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-slate-700">{it.clientName || "—"}</p>
-                      <p className="text-xs text-slate-400">{it.clientEmail || ""}</p>
+                      <p className="text-xs text-slate-400">{it.clientEmail || it.clientPhone || ""}</p>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-500">
                       {destName ? destName : (

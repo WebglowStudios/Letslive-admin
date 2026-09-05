@@ -24,7 +24,7 @@ interface BookingDetail {
   travelDate: string;
   returnDate?: string;
   travellers: { adults: number; children: number; infants: number };
-  travellersDetails: { name: string; age?: number; type: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string }[];
+  travellersDetails: { name: string; age?: number; dob?: string | Date; type: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string }[];
   primaryTraveller: { firstName: string; lastName: string; email: string; phone?: string; panCard?: string };
   totalAmount: number;
   paidAmount: number;
@@ -39,6 +39,19 @@ interface BookingDetail {
   createdAt: string;
   updatedAt: string;
 }
+
+const calculateAgeFromDob = (dobStr?: string): number | undefined => {
+  if (!dobStr) return undefined;
+  const birthDate = new Date(dobStr);
+  if (isNaN(birthDate.getTime())) return undefined;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : undefined;
+};
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 const BOOKING_STATUS_COLORS: Record<string, string> = {
@@ -439,8 +452,20 @@ export default function BookingDetailPage() {
                           </div>
                           <p className="text-sm font-medium text-slate-700">{t.name || "—"}</p>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-400">
-                          {t.age && <span>Age {t.age}</span>}
+                        <div className="flex items-center gap-2 text-xs flex-wrap">
+                          {t.dob && (
+                            <span className="text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono">
+                              DOB: {new Date(t.dob).toLocaleDateString()}
+                            </span>
+                          )}
+                          {(() => {
+                            const displayAge = t.age ?? (t.dob ? calculateAgeFromDob(t.dob) : undefined);
+                            return displayAge !== undefined && displayAge !== null && displayAge !== '' ? (
+                              <span className="font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                Age: {displayAge} yrs
+                              </span>
+                            ) : null;
+                          })()}
                           <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
                             t.type === "adult" ? "bg-slate-100 text-slate-600" :
                             t.type === "child" ? "bg-amber-100 text-amber-700" :
