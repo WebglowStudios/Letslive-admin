@@ -66,7 +66,7 @@ interface ItineraryDay {
   day: number;
   title: string;
   description: string;
-  activities: string[];
+  activities: (string | { title: string; image?: string; images?: string[] })[];
   meals: string[];
   accommodation: string;
 }
@@ -992,7 +992,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                           borderWidth: 1, borderColor: C.line,
                           borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
                         }}>
-                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{act}</Text>
+                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{typeof act === 'string' ? act : (act.title || '')}</Text>
                         </View>
                       ))}
                     </View>
@@ -1006,7 +1006,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                           borderWidth: 1, borderColor: C.line,
                           borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
                         }} wrap={false}>
-                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{act}</Text>
+                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{typeof act === 'string' ? act : (act.title || '')}</Text>
                         </View>
                       ))}
                     </View>

@@ -7,6 +7,7 @@ import { MediaLibraryModal } from "./ImageUpload";
 
 export interface DayActivityItem {
   title: string;
+  description?: string;
   image?: string;
   images?: string[];
 }
@@ -53,11 +54,12 @@ export default function DayActivitiesInput({
   // Normalize incoming activities to DayActivityItem[]
   const items: DayActivityItem[] = activities.map((a) => {
     if (typeof a === "string") {
-      return { title: a, image: "", images: [] };
+      return { title: a, description: "", image: "", images: [] };
     }
     const img = a.image || (a.images && a.images[0]) || "";
     return {
       title: a.title || "",
+      description: a.description || "",
       image: img,
       images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
     };
@@ -190,6 +192,15 @@ export default function DayActivitiesInput({
     onChange(updated);
   }
 
+  function handleUpdateDescription(index: number, description: string) {
+    const updated = [...items];
+    updated[index] = {
+      ...updated[index],
+      description,
+    };
+    onChange(updated);
+  }
+
   return (
     <div>
       {label && <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>}
@@ -224,28 +235,28 @@ export default function DayActivitiesInput({
               onDragEnter={() => handleDragEnter(i)}
               onDragEnd={handleDragEnd}
               onDragOver={(e) => e.preventDefault()}
-              className={`flex items-center gap-2.5 px-3 py-2 border rounded-xl group transition-all ${
+              className={`flex items-start gap-2.5 px-3 py-2.5 border rounded-xl group transition-all ${
                 editingIndex === i
                   ? "bg-cyan-50/60 border-cyan-300 shadow-sm"
                   : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
               }`}
             >
               <span
-                className={`transition-colors cursor-grab active:cursor-grabbing shrink-0 ${
+                className={`transition-colors cursor-grab active:cursor-grabbing shrink-0 mt-1 ${
                   editingIndex === i ? "text-cyan-400" : "text-slate-300 group-hover:text-slate-500"
                 }`}
               >
                 <GripVertical size={14} />
               </span>
 
-              <span className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold shrink-0">
+              <span className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                 {i + 1}
               </span>
 
-              {/* Title display or edit */}
+              {/* Title & Description display or edit */}
               <div className="flex-1 min-w-0">
                 {editingIndex === i ? (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 mb-1">
                     <input
                       ref={editRef}
                       type="text"
@@ -281,7 +292,7 @@ export default function DayActivitiesInput({
                 ) : (
                   <div className="flex items-center gap-2">
                     <span
-                      className="text-sm font-medium text-slate-800 truncate cursor-pointer select-none"
+                      className="text-sm font-semibold text-slate-800 truncate cursor-pointer select-none"
                       onDoubleClick={() => startEdit(i)}
                       title="Double-click to edit activity name"
                     >
@@ -297,6 +308,15 @@ export default function DayActivitiesInput({
                     </button>
                   </div>
                 )}
+
+                {/* Optional description input */}
+                <input
+                  type="text"
+                  value={item.description || ""}
+                  onChange={(e) => handleUpdateDescription(i, e.target.value)}
+                  placeholder="+ Add short details / description (optional)..."
+                  className="w-full text-xs text-slate-600 bg-transparent border-0 border-b border-transparent hover:border-slate-200 focus:border-cyan-400 focus:bg-slate-50 focus:outline-none px-1 py-0.5 rounded transition-colors placeholder:text-slate-300 mt-0.5"
+                />
               </div>
 
               {/* Linked Image Section for this Activity */}

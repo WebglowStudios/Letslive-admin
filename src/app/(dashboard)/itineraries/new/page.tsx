@@ -436,6 +436,7 @@ export default function NewCustomItineraryPage() {
             if (typeof a === "string") return a;
             return {
               title: a.title || "",
+              description: a.description || undefined,
               image: a.image || (a.images && a.images[0]) || "",
               images: a.images && a.images.length > 0 ? a.images : (a.image ? [a.image] : []),
             };
@@ -1259,7 +1260,7 @@ export default function NewCustomItineraryPage() {
             // Apply all template fields atomically to prevent stale-closure overwrites
             setItinerary(prev => prev.map((d, i) =>
               i === loadTemplateDayIndex
-                ? { ...d, title: template.title || "", description: template.description || "", activities: (template.activities || []).map((a: any) => typeof a === 'string' ? { title: a, image: '', images: [] } : a), meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                ? { ...d, title: template.title || "", description: template.description || "", activities: (template.activities || []).map((a: any) => typeof a === 'string' ? { title: a, description: '', image: '', images: [] } : a), meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
                 : d
             ));
           }
