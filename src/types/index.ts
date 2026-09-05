@@ -113,6 +113,17 @@ export interface EnquiryNote {
   date: string;
 }
 
+export interface EnquiryTimelineEvent {
+  _id?: string;
+  type: string;
+  title: string;
+  description?: string;
+  by?: { firstName: string; lastName: string; avatar?: string; email?: string } | string;
+  byName?: string;
+  date: string;
+  meta?: Record<string, any>;
+}
+
 export interface Enquiry {
   _id: string;
   type: "general" | "booking" | "support" | "callback" | "group-quote";
@@ -129,9 +140,24 @@ export interface Enquiry {
   linkedItineraries?: { _id: string; name: string; slug: string; price?: number }[];
   status: "new" | "assigned" | "in-progress" | "follow-up" | "converted" | "resolved" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
-  assignedTo?: { _id: string; firstName: string; lastName: string };
+  assignedTo?: { _id: string; firstName: string; lastName: string; avatar?: string; email?: string };
   notes: EnquiryNote[];
-  source: "website" | "whatsapp" | "phone";
+  timeline?: EnquiryTimelineEvent[];
+  activityLogs?: Array<{
+    _id: string;
+    action: string;
+    userName: string;
+    userRole: string;
+    description: string;
+    createdAt: string;
+    meta?: Record<string, any>;
+  }>;
+  feedback?: {
+    rating: number;
+    comments?: string;
+    submittedAt: string;
+  };
+  source: "website" | "whatsapp" | "phone" | "walk-in" | "instagram" | "google" | "referral" | "other";
   // CRM fields
   dnpCount: number;
   followUpDate?: string;
@@ -139,7 +165,7 @@ export interface Enquiry {
   lostReason?: string;
   lostReasonOtherText?: string;
   conversionValue?: number;
-  bookingRef?: { bookingId: string; totalAmount: number } | string;
+  bookingRef?: { bookingId: string; totalAmount: number; bookingStatus?: string } | string;
   travellerCount?: number;
   budget?: number;
   tags: string[];

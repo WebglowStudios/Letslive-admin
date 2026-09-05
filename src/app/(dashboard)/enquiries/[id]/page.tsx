@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
 import { Enquiry } from "@/types";
 import {
   Phone, Mail, MapPin, Package, Calendar, Users, DollarSign,
@@ -1143,33 +1143,372 @@ export default function EnquiryDetailPage() {
     finally { setSavingFollowUp(false); }
   }
 
-  // Build timeline: notes + call logs + creation event, sorted chronologically
+  const [timelineFilter, setTimelineFilter] = useState<"all" | "lifecycle" | "calls" | "notes" | "proposals">("all");
+
+  // Build comprehensive timeline: merges DB timeline, notes, calls, customer inquiry, trip preferences, proposals, bookings
   function buildTimeline() {
     if (!enquiry) return [];
-    const items: { type: string; date: string; text: string; by?: string; meta?: Record<string, unknown> }[] = [];
+    const items: Array<{
+      id: string;
+      type: string;
+      category: "all" | "lifecycle" | "calls" | "notes" | "proposals";
+      badgeText: string;
+      badgeClass: string;
+      title: string;
+      description?: string;
+      date: string;
+      by?: string;
+      meta?: Record<string, unknown>;
+      icon: string;
+    }> = [];
 
-    // Creation
-    items.push({ type: "created", date: enquiry.createdAt, text: `Enquiry received via ${enquiry.source || "website"}` });
+    const getAuthor = (val: any, fallbackName?: string) => {
+      if (!val) return fallbackName || undefined;
+      if (typeof val === "object") {
+        const name = `${val.firstName || ""} ${val.lastName || ""}`.trim();
+        return name || fallbackName;
+      }
+      return typeof val === "string" ? val : fallbackName;
+    };
 
-    // Notes
-    for (const note of enquiry.notes || []) {
+    // 1. Stored DB timeline events
+    if (Array.isArray(enquiry.timeline)) {
+      for (const ev of enquiry.timeline) {
+        let category: "all" | "lifecycle" | "calls" | "notes" | "proposals" = "lifecycle";
+        let badgeText = "ACTIVITY";
+        let badgeClass = "bg-slate-50 text-slate-700 border-slate-200";
+        let icon = "⚡";
+
+        switch (ev.type) {
+          case "acquisition":
+          case "created":
+            category = "lifecycle";
+            badgeText = "ACQUISITION";
+            badgeClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+            icon = "📥";
+            break;
+          case "requirements":
+            category = "lifecycle";
+            badgeText = "PREFERENCES";
+            badgeClass = "bg-purple-50 text-purple-700 border-purple-200";
+            icon = "📋";
+            break;
+          case "message":
+            category = "lifecycle";
+            badgeText = "INBOUND QUERY";
+            badgeClass = "bg-cyan-50 text-cyan-700 border-cyan-200";
+            icon = "💬";
+            break;
+          case "status_change":
+            category = "lifecycle";
+            badgeText = "STATUS UPDATE";
+            badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+            icon = "🔄";
+            break;
+          case "priority_change":
+            category = "lifecycle";
+            badgeText = "PRIORITY";
+            badgeClass = "bg-orange-50 text-orange-700 border-orange-200";
+            icon = "🔥";
+            break;
+          case "assignment":
+            category = "lifecycle";
+            badgeText = "ASSIGNMENT";
+            badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+            icon = "👤";
+            break;
+          case "follow_up":
+            category = "lifecycle";
+            badgeText = "FOLLOW-UP";
+            badgeClass = "bg-teal-50 text-teal-700 border-teal-200";
+            icon = "📅";
+            break;
+          case "call":
+            category = "calls";
+            badgeText = `CALL • ${(ev.meta?.outcome as string || "ATTEMPT").toUpperCase()}`;
+            badgeClass = CALL_OUTCOME_COLORS[(ev.meta?.outcome as string) || ""] || "bg-emerald-50 text-emerald-700 border-emerald-200";
+            icon = CALL_OUTCOME_ICONS[(ev.meta?.outcome as string) || ""] || "📞";
+            break;
+          case "note":
+            category = "notes";
+            badgeText = "INTERNAL NOTE";
+            badgeClass = "bg-sky-50 text-sky-700 border-sky-200";
+            icon = "📝";
+            break;
+          case "itinerary_linked":
+            category = "proposals";
+            badgeText = "PROPOSAL ATTACHED";
+            badgeClass = "bg-rose-50 text-rose-700 border-rose-200";
+            icon = "🗺️";
+            break;
+          case "itinerary_delinked":
+            category = "proposals";
+            badgeText = "PROPOSAL DELINKED";
+            badgeClass = "bg-slate-100 text-slate-600 border-slate-200";
+            icon = "✂️";
+            break;
+          case "booking_link_sent":
+            category = "proposals";
+            badgeText = "BOOKING LINK SENT";
+            badgeClass = "bg-blue-50 text-blue-700 border-blue-200";
+            icon = "✉️";
+            break;
+          case "account_created":
+            category = "lifecycle";
+            badgeText = "ACCOUNT CREATED";
+            badgeClass = "bg-violet-50 text-violet-700 border-violet-200";
+            icon = "🔑";
+            break;
+          case "converted":
+            category = "proposals";
+            badgeText = "CONVERTED";
+            badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-300 font-bold";
+            icon = "🏆";
+            break;
+          case "closed":
+            category = "lifecycle";
+            badgeText = "CLOSED / LOST";
+            badgeClass = "bg-red-50 text-red-700 border-red-200";
+            icon = "🛑";
+            break;
+          case "feedback":
+            category = "lifecycle";
+            badgeText = "FEEDBACK";
+            badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+            icon = "⭐";
+            break;
+          default:
+            category = "lifecycle";
+            badgeText = (ev.type || "ACTIVITY").toUpperCase();
+            badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
+            icon = "⚡";
+        }
+
+        items.push({
+          id: ev._id || `${ev.type}-${ev.date}-${Math.random()}`,
+          type: ev.type,
+          category,
+          badgeText,
+          badgeClass,
+          title: ev.title,
+          description: ev.description,
+          date: ev.date,
+          by: getAuthor(ev.by, ev.byName),
+          meta: ev.meta,
+          icon,
+        });
+      }
+    }
+
+    // 2. Synthesize baseline Acquisition event if missing
+    const hasAcq = items.some((it) => it.type === "acquisition" || it.type === "created");
+    if (!hasAcq) {
       items.push({
-        type: "note",
-        date: note.date,
-        text: note.text,
-        by: note.by ? `${note.by.firstName} ${note.by.lastName}` : undefined,
+        id: `synth-acq-${enquiry._id}`,
+        type: "acquisition",
+        category: "lifecycle",
+        badgeText: "ACQUISITION",
+        badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
+        title: `Enquiry received via ${(enquiry.source || "website").toUpperCase()}${enquiry.channel ? ` (Channel: ${enquiry.channel.toUpperCase()})` : ""}`,
+        description: `Inbound ${enquiry.type?.toUpperCase() || "GENERAL"} lead received from ${enquiry.firstName}${enquiry.lastName ? ` ${enquiry.lastName}` : ""} (${enquiry.email})`,
+        date: enquiry.createdAt,
+        icon: "📥",
       });
     }
 
-    // Call logs
-    for (const call of enquiry.callLog || []) {
+    // Synthesize Customer Trip Requirements if missing
+    const hasReq = items.some((it) => it.type === "requirements");
+    if (!hasReq && (enquiry.destination || enquiry.travellerCount || enquiry.budget || enquiry.travelDate)) {
+      const parts: string[] = [];
+      if (enquiry.destination) parts.push(`Destination: ${enquiry.destination}`);
+      if (enquiry.travellerCount) parts.push(`Travellers: ${enquiry.travellerCount} pax`);
+      if (enquiry.budget) parts.push(`Budget: ₹${enquiry.budget.toLocaleString("en-IN")}`);
+      if (enquiry.travelDate) parts.push(`Travel Date: ${formatDate(enquiry.travelDate)}`);
+
       items.push({
-        type: "call",
-        date: call.attemptedAt,
-        text: `Call: ${call.outcome.replace("-", " ")}${call.notes ? ` — "${call.notes}"` : ""}`,
-        by: call.by ? `${call.by.firstName} ${call.by.lastName}` : undefined,
-        meta: { outcome: call.outcome },
+        id: `synth-req-${enquiry._id}`,
+        type: "requirements",
+        category: "lifecycle",
+        badgeText: "PREFERENCES",
+        badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
+        title: "Initial trip requirements recorded",
+        description: parts.join(" • "),
+        date: new Date(new Date(enquiry.createdAt).getTime() + 100).toISOString(),
+        icon: "📋",
       });
+    }
+
+    // Synthesize Initial Customer Message if missing
+    const hasMsg = items.some((it) => it.type === "message");
+    if (!hasMsg && enquiry.message) {
+      items.push({
+        id: `synth-msg-${enquiry._id}`,
+        type: "message",
+        category: "lifecycle",
+        badgeText: "INBOUND QUERY",
+        badgeClass: "bg-cyan-50 text-cyan-700 border-cyan-200",
+        title: "Customer inquiry message",
+        description: `"${enquiry.message}"`,
+        date: new Date(new Date(enquiry.createdAt).getTime() + 200).toISOString(),
+        icon: "💬",
+      });
+    }
+
+    // Synthesize Staff Assignment if missing
+    const hasAssign = items.some((it) => it.type === "assignment");
+    if (!hasAssign && enquiry.assignedTo) {
+      items.push({
+        id: `synth-assign-${enquiry._id}`,
+        type: "assignment",
+        category: "lifecycle",
+        badgeText: "ASSIGNMENT",
+        badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+        title: `Lead assigned to ${enquiry.assignedTo.firstName} ${enquiry.assignedTo.lastName}`,
+        description: "Assigned staff member handling customer correspondence",
+        date: new Date(new Date(enquiry.createdAt).getTime() + 300).toISOString(),
+        by: "System / Admin",
+        icon: "👤",
+      });
+    }
+
+    // Synthesize Call Logs
+    for (const call of enquiry.callLog || []) {
+      const alreadyIn = items.some(
+        (it) => it.type === "call" && Math.abs(new Date(it.date).getTime() - new Date(call.attemptedAt).getTime()) < 3000
+      );
+      if (!alreadyIn) {
+        items.push({
+          id: `synth-call-${call.attemptedAt}`,
+          type: "call",
+          category: "calls",
+          badgeText: `CALL • ${(call.outcome || "").toUpperCase()}`,
+          badgeClass: CALL_OUTCOME_COLORS[call.outcome] || "bg-slate-50 border-slate-200 text-slate-700",
+          title: `Call: ${(call.outcome || "").replace("-", " ").toUpperCase()}${call.duration ? ` (${call.duration}s)` : ""}`,
+          description: call.notes ? `"${call.notes}"` : undefined,
+          date: call.attemptedAt,
+          by: getAuthor(call.by),
+          meta: { outcome: call.outcome, duration: call.duration },
+          icon: CALL_OUTCOME_ICONS[call.outcome] || "📞",
+        });
+      }
+    }
+
+    // Synthesize Notes
+    for (const note of enquiry.notes || []) {
+      const alreadyIn = items.some(
+        (it) => it.type === "note" && (it.description === note.text || it.title === note.text) && Math.abs(new Date(it.date).getTime() - new Date(note.date).getTime()) < 3000
+      );
+      if (!alreadyIn) {
+        items.push({
+          id: note._id || `synth-note-${note.date}`,
+          type: "note",
+          category: "notes",
+          badgeText: "INTERNAL NOTE",
+          badgeClass: "bg-sky-50 text-sky-700 border-sky-200",
+          title: "Internal note added",
+          description: note.text,
+          date: note.date,
+          by: getAuthor(note.by),
+          icon: "📝",
+        });
+      }
+    }
+
+    // Synthesize Linked Custom Itineraries
+    if (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0) {
+      for (const pkg of enquiry.linkedItineraries) {
+        const alreadyIn = items.some(
+          (it) => it.type === "itinerary_linked" && it.title.includes(pkg.name)
+        );
+        if (!alreadyIn) {
+          items.push({
+            id: `synth-itinerary-${pkg._id}`,
+            type: "itinerary_linked",
+            category: "proposals",
+            badgeText: "PROPOSAL ATTACHED",
+            badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
+            title: `Custom itinerary proposal: ${pkg.name}`,
+            description: `Package slug: /packages/${pkg.slug}${pkg.price ? ` • Price: ₹${pkg.price.toLocaleString("en-IN")}` : ""}`,
+            date: enquiry.updatedAt,
+            icon: "🗺️",
+            meta: { slug: pkg.slug, price: pkg.price },
+          });
+        }
+      }
+    }
+
+    // Synthesize Converted Booking
+    const hasConverted = items.some((it) => it.type === "converted");
+    if (!hasConverted && (enquiry.bookingRef || enquiry.status === "converted")) {
+      const refCode = typeof enquiry.bookingRef === "object" ? enquiry.bookingRef.bookingId : enquiry.bookingRef;
+      const val = enquiry.conversionValue || (typeof enquiry.bookingRef === "object" ? enquiry.bookingRef.totalAmount : undefined);
+      items.push({
+        id: `synth-converted-${enquiry._id}`,
+        type: "converted",
+        category: "proposals",
+        badgeText: "CONVERTED",
+        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-300 font-bold",
+        title: `Lead Converted to Booking!${refCode ? ` #${refCode}` : ""}`,
+        description: val ? `Confirmed booking value: ₹${val.toLocaleString("en-IN")}` : "Customer booking confirmed",
+        date: enquiry.updatedAt,
+        icon: "🏆",
+      });
+    }
+
+    // Synthesize Closed / Lost
+    const hasClosed = items.some((it) => it.type === "closed");
+    if (!hasClosed && enquiry.status === "closed") {
+      items.push({
+        id: `synth-closed-${enquiry._id}`,
+        type: "closed",
+        category: "lifecycle",
+        badgeText: "CLOSED / LOST",
+        badgeClass: "bg-red-50 text-red-700 border-red-200",
+        title: "Lead marked as lost",
+        description: `Reason: ${enquiry.lostReason || "Closed"}${enquiry.lostReasonOtherText ? ` (${enquiry.lostReasonOtherText})` : ""}`,
+        date: enquiry.updatedAt,
+        icon: "🛑",
+      });
+    }
+
+    // Synthesize Feedback
+    const hasFeedback = items.some((it) => it.type === "feedback");
+    if (!hasFeedback && enquiry.feedback) {
+      items.push({
+        id: `synth-feedback-${enquiry._id}`,
+        type: "feedback",
+        category: "lifecycle",
+        badgeText: "FEEDBACK",
+        badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
+        title: `Customer rating: ${enquiry.feedback.rating} / 5 ⭐`,
+        description: enquiry.feedback.comments ? `"${enquiry.feedback.comments}"` : "No written comments",
+        date: enquiry.feedback.submittedAt || enquiry.updatedAt,
+        icon: "⭐",
+      });
+    }
+
+    // Synthesize backend activity logs
+    if (Array.isArray(enquiry.activityLogs)) {
+      for (const log of enquiry.activityLogs) {
+        if (log.action === "status_change") {
+          const alreadyIn = items.some(
+            (it) => it.type === "status_change" && Math.abs(new Date(it.date).getTime() - new Date(log.createdAt).getTime()) < 5000
+          );
+          if (!alreadyIn) {
+            items.push({
+              id: log._id || `synth-act-${log.createdAt}`,
+              type: "status_change",
+              category: "lifecycle",
+              badgeText: "STATUS UPDATE",
+              badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
+              title: log.description,
+              date: log.createdAt,
+              by: log.userName,
+              icon: "🔄",
+            });
+          }
+        }
+      }
     }
 
     // Sort newest first
@@ -1187,6 +1526,14 @@ export default function EnquiryDetailPage() {
   if (!enquiry) return null;
 
   const timeline = buildTimeline();
+  const filteredTimeline = timeline.filter((item) => {
+    if (timelineFilter === "all") return true;
+    if (timelineFilter === "lifecycle") return ["lifecycle", "acquisition", "requirements", "status", "assignment"].includes(item.category);
+    if (timelineFilter === "calls") return item.category === "calls";
+    if (timelineFilter === "notes") return item.category === "notes";
+    if (timelineFilter === "proposals") return item.category === "proposals";
+    return true;
+  });
   const fullName = `${enquiry.firstName} ${enquiry.lastName || ""}`.trim();
 
   async function handleDelete() {
@@ -1697,40 +2044,170 @@ export default function EnquiryDetailPage() {
               </div>
             </div>
 
-            {/* Timeline */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Timeline</p>
-              {timeline.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">No activity yet</p>
+            {/* Timeline & Activity Feed */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Timeline & Activity Feed
+                  </p>
+                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-slate-100 text-slate-600">
+                    {timeline.length} updates
+                  </span>
+                </div>
+
+                {/* Filter tabs */}
+                <div className="flex items-center gap-1 overflow-x-auto text-xs pb-1 sm:pb-0">
+                  <button
+                    onClick={() => setTimelineFilter("all")}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                      timelineFilter === "all"
+                        ? "bg-cyan-600 text-white shadow-sm"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    All ({timeline.length})
+                  </button>
+                  <button
+                    onClick={() => setTimelineFilter("lifecycle")}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                      timelineFilter === "lifecycle"
+                        ? "bg-cyan-600 text-white shadow-sm"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    Lifecycle
+                  </button>
+                  <button
+                    onClick={() => setTimelineFilter("calls")}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                      timelineFilter === "calls"
+                        ? "bg-cyan-600 text-white shadow-sm"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    Calls ({enquiry.callLog?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => setTimelineFilter("notes")}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                      timelineFilter === "notes"
+                        ? "bg-cyan-600 text-white shadow-sm"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    Notes ({enquiry.notes?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => setTimelineFilter("proposals")}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                      timelineFilter === "proposals"
+                        ? "bg-cyan-600 text-white shadow-sm"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    Proposals & Booking
+                  </button>
+                </div>
+              </div>
+
+              {filteredTimeline.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">No activity matching filter</p>
               ) : (
-                <div className="space-y-0">
-                  {timeline.map((item, i) => (
-                    <div key={i} className="flex gap-3 group">
-                      {/* Icon */}
+                <div className="space-y-0 pt-1">
+                  {filteredTimeline.map((item, i) => (
+                    <div key={item.id || i} className="flex gap-3 group">
+                      {/* Left Icon & Connecting Line */}
                       <div className="flex flex-col items-center shrink-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 ${
-                          item.type === "call"
-                            ? CALL_OUTCOME_COLORS[(item.meta?.outcome as string) || ""] || "bg-slate-50 border-slate-200"
-                            : item.type === "note"
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-slate-50 border-slate-200"
-                        }`}>
-                          {item.type === "call" ? CALL_OUTCOME_ICONS[(item.meta?.outcome as string) || ""] || "📞"
-                            : item.type === "note" ? "💬"
-                            : "🌟"}
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center text-sm shadow-sm border-2 ${
+                            item.type === "call"
+                              ? CALL_OUTCOME_COLORS[(item.meta?.outcome as string) || ""] || "bg-emerald-50 border-emerald-200"
+                              : item.type === "note"
+                              ? "bg-sky-50 border-sky-200 text-sky-700"
+                              : item.type === "converted"
+                              ? "bg-emerald-100 border-emerald-400 text-emerald-800"
+                              : item.type === "closed"
+                              ? "bg-red-50 border-red-200 text-red-700"
+                              : item.type === "requirements"
+                              ? "bg-purple-50 border-purple-200 text-purple-700"
+                              : item.type === "acquisition"
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                              : item.type === "itinerary_linked"
+                              ? "bg-rose-50 border-rose-200 text-rose-700"
+                              : item.type === "booking_link_sent"
+                              ? "bg-blue-50 border-blue-200 text-blue-700"
+                              : "bg-slate-50 border-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {item.icon}
                         </div>
-                        {i < timeline.length - 1 && (
-                          <div className="w-px flex-1 my-1 bg-slate-100 min-h-[20px]" />
+                        {i < filteredTimeline.length - 1 && (
+                          <div className="w-px flex-1 my-1 bg-slate-200 min-h-[28px]" />
                         )}
                       </div>
-                      {/* Content */}
-                      <div className="pb-4 flex-1 min-w-0">
-                        <p className="text-sm text-slate-700 leading-relaxed">{item.text}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {item.by && <span className="text-xs text-slate-400">by {item.by}</span>}
-                          <span className="text-[10px] text-slate-300 flex items-center gap-0.5">
-                            <Clock size={9} /> {formatDate(item.date)}
-                          </span>
+
+                      {/* Content Card */}
+                      <div className="pb-5 flex-1 min-w-0">
+                        <div className="bg-slate-50/70 hover:bg-slate-50 transition-colors rounded-xl p-3 border border-slate-200/70">
+                          {/* Top Row: Badge & Timestamp */}
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border tracking-wider ${item.badgeClass}`}
+                            >
+                              {item.badgeText}
+                            </span>
+                            <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                              <Clock size={11} className="text-slate-400" />
+                              {formatDateTime(item.date)}
+                            </span>
+                          </div>
+
+                          {/* Title */}
+                          <p className="text-sm font-semibold text-slate-800 leading-snug">
+                            {item.title}
+                          </p>
+
+                          {/* Description / Content Body */}
+                          {item.description && (
+                            <div className="mt-1.5 text-xs text-slate-600 leading-relaxed break-words bg-white rounded-lg p-2.5 border border-slate-200/80 shadow-xs">
+                              {item.description}
+                            </div>
+                          )}
+
+                          {/* Requirements Pills */}
+                          {item.type === "requirements" && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {enquiry.destination && (
+                                <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-medium border border-purple-100">
+                                  <MapPin size={10} /> {enquiry.destination}
+                                </span>
+                              )}
+                              {enquiry.travellerCount && (
+                                <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-medium border border-purple-100">
+                                  <Users size={10} /> {enquiry.travellerCount} Pax
+                                </span>
+                              )}
+                              {enquiry.budget && (
+                                <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-medium border border-purple-100">
+                                  <DollarSign size={10} /> ₹{enquiry.budget.toLocaleString("en-IN")}
+                                </span>
+                              )}
+                              {enquiry.travelDate && (
+                                <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-medium border border-purple-100">
+                                  <Calendar size={10} /> {formatDate(enquiry.travelDate)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Footer: Actor */}
+                          {item.by && (
+                            <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-400">
+                              <User size={10} />
+                              <span>Recorded by <strong className="font-semibold text-slate-600">{item.by}</strong></span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
