@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Document,
   Page,
@@ -90,6 +91,10 @@ interface Flight {
   from: string; to: string; departure: string; arrival: string;
   pnr?: string; class?: string; notes?: string;
 }
+export interface PartnerItem {
+  name: string;
+  image?: string;
+}
 interface PackageData {
   name: string; slug: string;
   isInternational?: boolean;
@@ -114,6 +119,7 @@ interface PackageData {
   isCustom?: boolean; clientName?: string; clientEmail?: string; clientPhone?: string;
   travellerCount?: string; adultCount?: number; childCount?: number;
   transferSummary?: string;
+  partnerLogos?: PartnerItem[];
   bookingMeta?: {
     dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
     totalAmount?: number;
@@ -391,53 +397,53 @@ const s = StyleSheet.create({
 
   // ── Itinerary day card ─────────────────────────────────────────────────────
   dayCard: {
-    marginBottom: 12, borderRadius: 10, overflow: "hidden",
+    marginBottom: 10, borderRadius: 8, overflow: "hidden",
     borderWidth: 1, borderColor: C.line,
   },
   dayHeader: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: C.iv2,
-    paddingVertical: 8, paddingHorizontal: 12,
+    paddingVertical: 7, paddingHorizontal: 12,
     borderBottomWidth: 1, borderBottomColor: C.line,
   },
   dayBadge: {
     backgroundColor: C.gn,
-    borderRadius: 6, paddingVertical: 3, paddingHorizontal: 9,
-    marginRight: 12,
+    borderRadius: 5, paddingVertical: 2.5, paddingHorizontal: 8,
+    marginRight: 10,
   },
   dayBadgeText: {
     fontSize: 8, fontFamily: "Helvetica-Bold", color: C.white,
   },
   dayTitle: {
-    fontSize: 10.5, fontFamily: "Helvetica-Bold",
+    fontSize: 10, fontFamily: "Helvetica-Bold",
     color: C.gn, flex: 1,
   },
   dayBody: {
     backgroundColor: C.white,
-    paddingVertical: 10, paddingHorizontal: 12,
+    paddingVertical: 8, paddingHorizontal: 12,
   },
   dayDescription: {
-    fontSize: 9, color: C.ink2, lineHeight: 1.6, marginBottom: 10,
+    fontSize: 8.5, color: C.ink2, lineHeight: 1.5, marginBottom: 8,
   },
   dayActivitiesLabel: {
-    fontSize: 7.5, fontFamily: "Helvetica-Bold",
-    color: C.gn2, letterSpacing: 1, marginBottom: 6,
+    fontSize: 7, fontFamily: "Helvetica-Bold",
+    color: C.gn2, letterSpacing: 1, marginBottom: 4,
   },
   dayActivitiesRow: {
-    flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 10,
+    flexDirection: "row", flexWrap: "wrap", gap: 5, marginBottom: 8,
   },
   dayActivityChip: {
     backgroundColor: C.iv,
     borderWidth: 1, borderColor: C.line,
-    borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
+    borderRadius: 4, paddingVertical: 2.5, paddingHorizontal: 7,
   },
   dayActivityChipText: {
     fontSize: 7.5, color: C.ink2,
   },
   dayMeta: {
-    flexDirection: "row", gap: 18,
+    flexDirection: "row", flexWrap: "wrap", gap: 16,
     borderTopWidth: 1, borderTopColor: C.line,
-    paddingTop: 8, marginTop: 2,
+    paddingTop: 6, marginTop: 4,
   },
   dayMetaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   dayMetaLabel: {
@@ -636,32 +642,57 @@ const SectionTitle = ({ title }: { title: string }) => (
 );
 
 // ─── Cover Page ───────────────────────────────────────────────────────────────
-const CoverPage = ({ pkg }: { pkg: PackageData }) => (
-  <Page size="A4" style={{ padding: 0 }}>
-    <View style={{ width: "100%", height: "100%", position: "relative", backgroundColor: "#1a2a2f" }}>
-      {/* Full-bleed hero image */}
-      {pkg.heroImage ? (
-        <Image src={pkg.heroImage} style={{
-          position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-          objectFit: "cover",
-        }} />
-      ) : null}
+const CoverPage = ({ pkg }: { pkg: PackageData }) => {
+  const coverImg = pkg.heroImage || (pkg.images && pkg.images.length > 0 ? pkg.images[0] : undefined);
 
-      {/* Bottom gradient overlay */}
-      <View style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: "55%",
-        backgroundColor: "rgba(0,0,0,0.01)",
-      }} />
-      <View style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: 420,
-        backgroundColor: "rgba(10,20,24,0.75)",
-      }} />
+  return (
+    <Page size="A4" style={{ padding: 0 }}>
+      <View style={{ width: "100%", height: "100%", position: "relative", backgroundColor: "#08151a" }}>
+        {/* Full-bleed hero image with reduced brightness */}
+        {coverImg ? (
+          <Image
+            src={coverImg}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: 0.35,
+            }}
+          />
+        ) : null}
 
-      {/* Bottom content */}
-      <View style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        padding: 44, paddingBottom: 36,
-      }}>
+        {/* Full-page darkening overlay to dim bright areas */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(5, 18, 24, 0.5)",
+          }}
+        />
+
+        {/* Deep bottom gradient overlay for maximum text contrast */}
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 460,
+            backgroundColor: "rgba(5, 18, 24, 0.85)",
+          }}
+        />
+
+        {/* Bottom content */}
+        <View style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: 44, paddingBottom: 36,
+        }}>
         {/* Title */}
         <Text style={{
           fontSize: 34, fontFamily: "Helvetica-Bold",
@@ -759,98 +790,348 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => (
         </View>
       </View>
     </View>
-  </Page>
-);
+    </Page>
+  );
+};
 
-// ─── Trip at a Glance ─────────────────────────────────────────────────────────
-const TripSummarySection = ({ pkg }: { pkg: PackageData }) => (
-  <View style={{ marginBottom: 20 }}>
-    <View wrap={false} style={{ marginBottom: 14 }}>
-      <SectionTitle title="Trip at a Glance" />
-      <View style={s.glanceGrid}>
-        <View style={s.glanceCard}>
-          <Text style={s.glanceLabel}>DURATION</Text>
-          <Text style={s.glanceValue}>{pkg.duration.nights} Nights / {pkg.duration.days} Days{pkg.travelDates?.startDate ? `\n${new Date(pkg.travelDates.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${pkg.travelDates?.endDate ? new Date(pkg.travelDates.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}` : ""}</Text>
-        </View>
-        <View style={s.glanceCard}>
-          <Text style={s.glanceLabel}>DESTINATION</Text>
-          <Text style={s.glanceValue}>
-            {pkg.destination?.name || "—"}{pkg.destination?.country ? `, ${pkg.destination.country}` : ""}
-          </Text>
-        </View>
-        <View style={[s.glanceCard, { borderLeftColor: C.gn2 }]}>
-          <Text style={s.glanceLabel}>HOTEL CATEGORY</Text>
-          <Text style={s.glanceValue}>{pkg.hotelRating || "Standard"}</Text>
-        </View>
-        <View style={[s.glanceCard, { borderLeftColor: C.cu }]}>
-          <Text style={s.glanceLabel}>PACKAGE PRICE</Text>
-          <Text style={s.glanceValueGold}>
-            INR {pkg.price.toLocaleString("en-IN")}
-            <Text style={{ fontSize: 8, color: C.ink3 }}> / {pkg.priceUnit || "person"}</Text>
-          </Text>
-        </View>
-        {(pkg.travellerCount || pkg.adultCount || pkg.childCount) && (
-          <View style={[s.glanceCard, { borderLeftColor: C.gn3 }]}>
-            <Text style={s.glanceLabel}>TRAVELLERS</Text>
-            <Text style={s.glanceValue}>
-              {pkg.adultCount || pkg.childCount
-                ? `${pkg.adultCount || 0} ${pkg.adultCount === 1 ? 'Adult' : 'Adults'}${pkg.childCount ? `, ${pkg.childCount} ${pkg.childCount === 1 ? 'Child' : 'Children'}` : ""}`
-                : pkg.travellerCount}
-            </Text>
-          </View>
-        )}
-      </View>
-    </View>
+// ─── Page 2: Package Snapshot & Flight Information ─────────────────────────────
+const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
+  // 1. Format dates
+  let dateText = "To be confirmed";
+  if (pkg.travelDates?.startDate) {
+    const sDate = new Date(pkg.travelDates.startDate);
+    const sStr = isNaN(sDate.getTime())
+      ? String(pkg.travelDates.startDate)
+      : sDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    if (pkg.travelDates.endDate) {
+      const eDate = new Date(pkg.travelDates.endDate);
+      const eStr = isNaN(eDate.getTime())
+        ? String(pkg.travelDates.endDate)
+        : eDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      dateText = `${sStr} - ${eStr}`;
+    } else {
+      dateText = sStr;
+    }
+  }
 
-    {/* Short description */}
-    {(pkg.shortDescription || pkg.description) ? (
-      <Text style={s.descText}>{pkg.shortDescription || pkg.description}</Text>
-    ) : null}
+  // 2. Format Duration
+  const nights = pkg.duration?.nights ?? (typeof (pkg.duration as any) === "number" ? (pkg.duration as any) : 0);
+  const days = pkg.duration?.days ?? (nights > 0 ? nights + 1 : 0);
+  const durationText = `${nights} Nights / ${days} Days`;
 
-    {/* Quick inclusions preview */}
-    {pkg.inclusions && pkg.inclusions.length > 0 ? (
-      <View wrap={false} style={{ marginBottom: 16 }}>
-        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 8 }}>
-          What&apos;s Included
+  // 3. Format Travellers
+  let travellersText = "To be confirmed";
+  if (pkg.adultCount || pkg.childCount) {
+    const a = pkg.adultCount || 0;
+    const c = pkg.childCount || 0;
+    travellersText = `${a} Adult${a === 1 ? "" : "s"}${c ? `, ${c} Child${c === 1 ? "" : "ren"}` : ""}`;
+  } else if (pkg.travellerCount) {
+    travellersText = pkg.travellerCount;
+  }
+
+  // 4. Calculate route sequence / stops
+  const routeStops: { city: string; nights: number }[] = [];
+  if (pkg.stays && pkg.stays.length > 0) {
+    pkg.stays.forEach((stay) => {
+      let rawCity = "";
+      if (stay.address && stay.address.trim()) {
+        rawCity = stay.address.split(",")[0].trim();
+      } else if (stay.name) {
+        rawCity = stay.name
+          .replace(/\b(hotel|resort|palace|inn|villas|villa|suites|suite|spa|houseboat|retreat|grand|the|camp|cottages)\b/gi, "")
+          .trim();
+      }
+      const city = rawCity || pkg.destination?.name || "Destination";
+      const n = stay.nights || 1;
+
+      const last = routeStops[routeStops.length - 1];
+      if (last && last.city.toLowerCase() === city.toLowerCase()) {
+        last.nights += n;
+      } else {
+        routeStops.push({ city, nights: n });
+      }
+    });
+  }
+
+  // Fallback if no stays provided
+  if (routeStops.length === 0) {
+    if (pkg.destination?.name) {
+      routeStops.push({ city: pkg.destination.name, nights });
+    } else {
+      routeStops.push({ city: "Main Destination", nights });
+    }
+  }
+
+  const priceVal = pkg.price || 0;
+  const formattedPrice = priceVal > 0 ? priceVal.toLocaleString("en-IN") : "—";
+
+  return (
+    <Page size="A4" style={[s.page, { position: "relative" }]}>
+      {/* Decorative top-right curved arc */}
+      <View
+        style={{
+          position: "absolute",
+          top: -30,
+          right: -30,
+          width: 140,
+          height: 140,
+          borderRadius: 70,
+          backgroundColor: "rgba(224, 245, 247, 0.4)",
+        }}
+      />
+
+      <PageHeader section="Trip Overview" />
+
+      {/* Main Title Section */}
+      <View style={{ marginBottom: 20, marginTop: 4 }}>
+        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 1.5, marginBottom: 4 }}>
+          TRIP OVERVIEW
         </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-          {pkg.inclusions.slice(0, 8).map((inc, i) => (
-            <View key={i} style={{
-              backgroundColor: C.iv2,
-              borderWidth: 1, borderColor: C.line,
-              borderRadius: 4, paddingVertical: 4, paddingHorizontal: 10,
-            }}>
-              <Text style={{ fontSize: 7.5, color: C.gn2 }}>✓  {inc}</Text>
+        <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#0a2936", letterSpacing: 0.2 }}>
+          Package Snapshot & Flight Information
+        </Text>
+        <View style={{ width: 46, height: 3.5, backgroundColor: "#F5A623", borderRadius: 2, marginTop: 6 }} />
+      </View>
+
+      {/* Row 1: 3 Info Cards */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+        {/* Card 1: Travel Date */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#ffffff",
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#d4ecf0",
+            padding: 12,
+            minHeight: 56,
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
+            TRAVEL DATE
+          </Text>
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
+            {dateText}
+          </Text>
+        </View>
+
+        {/* Card 2: Duration */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#ffffff",
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#d4ecf0",
+            padding: 12,
+            minHeight: 56,
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
+            DURATION
+          </Text>
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
+            {durationText}
+          </Text>
+        </View>
+
+        {/* Card 3: Travellers */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#ffffff",
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#d4ecf0",
+            padding: 12,
+            minHeight: 56,
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
+            TRAVELLERS
+          </Text>
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
+            {travellersText}
+          </Text>
+        </View>
+      </View>
+
+      {/* Row 2: Flight Arrangements Banner */}
+      <View
+        style={{
+          backgroundColor: "#f0f8fb",
+          borderRadius: 8,
+          borderLeftWidth: 4,
+          borderLeftColor: "#009bb8",
+          paddingVertical: 11,
+          paddingHorizontal: 14,
+          marginBottom: 16,
+        }}
+      >
+        <Text style={{ fontSize: 8.5, color: "#1a3a42", lineHeight: 1.5 }}>
+          <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Flight arrangements: </Text>
+          Flights will be planned according to your departure city. Final airline and schedule details will be shared during booking.
+        </Text>
+      </View>
+
+      {/* Row 3: City Route Flow with Arrows */}
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}>
+        {routeStops.slice(0, 4).map((stop, idx) => (
+          <React.Fragment key={idx}>
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "#ffffff",
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: "#d4ecf0",
+                paddingVertical: 12,
+                paddingHorizontal: 8,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center", marginBottom: 3 }}>
+                {stop.city}
+              </Text>
+              <Text style={{ fontSize: 8, color: "#6a909b", textAlign: "center" }}>
+                {stop.nights} {stop.nights === 1 ? "night" : "nights"}
+              </Text>
             </View>
-          ))}
-        </View>
-      </View>
-    ) : null}
-
-    {/* Stay overview strip */}
-    {pkg.stays && pkg.stays.length > 0 ? (
-      <View wrap={false}>
-        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 8 }}>
-          Stay Overview
-        </Text>
-        {pkg.stays.map((stay, i) => (
-          <View key={i} style={{
-            flexDirection: "row", paddingVertical: 7,
-            borderTopWidth: i === 0 ? 1 : 0,
-            borderBottomWidth: 1, borderColor: C.line,
-          }}>
-            <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.ink2, width: "40%" }}>
-              {stay.name}
-            </Text>
-            <Text style={{ fontSize: 8, color: C.ink3, width: "20%" }}>{stay.rating}</Text>
-            <Text style={{ fontSize: 8, color: C.ink3, width: "20%" }}>{stay.nights}N</Text>
-            <Text style={{ fontSize: 8, color: C.ink3, flex: 1 }}>{stay.roomType}</Text>
-          </View>
+            {idx < Math.min(routeStops.length, 4) - 1 && (
+              <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
+                <Svg width="18" height="12" viewBox="0 0 24 24">
+                  <Path
+                    d="M4 12h14M13 6l6 6-6 6"
+                    stroke="#8ab5be"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </Svg>
+              </View>
+            )}
+          </React.Fragment>
         ))}
       </View>
-    ) : null}
-  </View>
-);
+
+      {/* Row 4: Total Cost & Tax Position Banner (Deep Teal Bar) */}
+      <View
+        style={{
+          backgroundColor: "#005570",
+          borderRadius: 10,
+          paddingVertical: 14,
+          paddingHorizontal: 20,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <View>
+          <Text
+            style={{
+              fontSize: 7.5,
+              fontFamily: "Helvetica-Bold",
+              color: "rgba(255,255,255,0.75)",
+              letterSpacing: 1,
+              marginBottom: 4,
+              textTransform: "uppercase",
+            }}
+          >
+            TOTAL COST PER {pkg.priceUnit?.toUpperCase() || "PERSON"}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Svg width={14} height={18} viewBox="0 0 24 24" style={{ marginRight: 3 }}>
+              <Path
+                d="M13.66 7C13.1 5.82 11.9 5 10.5 5L6 5V3H18V5H14.74C15.22 5.58 15.58 6.26 15.79 7H18V9H16C15.73 11.8 13.37 14 10.5 14H9.61L15.89 21H13.21L7 14V12H10.5C12.16 12 13.5 10.66 13.5 9H6V7H13.66Z"
+                fill="#ffffff"
+              />
+            </Svg>
+            <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+              {formattedPrice}/-
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ alignItems: "flex-end" }}>
+          <Text
+            style={{
+              fontSize: 7.5,
+              fontFamily: "Helvetica-Bold",
+              color: "rgba(255,255,255,0.75)",
+              letterSpacing: 1,
+              marginBottom: 3,
+              textTransform: "uppercase",
+            }}
+          >
+            TAX POSITION
+          </Text>
+          <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+            5% GST Included
+          </Text>
+          <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
+            5% TCS Excluded
+          </Text>
+        </View>
+      </View>
+
+      {/* Row 5: Two Feature Cards (Airfare & Airport Transfers) */}
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        {/* Card 1: Airfare */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#ffffff",
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#d4ecf0",
+            padding: 14,
+            minHeight: 75,
+          }}
+        >
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
+            {pkg.isInternational ? "International + Domestic Airfare" : "Airfare & Transport"}
+          </Text>
+          <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
+            {pkg.flightsIncluded
+              ? "Both international and domestic flights are included in the package as stated in the inclusions."
+              : "Flight arrangements will be planned according to your departure city as per airline availability."}
+          </Text>
+        </View>
+
+        {/* Card 2: Airport Transfers */}
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#ffffff",
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: "#d4ecf0",
+            padding: 14,
+            minHeight: 75,
+          }}
+        >
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
+            Airport Transfers
+          </Text>
+          <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
+            {pkg.transferSummary
+              ? pkg.transferSummary
+              : "Two-way airport-to-hotel transfers and sightseeing transportation are included as part of the package."}
+          </Text>
+        </View>
+      </View>
+
+      <PageFooter />
+    </Page>
+  );
+};
+
 
 // ─── Gallery ──────────────────────────────────────────────────────────────────
 const GallerySection = ({ pkg }: { pkg: PackageData }) => {
@@ -951,8 +1232,8 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
 
   return (
     <View style={{ marginBottom: 20 }}>
-      {/* Title block wrapped to prevent orphan header */}
-      <View wrap={false}>
+      {/* Title block with minPresenceAhead to prevent orphan section header */}
+      <View wrap={false} minPresenceAhead={140}>
         <SectionTitle title="Day-wise Itinerary" />
       </View>
 
@@ -963,8 +1244,8 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
           ? new Date(new Date(pkg.travelDates.startDate).getTime() + (day.day - 1) * 86400000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
           : null;
         return (
-          <View key={day.day} style={s.dayCard}>
-            <View wrap={false} style={s.dayHeader}>
+          <View key={day.day} wrap={false} style={s.dayCard}>
+            <View style={s.dayHeader}>
               <View style={s.dayBadge}>
                 <Text style={s.dayBadgeText}>DAY {day.day}</Text>
               </View>
@@ -972,67 +1253,43 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
             </View>
             <View style={s.dayBody}>
               {day.description ? (
-                <View wrap={false} style={{ marginBottom: 10 }}>
-                  <Text style={s.dayDescription}>{day.description}</Text>
-                </View>
+                <Text style={s.dayDescription}>{day.description}</Text>
               ) : null}
 
               {/* Activities from itinerary data */}
               {day.activities && day.activities.length > 0 && (
                 <View style={{ marginBottom: 8 }}>
-                  {/* Keep header and first 2 activity chips together to prevent orphan header */}
-                  <View wrap={false}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
-                      <Icon d={ICONS.activity} color={C.gn3} size={11} />
-                      <Text style={s.dayActivitiesLabel}>ACTIVITIES</Text>
-                    </View>
-                    <View style={[s.dayActivitiesRow, { marginBottom: 5 }]}>
-                      {day.activities.slice(0, 2).map((act, i) => (
-                        <View key={i} style={{
-                          backgroundColor: C.iv,
-                          borderWidth: 1, borderColor: C.line,
-                          borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
-                        }}>
-                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{typeof act === 'string' ? act : (act.title || '')}</Text>
-                        </View>
-                      ))}
-                    </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                    <Icon d={ICONS.activity} color={C.gn3} size={10} />
+                    <Text style={s.dayActivitiesLabel}>ACTIVITIES</Text>
                   </View>
-                  {/* Remaining chips flow and wrap naturally */}
-                  {day.activities.length > 2 && (
-                    <View style={[s.dayActivitiesRow, { marginTop: 0 }]}>
-                      {day.activities.slice(2).map((act, i) => (
-                        <View key={i + 2} style={{
-                          backgroundColor: C.iv,
-                          borderWidth: 1, borderColor: C.line,
-                          borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
-                        }} wrap={false}>
-                          <Text style={{ fontSize: 7.5, color: C.ink2 }}>{typeof act === 'string' ? act : (act.title || '')}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
+                  <View style={s.dayActivitiesRow}>
+                    {day.activities.map((act, i) => (
+                      <View key={i} style={s.dayActivityChip}>
+                        <Text style={s.dayActivityChipText}>
+                          {typeof act === "string" ? act : (act.title || "")}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               )}
 
-
               {/* Transfers for this day */}
               {dayTransfers.length > 0 && (
-                <View style={{ marginTop: 4, marginBottom: 8 }}>
-                  {/* Keep header and first transfer card together to prevent orphan header */}
-                  <View wrap={false}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
-                      <Icon d={ICONS.bus} color={C.cu} size={11} />
-                      <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.ink3, letterSpacing: 1 }}>TRANSFERS</Text>
-                    </View>
-                    {dayTransfers.slice(0, 1).map((t, i) => {
-                      const iconData = getVehicleIcon(t.transferType || t.vehicleType);
-                      return (
-                        <View key={i} style={{ marginBottom: 8, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
-                            <Icon d={iconData} color={C.cu} size={9} />
-                            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
-                          </View>
+                <View style={{ marginTop: 2, marginBottom: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                    <Icon d={ICONS.bus} color={C.cu} size={10} />
+                    <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: C.ink3, letterSpacing: 1 }}>TRANSFERS</Text>
+                  </View>
+                  {dayTransfers.map((t, i) => {
+                    const iconData = getVehicleIcon(t.transferType || t.vehicleType);
+                    return (
+                      <View key={i} style={{ marginBottom: 6, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                          <Icon d={iconData} color={C.cu} size={9} />
+                          <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
+                        </View>
                         {/* Multi-leg or legacy from/to */}
                         {t.legs && t.legs.length > 0 ? (
                           t.legs.filter(l => l.from || l.to).map((leg, li) => (
@@ -1040,14 +1297,14 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                               {leg.transferType ? <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.ink4, marginRight: 2 }}>[{leg.transferType}{leg.vehicleType ? ` · ${leg.vehicleType}` : ""}]</Text> : null}
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1 }}>
                                 {leg.from ? (
-                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.iv, borderRadius: 3, padding: 4, borderWidth: 1, borderColor: C.line }}>
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.iv, borderRadius: 3, padding: 3, borderWidth: 1, borderColor: C.line }}>
                                     <Icon d={ICONS.location} color={C.gn3} size={8} />
                                     <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.from}</Text>
                                   </View>
                                 ) : null}
                                 {leg.from && leg.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={9} /> : null}
                                 {leg.to ? (
-                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.cuLight, borderRadius: 3, padding: 4, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.cuLight, borderRadius: 3, padding: 3, borderWidth: 1, borderColor: "#f5e3c8" }}>
                                     <Icon d={ICONS.location} color={C.cu} size={8} />
                                     <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.to}</Text>
                                   </View>
@@ -1058,87 +1315,46 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                         ) : (t.from || t.to) ? (
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
                             {t.from ? (
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
-                                <Icon d={ICONS.location} color={C.gn3} size={10} />
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 5, borderWidth: 1, borderColor: C.line }}>
+                                <Icon d={ICONS.location} color={C.gn3} size={9} />
                                 <View>
-                                  <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
-                                  <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                                  <Text style={{ fontSize: 5.5, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
                                 </View>
                               </View>
                             ) : null}
-                            {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
+                            {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={10} /> : null}
                             {t.to ? (
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
-                                <Icon d={ICONS.location} color={C.cu} size={10} />
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 5, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                                <Icon d={ICONS.location} color={C.cu} size={9} />
                                 <View>
-                                  <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
-                                  <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                                  <Text style={{ fontSize: 5.5, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
                                 </View>
                               </View>
                             ) : null}
                           </View>
                         ) : null}
-                        {t.description ? <Text style={{ fontSize: 8, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
+                        {t.description ? <Text style={{ fontSize: 7.5, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
                       </View>
                     );
-                    })}
-                  </View>
-                  {/* Remaining transfers flow naturally */}
-                  {dayTransfers.length > 1 && (
-                    <View>
-                      {dayTransfers.slice(1).map((t, i) => {
-                        const iconData = getVehicleIcon(t.transferType || t.vehicleType);
-                        return (
-                          <View key={i + 1} style={{ marginBottom: 8, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }} wrap={false}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
-                              <Icon d={iconData} color={C.cu} size={9} />
-                              <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
-                            </View>
-                          {(t.from || t.to) && (
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
-                              {t.from ? (
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
-                                  <Icon d={ICONS.location} color={C.gn3} size={10} />
-                                  <View>
-                                    <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
-                                    <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
-                                  </View>
-                                </View>
-                              ) : null}
-                              {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
-                              {t.to ? (
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
-                                  <Icon d={ICONS.location} color={C.cu} size={10} />
-                                  <View>
-                                    <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
-                                    <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
-                                  </View>
-                                </View>
-                              ) : null}
-                            </View>
-                          )}
-                          {t.description ? <Text style={{ fontSize: 8, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
-                        </View>
-                      );
-                      })}
-                    </View>
-                  )}
+                  })}
                 </View>
               )}
 
               {/* Meals & Accommodation footer */}
               {(day.meals?.length > 0 || day.accommodation) && (
-                <View style={s.dayMeta} wrap={false}>
+                <View style={s.dayMeta}>
                   {day.meals && day.meals.length > 0 && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Icon d={ICONS.restaurant} color={C.cu} size={10} />
+                    <View style={s.dayMetaItem}>
+                      <Icon d={ICONS.restaurant} color={C.cu} size={9} />
                       <Text style={s.dayMetaLabel}>MEALS:</Text>
                       <Text style={s.dayMetaValue}>{day.meals.join(", ")}</Text>
                     </View>
                   )}
                   {day.accommodation ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Icon d={ICONS.hotel} color={C.gn3} size={10} />
+                    <View style={s.dayMetaItem}>
+                      <Icon d={ICONS.hotel} color={C.gn3} size={9} />
                       <Text style={s.dayMetaLabel}>STAY:</Text>
                       <Text style={s.dayMetaValue}>{day.accommodation}</Text>
                     </View>
@@ -1153,49 +1369,14 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
       {/* Unassigned transfers shown at the end */}
       {unassignedTransfers.length > 0 && (
         <View style={{ marginTop: 14 }}>
-          <View wrap={false} style={{ marginBottom: 6 }}>
+          <View wrap={false} minPresenceAhead={80}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
-              <Icon d={ICONS.bus} color={C.cu} size={12} />
+              <Icon d={ICONS.bus} color={C.cu} size={11} />
               <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>General Transfers</Text>
             </View>
-            {unassignedTransfers.slice(0, 1).map((t, i) => (
-              <View key={i} style={s.transCard} wrap={false}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                  <Icon d={ICONS.bus} color={C.cu} size={10} />
-                  <Text style={s.transTitle}>{t.title}</Text>
-                </View>
-                {(t.from || t.to) && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
-                    {t.from ? (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
-                        <Icon d={ICONS.location} color={C.gn3} size={10} />
-                        <View>
-                          <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
-                          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
-                        </View>
-                      </View>
-                    ) : null}
-                    {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
-                    {t.to ? (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
-                        <Icon d={ICONS.location} color={C.cu} size={10} />
-                        <View>
-                          <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
-                          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
-                        </View>
-                      </View>
-                    ) : null}
-                  </View>
-                )}
-                {t.description ? <Text style={s.actDesc}>{t.description}</Text> : null}
-                {t.details?.map((d, j) => (
-                  <Text key={j} style={s.actBullet}>- {d}</Text>
-                ))}
-              </View>
-            ))}
           </View>
-          {unassignedTransfers.slice(1).map((t, i) => (
-            <View key={i + 1} style={s.transCard} wrap={false}>
+          {unassignedTransfers.map((t, i) => (
+            <View key={i} style={s.transCard} wrap={false}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
                 <Icon d={ICONS.bus} color={C.cu} size={10} />
                 <Text style={s.transTitle}>{t.title}</Text>
@@ -1225,7 +1406,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
               )}
               {t.description ? <Text style={s.actDesc}>{t.description}</Text> : null}
               {t.details?.map((d, j) => (
-                <Text key={j} style={s.actBullet}>- {d}</Text>
+                <Text key={j} style={s.actBullet}>• {d}</Text>
               ))}
             </View>
           ))}
@@ -1501,6 +1682,29 @@ const PoliciesLinkSection = ({ pkg }: { pkg: PackageData }) => {
   );
 };
 
+// ─── Date Change Notice ───────────────────────────────────────────────────────
+const DateChangeNoticeSection = ({ pkg }: { pkg: PackageData }) => {
+  const history = pkg.bookingMeta?.dateChangeHistory;
+  if (!history || history.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false}>
+        <SectionTitle title="Date Change Notice" />
+        {history.map((h, i) => (
+          <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 8 }}>
+            <View style={[s.carryDot, { backgroundColor: C.cu }]} />
+            <Text style={[s.carryText, { color: C.ink }]}>
+              Travel date changed from <Text style={{ fontFamily: "Helvetica-Bold" }}>{new Date(h.oldDate).toLocaleDateString("en-IN")}</Text> to <Text style={{ fontFamily: "Helvetica-Bold" }}>{new Date(h.newDate).toLocaleDateString("en-IN")}</Text>.
+              {"\n"}Reason: <Text style={{ fontStyle: "italic", color: C.ink3 }}>{h.reason}</Text>
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
 // ─── Pricing & CTA ────────────────────────────────────────────────────────────
 const PricingSection = ({ pkg }: { pkg: PackageData }) => {
   const hasBookingMeta = pkg.bookingMeta && pkg.bookingMeta.totalAmount !== undefined;
@@ -1571,6 +1775,154 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
   </View>
 )};
 
+// ─── Default Partner Logos (Dummy placeholders - update with real CDN/asset URLs) ──
+export const PARTNER_LOGOS_ROWS: { row: PartnerItem[] }[] = [
+  {
+    row: [
+      { name: "Dubai", image: "https://placehold.co/220x90/ffffff/00AECC.png?text=DUBAI" },
+      { name: "Marriott", image: "https://placehold.co/220x90/ffffff/8B0000.png?text=MARRIOTT" },
+      { name: "Razorpay", image: "https://placehold.co/220x90/ffffff/0C2340.png?text=Razorpay" },
+      { name: "Indian Bank", image: "https://placehold.co/220x90/ffffff/004080.png?text=Indian+Bank" },
+    ],
+  },
+  {
+    row: [
+      { name: "Emirates", image: "https://placehold.co/220x90/ffffff/D71921.png?text=Emirates" },
+      { name: "IndiGo", image: "https://placehold.co/220x90/ffffff/002B80.png?text=IndiGo" },
+      { name: "Incredible India", image: "https://placehold.co/220x90/ffffff/222222.png?text=Incredible+India" },
+    ],
+  },
+  {
+    row: [
+      { name: "BHIM", image: "https://placehold.co/220x90/ffffff/333333.png?text=BHIM" },
+      { name: "MakeMyTrip", image: "https://placehold.co/220x90/ffffff/E42B26.png?text=MakeMyTrip" },
+      { name: "VISA", image: "https://placehold.co/220x90/ffffff/1A1F71.png?text=VISA" },
+      { name: "PayU", image: "https://placehold.co/220x90/ffffff/7ABA28.png?text=PayU" },
+    ],
+  },
+  {
+    row: [
+      { name: "Uber", image: "https://placehold.co/220x90/ffffff/000000.png?text=Uber" },
+      { name: "Amazing Thailand", image: "https://placehold.co/220x90/ffffff/D82374.png?text=Amazing+Thailand" },
+      { name: "AirAsia", image: "https://placehold.co/220x90/ffffff/ED1C24.png?text=AirAsia" },
+      { name: "Oberoi Hotels & Resorts", image: "https://placehold.co/220x90/ffffff/B8860B.png?text=Oberoi" },
+    ],
+  },
+  {
+    row: [
+      { name: "Tripadvisor", image: "https://placehold.co/220x90/ffffff/00AF87.png?text=Tripadvisor" },
+      { name: "Turkey", image: "https://placehold.co/220x90/ffffff/E30A17.png?text=Turkey" },
+      { name: "Zoomcar", image: "https://placehold.co/220x90/ffffff/38B449.png?text=Zoomcar" },
+    ],
+  },
+];
+
+// ─── Last Page: Our Partners ──────────────────────────────────────────────────
+const PartnersPage = ({ pkg }: { pkg?: PackageData }) => {
+  return (
+    <Page size="A4" style={[s.page, { position: "relative" }]}>
+      {/* Decorative top-right soft curved shape */}
+      <View
+        style={{
+          position: "absolute",
+          top: -35,
+          right: -35,
+          width: 150,
+          height: 150,
+          borderRadius: 75,
+          backgroundColor: "rgba(224, 245, 247, 0.45)",
+        }}
+      />
+      {/* Decorative bottom-left subtle amber curved shape */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: -35,
+          left: -35,
+          width: 150,
+          height: 150,
+          borderRadius: 75,
+          backgroundColor: "rgba(254, 243, 220, 0.4)",
+        }}
+      />
+
+      <PageHeader section="Our Partners" />
+
+      {/* Main Title Section */}
+      <View style={{ marginBottom: 14, marginTop: 4 }}>
+        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 1.5, marginBottom: 4 }}>
+          TREKTROV TRAVELS
+        </Text>
+        <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#004d5e", letterSpacing: 0.2 }}>
+          Our Partners
+        </Text>
+        <View style={{ width: 48, height: 3.5, backgroundColor: "#F5A623", borderRadius: 2, marginTop: 6, marginBottom: 12 }} />
+        <Text style={{ fontSize: 8.5, color: "#4a7a85", lineHeight: 1.4 }}>
+          Partner and service-provider logos are presented as listed in the original package brochure.
+        </Text>
+      </View>
+
+      {/* Main Partners Card Container */}
+      <View
+        style={{
+          backgroundColor: "#ffffff",
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: "#d4ecf0",
+          paddingHorizontal: 20,
+          paddingVertical: 24,
+          flex: 1,
+          maxHeight: 520,
+          justifyContent: "space-around",
+        }}
+      >
+        {PARTNER_LOGOS_ROWS.map((rowGroup, rowIdx) => (
+          <View
+            key={rowIdx}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: rowGroup.row.length === 3 ? "space-around" : "space-between",
+              paddingHorizontal: rowGroup.row.length === 3 ? 24 : 8,
+              marginVertical: 4,
+            }}
+          >
+            {rowGroup.row.map((item, itemIdx) => (
+              <View
+                key={itemIdx}
+                style={{
+                  width: rowGroup.row.length === 3 ? "28%" : "21%",
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 4,
+                }}
+              >
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    style={{
+                      width: "100%",
+                      height: 38,
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>
+                    {item.name}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+
+      <PageFooter />
+    </Page>
+  );
+};
+
 // ─── Document ─────────────────────────────────────────────────────────────────
 const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
   <Document
@@ -1578,12 +1930,16 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
     author="LetsLive Tours"
     subject={`Travel Itinerary — ${pkg.name}`}
   >
+    {/* Page 1: Cover Page */}
     <CoverPage pkg={pkg} />
+
+    {/* Page 2: Package Snapshot & Flight Information */}
+    <PackageSnapshotPage pkg={pkg} />
+
+    {/* Page 3+: Detailed Itinerary & Logistics */}
     <Page size="A4" style={s.page}>
       <PageHeader section="Package Details & Itinerary" />
       
-      <TripSummarySection pkg={pkg} />
-      {/* <GallerySection pkg={pkg} /> */}
       <OverviewSection pkg={pkg} />
       <FlightsSection pkg={pkg} />
       <TransferSummarySection pkg={pkg} />
@@ -1592,11 +1948,15 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       <InclusionsExclusionsSection pkg={pkg} />
       <KnowBeforeYouGoSection pkg={pkg} />
       <ThingsToCarrySection pkg={pkg} />
+      <DateChangeNoticeSection pkg={pkg} />
       <PoliciesLinkSection pkg={pkg} />
       <PricingSection pkg={pkg} />
       
       <PageFooter />
     </Page>
+
+    {/* Last Page: Our Partners */}
+    <PartnersPage pkg={pkg} />
   </Document>
 );
 
