@@ -11,7 +11,7 @@ interface DayTemplate {
   folder: string;
   title: string;
   description: string;
-  activities: string[];
+  activities: (string | any)[];
   meals: string[];
   accommodation: string;
   images: string[];

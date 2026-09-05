@@ -117,10 +117,97 @@ export default function NewCustomItineraryPage() {
     if (p.stayImages) setStayImages(p.stayImages);
     if (p.activityImages) setActivityImages(p.activityImages);
     if (p.images) setImages(p.images);
-    if (p.itinerary) setItinerary(p.itinerary.map((day: any) => ({ ...day, _key: Date.now() + Math.random() })));
-    if (p.stays) setStays(p.stays.map((stay: any) => ({ ...stay, _key: Date.now() + Math.random() })));
-    if (p.transfers) setTransfers(p.transfers.map((t: any) => ({ ...t, _key: Date.now() + Math.random() })));
-    if (p.flights) setFlights(p.flights.map((f: any) => ({ ...f, _key: Date.now() + Math.random() })));
+    if (p.itinerary && p.itinerary.length > 0) {
+      setItinerary(
+        p.itinerary.map((day: any, i: number) => ({
+          day: day.day || i + 1,
+          title: day.title || "",
+          description: day.description || "",
+          activities: (day.activities || []).map((a: any) => {
+            if (typeof a === "string") {
+              return { title: a, description: "", image: "", images: [] };
+            }
+            const img = a.image || (a.images && a.images[0]) || "";
+            return {
+              title: a.title || a.name || "",
+              description: a.description || "",
+              image: img,
+              images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
+            };
+          }),
+          meals: day.meals || [],
+          accommodation: day.accommodation || "",
+          images: day.images || [],
+          _key: Date.now() + i + Math.random(),
+        }))
+      );
+    }
+    if (p.stays && p.stays.length > 0) {
+      setStays(
+        p.stays.map((s: any, i: number) => ({
+          _key: Date.now() + i + 1000,
+          name: s.name || "",
+          rating: s.rating || "",
+          nights: s.nights || 0,
+          roomType: s.roomType || "",
+          rooms: s.rooms || 0,
+          amenities: s.amenities || [],
+          checkIn: s.checkIn || "",
+          checkOut: s.checkOut || "",
+          address: s.address || "",
+          confirmationNo: s.confirmationNo || "",
+        }))
+      );
+    }
+    if (p.transfers && p.transfers.length > 0) {
+      setTransfers(
+        p.transfers.map((t: any, i: number) => ({
+          _key: Date.now() + i + 2000,
+          title: t.title || "",
+          description: t.description || "",
+          transferType: t.transferType || "Shared Transfer",
+          vehicleType: t.vehicleType || "",
+          from: t.from || "",
+          to: t.to || "",
+          stops: t.stops || [],
+          legs: t.legs && t.legs.length > 0
+            ? t.legs.map((l: any) => ({
+                from: l.from || "",
+                to: l.to || "",
+                stops: l.stops || [],
+                transferType: l.transferType || "Shared Transfer",
+                vehicleType: l.vehicleType || "",
+              }))
+            : [{
+                from: t.from || "",
+                to: t.to || "",
+                stops: t.stops || [],
+                transferType: t.transferType || "Shared Transfer",
+                vehicleType: t.vehicleType || "",
+              }],
+          day: t.day || 0,
+          details: t.details || [],
+          images: t.images || [],
+        }))
+      );
+    }
+    if (p.flights && p.flights.length > 0) {
+      setFlights(
+        p.flights.map((f: any, i: number) => ({
+          _key: Date.now() + i + 5000,
+          day: f.day || 0,
+          airline: f.airline || "",
+          flightNumber: f.flightNumber || "",
+          from: f.from || "",
+          to: f.to || "",
+          departure: f.departure || "",
+          arrival: f.arrival || "",
+          pnr: f.pnr || "",
+          class: f.class || "",
+          notes: f.notes || "",
+        }))
+      );
+    }
     if (p.keyPoints) setKeyPoints(p.keyPoints);
     if (p.highlights) setHighlights(p.highlights);
     if (p.inclusions) setInclusions(p.inclusions);
@@ -1260,7 +1347,26 @@ export default function NewCustomItineraryPage() {
             // Apply all template fields atomically to prevent stale-closure overwrites
             setItinerary(prev => prev.map((d, i) =>
               i === loadTemplateDayIndex
-                ? { ...d, title: template.title || "", description: template.description || "", activities: (template.activities || []).map((a: any) => typeof a === 'string' ? { title: a, description: '', image: '', images: [] } : a), meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                ? {
+                    ...d,
+                    title: template.title || "",
+                    description: template.description || "",
+                    activities: (template.activities || []).map((a: any) => {
+                      if (typeof a === "string") {
+                        return { title: a, description: "", image: "", images: [] };
+                      }
+                      const img = a.image || (a.images && a.images[0]) || "";
+                      return {
+                        title: a.title || a.name || "",
+                        description: a.description || "",
+                        image: img,
+                        images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
+                      };
+                    }),
+                    meals: template.meals || [],
+                    accommodation: template.accommodation || "",
+                    images: template.images || [],
+                  }
                 : d
             ));
           }

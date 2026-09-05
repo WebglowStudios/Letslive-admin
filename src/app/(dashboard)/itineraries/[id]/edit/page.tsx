@@ -1062,7 +1062,26 @@ export default function EditCustomItineraryPage() {
             // Apply all template fields atomically to prevent stale-closure overwrites
             setItinerary(prev => prev.map((d, i) =>
               i === loadTemplateDayIndex
-                ? { ...d, title: template.title || "", description: template.description || "", activities: (template.activities || []).map((a: any) => typeof a === 'string' ? { title: a, description: '', image: '', images: [] } : a), meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                ? {
+                    ...d,
+                    title: template.title || "",
+                    description: template.description || "",
+                    activities: (template.activities || []).map((a: any) => {
+                      if (typeof a === "string") {
+                        return { title: a, description: "", image: "", images: [] };
+                      }
+                      const img = a.image || (a.images && a.images[0]) || "";
+                      return {
+                        title: a.title || a.name || "",
+                        description: a.description || "",
+                        image: img,
+                        images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
+                      };
+                    }),
+                    meals: template.meals || [],
+                    accommodation: template.accommodation || "",
+                    images: template.images || [],
+                  }
                 : d
             ));
           }

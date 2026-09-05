@@ -33,7 +33,18 @@ export function SaveDayTemplateModal({ open, onClose, dayData }: Props) {
         folder: folder.trim() || "Uncategorized",
         title: dayData.title,
         description: dayData.description,
-        activities: dayData.activities,
+        activities: (dayData.activities || []).map((a: any) => {
+          if (typeof a === "string") {
+            return { title: a, description: "", image: "", images: [] };
+          }
+          const img = a.image || (a.images && a.images[0]) || "";
+          return {
+            title: a.title || a.name || "",
+            description: a.description || "",
+            image: img,
+            images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
+          };
+        }),
         meals: dayData.meals,
         accommodation: dayData.accommodation,
         images: dayData.images
