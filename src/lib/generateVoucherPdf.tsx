@@ -60,6 +60,7 @@ export interface VoucherData {
   accommodations: any[];
   transports: any[];
   itinerary: any[];
+  activities?: any[];
   transferSummary?: string;
   packageSlug?: string;
   hasPolicies?: boolean;
@@ -156,7 +157,52 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, flights, accommodations, transports, itinerary, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, flights, accommodations, transports, itinerary, activities, transferSummary } = data;
+
+  const transfersByDay: Record<number | string, any[]> = {};
+  
+  // Transfers from transports (flights/trains)
+  transports?.forEach((t: any) => {
+    (t.legs || []).forEach((leg: any) => {
+      if (leg.tripDay) {
+        const str = String(leg.tripDay);
+        const dayMatch = str.match(/\d+/);
+        const dayNum = dayMatch ? parseInt(dayMatch[0], 10) : null;
+
+        if (dayNum !== null) {
+          if (!transfersByDay[dayNum]) transfersByDay[dayNum] = [];
+          transfersByDay[dayNum].push({ ...leg, type: t.type, title: t.title });
+        }
+        if (!transfersByDay[str]) transfersByDay[str] = [];
+        if (dayNum === null) {
+          transfersByDay[str].push({ ...leg, type: t.type, title: t.title });
+        }
+      }
+    });
+  });
+
+  // Road transfers from activities (itinerary days)
+  activities?.forEach((a: any, idx: number) => {
+    const dayMatch = String(a.tripDay || '').match(/\d+/);
+    const dayNum = dayMatch ? parseInt(dayMatch[0], 10) : (idx + 1);
+
+    (a.transfers || []).forEach((tr: any) => {
+      if (!transfersByDay[dayNum]) transfersByDay[dayNum] = [];
+      transfersByDay[dayNum].push({
+        from: tr.from,
+        to: tr.to,
+        title: tr.title,
+        vehicleType: tr.vehicleType,
+        departureTime: tr.departureTime,
+        arrivalTime: tr.arrivalTime,
+        driverName: tr.driverName,
+        driverContact: tr.driverContact,
+        vehicleNumber: tr.vehicleNumber,
+        notes: tr.notes,
+        type: 'road',
+      });
+    });
+  });
 
   return (
     <Document>
@@ -300,82 +346,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
           </View>
         )}
 
-        {/* TRANSFER ARRANGEMENTS */}
-        {transports.length > 0 && (
-          <View style={s.sectionWrapper}>
-            <View style={s.sectionHeader}>
-              <Icon d={ICONS.car} color={C.gn3} size={14} />
-              <Text style={s.sectionTitle}>TRANSFER ARRANGEMENTS</Text>
-            </View>
-            {transports.map((t: any, i: number) => {
-              const legs: any[] = t.legs || [];
-              const hasLegData = legs.some((l: any) => l.from || l.to);
-              return (
-                <View key={i} style={[s.transportBox, { marginTop: i > 0 ? 10 : 0, flexDirection: "column", gap: 0, padding: 14 }]}>
-                  {/* Vendor Info Hidden to prevent bypassing agency */}
-                  
-                  {/* Legs table */}
-                  {hasLegData && (
-                    <View>
-                      {/* Table header */}
-                      <View style={{ flexDirection: "row", paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: C.iv2 }}>
-                        <Text style={[s.th, { width: "15%" }]}>DAY</Text>
-                        <Text style={[s.th, { width: "50%" }]}>ROUTE</Text>
-                        <Text style={[s.th, { width: "20%" }]}>VEHICLE</Text>
-                        <Text style={[s.th, { width: "15%" }]}>DATE</Text>
-                      </View>
-                      {legs.filter((l: any) => l.from || l.to).map((leg: any, li: number) => (
-                        <View key={li}>
-                          <View style={{ flexDirection: "row", paddingVertical: 5, borderBottomWidth: li < legs.length - 1 ? 1 : 0, borderBottomColor: C.iv2 }}>
-                            <Text style={[s.td, { width: "15%" }]}>{leg.tripDay || "—"}</Text>
-                            <View style={{ width: "50%", paddingRight: 4 }}>
-                              <Text style={s.td}>
-                                {leg.from && leg.to ? `${leg.from}  →  ${leg.to}` : leg.from || leg.to || "—"}
-                              </Text>
-                              {(t.type === 'flight' || t.type === 'train') && (leg.pnr || leg.departureTime || leg.arrivalTime) && (
-                                <Text style={{ fontSize: 7, color: C.ink3, marginTop: 2 }}>
-                                  {[leg.pnr ? `PNR: ${leg.pnr}` : null, leg.departureTime ? `Dep: ${leg.departureTime}` : null, leg.arrivalTime ? `Arr: ${leg.arrivalTime}` : null].filter(Boolean).join(" | ")}
-                                </Text>
-                              )}
-                              {(t.type === 'road' || t.type === 'other' || !t.type) && (leg.driverName || leg.driverContact || leg.vehicleNumber) && (
-                                <Text style={{ fontSize: 7, color: C.ink3, marginTop: 2 }}>
-                                  {[leg.driverName ? `Driver: ${leg.driverName}` : null, leg.driverContact ? `Ph: ${leg.driverContact}` : null, leg.vehicleNumber ? `Veh: ${leg.vehicleNumber}` : null].filter(Boolean).join(" | ")}
-                                </Text>
-                              )}
-                              {leg.duration && (
-                                <Text style={{ fontSize: 7, color: C.ink3, marginTop: 1 }}>Duration: {leg.duration}</Text>
-                              )}
-                            </View>
-                            <Text style={[s.td, { width: "20%" }]}>{leg.vehicleType || "—"}</Text>
-                            <Text style={[s.td, { width: "15%", color: C.ink3 }]}>{formatDateSafe(leg.date)}</Text>
-                          </View>
-                          {leg.notes ? (
-                            <View style={{ paddingLeft: "15%", paddingBottom: 4 }}>
-                              <Text style={{ fontSize: 7, color: C.ink3, fontStyle: "italic" }}>{leg.notes}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        )}
 
-        {/* OVERALL TRANSFER SUMMARY (fallback if no transport records at all) */}
-        {transports.length === 0 && transferSummary && (
-          <View style={s.sectionWrapper} wrap={false}>
-            <View style={s.sectionHeader}>
-              <Icon d={ICONS.car} color={C.gn3} size={14} />
-              <Text style={s.sectionTitle}>OVERALL TRANSFER ARRANGEMENTS</Text>
-            </View>
-            <View style={[s.transportBox, { paddingVertical: 14 }]}>
-              <Text style={{ fontSize: 9, color: C.ink2, lineHeight: 1.6 }}>{transferSummary}</Text>
-            </View>
-          </View>
-        )}
 
 
         {/* DAY-WISE ITINERARY */}
@@ -402,6 +373,34 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                       )}
                     </View>
                     <Text style={s.dayDesc}>{day.description}</Text>
+                    {/* Transfers for this day */}
+                    {transfersByDay[day.day] && transfersByDay[day.day].length > 0 && (
+                      <View style={{ marginTop: 6, borderTopWidth: 1, borderTopColor: C.iv2, paddingTop: 4 }}>
+                        <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink3, marginBottom: 2 }}>Transfers:</Text>
+                        {transfersByDay[day.day].map((leg: any, li: number) => (
+                          <View key={li} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 3 }}>
+                            <View style={{ marginTop: 1 }}>
+                              <Icon d={ICONS.car} color={C.cu} size={9} />
+                            </View>
+                            <View style={{ marginLeft: 4 }}>
+                              <Text style={{ fontSize: 8, color: C.ink2, fontFamily: "Helvetica-Bold" }}>
+                                {leg.from && leg.to ? `${leg.from} → ${leg.to}` : leg.from || leg.to || leg.title || "Transport"}
+                              </Text>
+                              {(leg.vehicleType || leg.type === 'flight' || leg.type === 'train') && (
+                                <Text style={{ fontSize: 7, color: C.ink3 }}>
+                                  {[leg.vehicleType ? `Vehicle: ${leg.vehicleType}` : null, leg.pnr ? `PNR: ${leg.pnr}` : null, leg.departureTime ? `Dep: ${leg.departureTime}` : null, leg.arrivalTime ? `Arr: ${leg.arrivalTime}` : null].filter(Boolean).join(" | ")}
+                                </Text>
+                              )}
+                              {(leg.driverName || leg.driverContact || leg.vehicleNumber) && (
+                                <Text style={{ fontSize: 7, color: C.ink3 }}>
+                                  {[leg.driverName ? `Driver: ${leg.driverName}` : null, leg.driverContact ? `Ph: ${leg.driverContact}` : null, leg.vehicleNumber ? `Veh: ${leg.vehicleNumber}` : null].filter(Boolean).join(" | ")}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 </View>
               ))}
