@@ -90,7 +90,7 @@ export default function NewPackagePage() {
   const [showImportModal, setShowImportModal] = useState(false);
 
   const handleImportData = (p: any) => {
-    if (p.name) setName(p.name + " (Copy " + Math.floor(Math.random() * 10000) + ")");
+    if (p.name) setName(name.trim() ? name : p.name);
     if (p.destination?._id) setDestination(p.destination._id);
     else if (p.destination) setDestination(p.destination);
     if (p.description) setDescription(p.description);
@@ -227,6 +227,8 @@ export default function NewPackagePage() {
     }
     
     setShowImportModal(false);
+    setSuccess("Itinerary template loaded successfully! You can now customize details, stays, and pricing.");
+    setTimeout(() => setSuccess(""), 4000);
   };
 
   const [price, setPrice] = useState("");
