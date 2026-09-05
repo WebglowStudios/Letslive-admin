@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Upload, X, Image as ImageIcon, Loader2, Check, Trash2, ZoomIn,
-  FolderPlus, FolderOpen, ChevronRight, Home, ArrowLeft,
+  FolderPlus, FolderOpen, ChevronRight, Home, ArrowLeft, Edit2, Tag, MapPin,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -165,6 +165,334 @@ function CreateFolderDialog({ open, onClose, onCreated, currentPath }: {
   );
 }
 
+// ─── PENDING UPLOAD ITEM ───
+interface PendingUploadItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  name: string;
+  sizeFormatted: string;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function sanitizeSuggestedName(filename: string): string {
+  const withoutExt = filename.replace(/\.[^/.]+$/, "");
+  const spaced = withoutExt.replace(/[-_]+/g, " ").trim();
+  return spaced.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ─── EDIT IMAGE NAME DIALOG ───
+function EditImageNameDialog({
+  image,
+  onClose,
+  onSaved,
+}: {
+  image: LibraryImage | null;
+  onClose: () => void;
+  onSaved: (publicId: string, newName: string) => void;
+}) {
+  const [name, setName] = useState(image?.name || "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (image) {
+      setName(image.name || "");
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [image]);
+
+  if (!image) return null;
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_URL}/upload/${encodeURIComponent(image!.publicId)}/name`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      const json = await res.json();
+      if (json.status === "success") {
+        onSaved(image!.publicId, name.trim());
+        onClose();
+      } else {
+        alert(json.message || "Failed to update image name");
+      }
+    } catch {
+      alert("Failed to update image name");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl p-5 shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Tag size={16} className="text-cyan-600" />
+            <h3 className="text-sm font-bold text-slate-800">
+              {image.name ? "Edit Location / Image Name" : "Add Location Name"}
+            </h3>
+          </div>
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500">
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="flex gap-3.5 mb-4 items-center p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+          <img src={image.url} alt="" className="w-16 h-14 object-cover rounded-lg border border-slate-200" />
+          <div className="text-xs text-slate-500 min-w-0">
+            <p className="font-semibold text-slate-700 truncate">{image.name || image.publicId.split('/').pop()}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {image.width && image.height ? `${image.width} × ${image.height}px` : ""}
+              {image.format ? ` · ${image.format.toUpperCase()}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5 mb-5">
+          <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <MapPin size={12} className="text-cyan-600" />
+            Location / Place Name
+          </label>
+          <input
+            ref={inputRef}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            placeholder="e.g. Betaab Valley, Pahalgam or Dal Lake Sunset"
+            className="w-full px-3 py-2.5 border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all"
+          />
+          <p className="text-[11px] text-slate-400">
+            This name will appear on package detail galleries so travelers know what place is being shown.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 text-xs font-bold bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            {saving && <Loader2 size={12} className="animate-spin" />}
+            Save Name
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── UPLOAD & NAMING DIALOG (Single & Bulk) ───
+function UploadNamingDialog({
+  open,
+  items,
+  onClose,
+  onConfirm,
+  uploading,
+  uploadProgress,
+}: {
+  open: boolean;
+  items: PendingUploadItem[];
+  onClose: () => void;
+  onConfirm: (namedItems: { file: File; name: string }[]) => void;
+  uploading: boolean;
+  uploadProgress?: string;
+}) {
+  const [localItems, setLocalItems] = useState<PendingUploadItem[]>(items);
+
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
+  if (!open || localItems.length === 0) return null;
+
+  const isSingle = localItems.length === 1;
+
+  function updateName(id: string, newName: string) {
+    setLocalItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, name: newName } : it))
+    );
+  }
+
+  function removeItem(id: string) {
+    const remaining = localItems.filter((it) => it.id !== id);
+    if (remaining.length === 0) {
+      onClose();
+    } else {
+      setLocalItems(remaining);
+    }
+  }
+
+  function handleUpload() {
+    onConfirm(localItems.map((it) => ({ file: it.file, name: it.name.trim() })));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4">
+      <div
+        className={`bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-full ${
+          isSingle ? "max-w-md" : "max-w-2xl max-h-[85vh]"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Upload size={16} className="text-cyan-600" />
+              {isSingle ? "Name Your Image Before Upload" : `Name Images Before Upload (${localItems.length} images)`}
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Enter the location or attraction name for each photo to display in the package gallery.
+            </p>
+          </div>
+          {!uploading && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="p-5 overflow-y-auto flex-1">
+          {isSingle ? (
+            /* Single Image Layout */
+            <div className="space-y-4">
+              <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                <img src={localItems[0].previewUrl} alt="" className="w-full h-full object-cover" />
+                <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-semibold px-2 py-0.5 rounded">
+                  {localItems[0].sizeFormatted}
+                </span>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <MapPin size={13} className="text-cyan-600" />
+                  Location / Place Name
+                </label>
+                <input
+                  type="text"
+                  value={localItems[0].name}
+                  onChange={(e) => updateName(localItems[0].id, e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleUpload()}
+                  placeholder="e.g. Betaab Valley, Pahalgam or Dal Lake Sunset"
+                  autoFocus
+                  disabled={uploading}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all disabled:bg-slate-100"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Enter the place name so visitors know what location this is in the package gallery.
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Bulk Upload List */
+            <div className="space-y-3">
+              {localItems.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3.5 p-3 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-cyan-200 transition-all"
+                >
+                  <img
+                    src={item.previewUrl}
+                    alt=""
+                    className="w-20 h-16 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-semibold text-slate-600 truncate max-w-[280px]" title={item.file.name}>
+                        {idx + 1}. {item.file.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                        {item.sizeFormatted}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={item.name}
+                        onChange={(e) => updateName(item.id, e.target.value)}
+                        placeholder="Location / place name (e.g. Gulmarg Gondola Phase 1)"
+                        disabled={uploading}
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 rounded-lg text-slate-800 font-medium outline-none transition-all disabled:bg-slate-100"
+                      />
+                    </div>
+                  </div>
+                  {!uploading && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                      title="Remove from upload"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="text-xs text-slate-500">
+            {uploading ? (
+              <span className="flex items-center gap-1.5 text-cyan-600 font-semibold">
+                <Loader2 size={13} className="animate-spin" />
+                {uploadProgress || "Uploading images to Cloudinary..."}
+              </span>
+            ) : (
+              <span>{localItems.length} image{localItems.length !== 1 ? "s" : ""} to upload</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {!uploading && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={uploading || localItems.length === 0}
+              className="px-5 py-2 text-xs font-bold bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              {uploading && <Loader2 size={13} className="animate-spin" />}
+              {uploading
+                ? "Uploading..."
+                : isSingle
+                ? "Upload Image"
+                : `Upload ${localItems.length} Images`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PERSISTENT FOLDER STATE ───────────────────────────────────────────────
 // Module-level variables survive component remounts and page rerenders.
 // They are initialized once from localStorage and kept in sync on every navigation.
@@ -208,6 +536,10 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [pendingUploads, setPendingUploads] = useState<PendingUploadItem[]>([]);
+  const [uploadNamingOpen, setUploadNamingOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const [editingImage, setEditingImage] = useState<LibraryImage | null>(null);
 
   // Restore last visited folder — reads from module-level cache which survives remounts
   // and is kept in sync with localStorage on every navigation.
@@ -322,7 +654,7 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
     }
   }
 
-  async function handleUpload(files: FileList) {
+  function handleFilesSelected(files: FileList) {
     const fileArray = Array.from(files);
     const maxSizeBytes = 10 * 1024 * 1024; // 10MB
     const validFiles: File[] = [];
@@ -342,14 +674,45 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
 
     if (validFiles.length === 0) return;
 
+    // Create pending upload items with suggested names
+    const items: PendingUploadItem[] = validFiles.map((file, idx) => ({
+      id: `${Date.now()}-${idx}-${file.name}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: sanitizeSuggestedName(file.name),
+      sizeFormatted: formatFileSize(file.size),
+    }));
+
+    setPendingUploads(items);
+    setUploadNamingOpen(true);
+  }
+
+  function handleCloseUploadNaming() {
+    // Revoke object URLs to prevent memory leaks
+    pendingUploads.forEach((it) => URL.revokeObjectURL(it.previewUrl));
+    setPendingUploads([]);
+    setUploadNamingOpen(false);
+  }
+
+  async function handleConfirmUpload(namedItems: { file: File; name: string }[]) {
+    if (namedItems.length === 0) return;
+
     setUploading(true);
+    setUploadProgress("Preparing upload...");
     try {
-      // Process in batches of 10 (backend limit for /upload/multiple)
       const batchSize = 10;
-      for (let i = 0; i < validFiles.length; i += batchSize) {
-        const batch = validFiles.slice(i, i + batchSize);
+      const totalBatches = Math.ceil(namedItems.length / batchSize);
+
+      for (let i = 0; i < namedItems.length; i += batchSize) {
+        const batchIndex = Math.floor(i / batchSize) + 1;
+        setUploadProgress(`Uploading batch ${batchIndex} of ${totalBatches}...`);
+
+        const batch = namedItems.slice(i, i + batchSize);
         const formData = new FormData();
-        batch.forEach((file) => formData.append("images", file));
+        batch.forEach((it) => {
+          formData.append("images", it.file);
+          formData.append("names", it.name);
+        });
 
         const res = await authFetch(`${API_URL}/upload/multiple?folder=${encodeURIComponent(currentPath)}`, {
           method: "POST",
@@ -364,21 +727,22 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
 
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
-          const newImages = json.data.map((img: any) => ({
+          const newImages: LibraryImage[] = json.data.map((img: any) => ({
             url: img.url,
             publicId: img.publicId,
             width: img.width || 1600,
             height: img.height || 1200,
             createdAt: new Date().toISOString(),
-            name: img.name || 'image',
+            name: img.name || '',
             format: img.format || 'jpg',
           }));
+
           setImages((prev) => [...newImages, ...prev]);
-          
+
           if (multiple) {
             setSelected((prev) => {
-              const newUrls = newImages.map((img: any) => img.url);
-              const uniqueNewUrls = newUrls.filter((url: string) => !prev.includes(url));
+              const newUrls = newImages.map((img) => img.url);
+              const uniqueNewUrls = newUrls.filter((url) => !prev.includes(url));
               return [...prev, ...uniqueNewUrls];
             });
           } else if (newImages.length > 0) {
@@ -386,10 +750,14 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
           }
         }
       }
-    } catch (err: any) { 
-      alert(err.message || "Upload failed"); 
+
+      handleCloseUploadNaming();
+    } catch (err: any) {
+      alert(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      setUploadProgress("");
     }
-    finally { setUploading(false); }
   }
 
   async function handleDelete(publicId: string) {
@@ -667,6 +1035,14 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                                 >
                                   <ZoomIn size={12} className="text-slate-700" />
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setEditingImage(img); }}
+                                  className="w-7 h-7 rounded-full bg-white/90 hover:bg-white border-none flex items-center justify-center cursor-pointer transition-colors"
+                                  title={img.name ? "Edit location name" : "Add location name"}
+                                >
+                                  <Edit2 size={11} className="text-cyan-700" />
+                                </button>
                                 {!isSelected && (
                                   <button
                                     type="button"
@@ -691,15 +1067,39 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                               )}
                             </div>
 
-                            {/* Image name (below thumbnail, like Windows) */}
-                            <p
-                              className={`mt-1.5 text-[10px] text-center leading-tight max-w-full truncate px-0.5 ${
-                                isSelected ? 'text-cyan-700 font-semibold' : 'text-slate-500'
-                              }`}
-                              title={img.name}
-                            >
-                              {truncateName(img.name, 18)}
-                            </p>
+                            {/* Image name / click to edit or add name */}
+                            {img.name ? (
+                              <div
+                                className="mt-1.5 w-full flex items-center justify-center gap-1 group/name px-1 hover:text-cyan-600 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingImage(img);
+                                }}
+                                title={`Click to edit name: ${img.name}`}
+                              >
+                                <p
+                                  className={`text-[10px] text-center leading-tight truncate ${
+                                    isSelected ? 'text-cyan-700 font-bold' : 'text-slate-700 font-medium group-hover/name:text-cyan-600'
+                                  }`}
+                                >
+                                  {truncateName(img.name, 16)}
+                                </p>
+                                <Edit2 size={9} className="text-slate-400 group-hover/name:text-cyan-600 flex-shrink-0 opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingImage(img);
+                                }}
+                                className="mt-1.5 w-full py-0.5 px-1 rounded bg-slate-50 hover:bg-cyan-50 text-slate-400 hover:text-cyan-700 text-[9.5px] font-medium border border-dashed border-slate-200 hover:border-cyan-300 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
+                                title="Click to name this image"
+                              >
+                                <Tag size={9} className="text-cyan-600" />
+                                <span>+ Name</span>
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -753,9 +1153,42 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
           currentPath={currentPath}
           onCreated={(folder) => setFolders((prev) => [...prev, folder])}
         />
+
+        {/* Upload & Naming Dialog (Single & Bulk) */}
+        <UploadNamingDialog
+          open={uploadNamingOpen}
+          items={pendingUploads}
+          onClose={handleCloseUploadNaming}
+          onConfirm={handleConfirmUpload}
+          uploading={uploading}
+          uploadProgress={uploadProgress}
+        />
+
+        {/* Edit Image Location Name Dialog */}
+        <EditImageNameDialog
+          image={editingImage}
+          onClose={() => setEditingImage(null)}
+          onSaved={(publicId, newName) => {
+            setImages((prev) =>
+              prev.map((img) => (img.publicId === publicId ? { ...img, name: newName } : img))
+            );
+          }}
+        />
       </div>
 
-      <input ref={fileRef} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleUpload(e.target.files)} style={{ display: "none" }} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleFilesSelected(e.target.files);
+            e.target.value = "";
+          }
+        }}
+        style={{ display: "none" }}
+      />
 
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </div>

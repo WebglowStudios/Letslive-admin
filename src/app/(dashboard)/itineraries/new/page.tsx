@@ -7,6 +7,7 @@ import { Destination } from "@/types";
 import { ArrowLeft, Save, Plus, Trash2, Link as LinkIcon, Wand2, ArrowUp, ArrowDown, Download } from "lucide-react";
 import Link from "next/link";
 import ListInput from "@/components/ui/ListInput";
+import DayActivitiesInput, { DayActivityItem } from "@/components/ui/DayActivitiesInput";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
 import MealPicker from "@/components/ui/MealPicker";
 import TextTemplateControls from "@/components/ui/TextTemplateControls";
@@ -18,7 +19,7 @@ import { ImportModal } from "@/components/ui/ImportModal";
 
 interface ItineraryDay {
   day: number; title: string; description: string;
-  activities: string[]; meals: string[]; accommodation: string; images: string[];
+  activities: (string | DayActivityItem)[]; meals: string[]; accommodation: string; images: string[];
 }
 interface Stay {
   _key: number; name: string; rating: string; nights: number; roomType: string; rooms?: number;
@@ -427,7 +428,22 @@ export default function NewCustomItineraryPage() {
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentPolicy, cancellationPolicy, flightCancellationPolicy,
         paymentConfig: { mode: paymentMode, depositType, depositValue: Number(depositValue) || 30, depositLabel: depositLabel.trim() || undefined, balanceDueDays: Number(balanceDueDays) || 30 },
-        itinerary: itinerary.filter((d) => d.title || d.description || (d.images && d.images.length > 0) || (d.activities && d.activities.length > 0)).map((d) => ({ day: d.day, title: d.title, description: d.description, activities: d.activities, meals: d.meals, accommodation: d.accommodation, images: d.images })),
+        itinerary: itinerary.filter((d) => d.title || d.description || (d.images && d.images.length > 0) || (d.activities && d.activities.length > 0)).map((d) => ({
+          day: d.day,
+          title: d.title,
+          description: d.description,
+          activities: (d.activities || []).map((a: any) => {
+            if (typeof a === "string") return a;
+            return {
+              title: a.title || "",
+              image: a.image || (a.images && a.images[0]) || "",
+              images: a.images && a.images.length > 0 ? a.images : (a.image ? [a.image] : []),
+            };
+          }),
+          meals: d.meals,
+          accommodation: d.accommodation,
+          images: d.images,
+        })),
         stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, rooms: Number(s.rooms) || 1, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
@@ -860,8 +876,8 @@ export default function NewCustomItineraryPage() {
                       <input type="text" value={day.title} onChange={(e) => updateItinerary(i, "title", e.target.value)} placeholder="Day title (e.g. Arrival & City Tour)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                       <textarea value={day.description} onChange={(e) => updateItinerary(i, "description", e.target.value)} placeholder="What happens this day..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
                       <div>
-                        <label className="text-xs font-medium text-slate-500 mb-1 block">Activities</label>
-                        <ListInput label="" items={day.activities} onChange={(items) => updateItinerary(i, "activities", items)} placeholder="Add activity" />
+                        <label className="text-xs font-medium text-slate-500 mb-1 block">Activities & Photos</label>
+                        <DayActivitiesInput activities={day.activities} onChange={(items) => updateItinerary(i, "activities", items)} placeholder="Add activity" />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <MealPicker meals={day.meals} onChange={(items) => updateItinerary(i, "meals", items)} />
@@ -1087,7 +1103,10 @@ export default function NewCustomItineraryPage() {
                                           onClick={() => {
                                             const updated = [...transfers];
                                             const legs = [...updated[i].legs];
-                                            const newStops = matched.activities.filter(a => !legs[li].stops.includes(a));
+                                            const actTitles = matched.activities
+                                              .map(a => typeof a === 'string' ? a : a.title)
+                                              .filter(Boolean);
+                                            const newStops = actTitles.filter(a => !legs[li].stops.includes(a));
                                             if (newStops.length === 0) return;
                                             legs[li] = { ...legs[li], stops: [...legs[li].stops, ...newStops] };
                                             updated[i] = { ...updated[i], legs };
@@ -1240,7 +1259,7 @@ export default function NewCustomItineraryPage() {
             // Apply all template fields atomically to prevent stale-closure overwrites
             setItinerary(prev => prev.map((d, i) =>
               i === loadTemplateDayIndex
-                ? { ...d, title: template.title || "", description: template.description || "", activities: template.activities || [], meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                ? { ...d, title: template.title || "", description: template.description || "", activities: (template.activities || []).map((a: any) => typeof a === 'string' ? { title: a, image: '', images: [] } : a), meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
                 : d
             ));
           }

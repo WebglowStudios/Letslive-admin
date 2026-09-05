@@ -876,7 +876,9 @@ export default function OperationDetailPage() {
                       <p className="text-xs font-bold text-slate-800">Day {day.day}: {day.title}</p>
                       {day.description && <p className="text-xs text-slate-600 mt-1">{day.description}</p>}
                       {day.activities && day.activities.length > 0 && (
-                        <p className="text-[10px] text-slate-500 mt-1.5 font-medium bg-slate-50 px-2 py-1 rounded inline-block">Activities: {day.activities.join(', ')}</p>
+                        <p className="text-[10px] text-slate-500 mt-1.5 font-medium bg-slate-50 px-2 py-1 rounded inline-block">
+                          Activities: {day.activities.map((a: any) => typeof a === 'string' ? a : (a.title || a.name || '')).filter(Boolean).join(', ')}
+                        </p>
                       )}
                     </div>
                   ))}

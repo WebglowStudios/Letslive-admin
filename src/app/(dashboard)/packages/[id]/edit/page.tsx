@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown, Download } fr
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
+import DayActivitiesInput, { DayActivityItem } from "@/components/ui/DayActivitiesInput";
 import TemplateControls from "@/components/ui/TemplateControls";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
 import MealPicker from "@/components/ui/MealPicker";
@@ -20,7 +21,7 @@ interface ItineraryDay {
   day: number;
   title: string;
   description: string;
-  activities: string[];
+  activities: (string | DayActivityItem)[];
   meals: string[];
   accommodation: string;
   images: string[];
@@ -311,11 +312,13 @@ export default function EditPackagePage() {
         setFlightCancellationPolicy(p.flightCancellationPolicy || []);
         setItinerary(
           p.itinerary && p.itinerary.length > 0
-            ? p.itinerary.map((d: { day?: number; title?: string; description?: string; activities?: string[]; meals?: string[]; accommodation?: string; images?: string[] }, i: number) => ({
+            ? p.itinerary.map((d: { day?: number; title?: string; description?: string; activities?: (string | DayActivityItem)[]; meals?: string[]; accommodation?: string; images?: string[] }, i: number) => ({
                 day: d.day || i + 1,
                 title: d.title || "",
                 description: d.description || "",
-                activities: d.activities || [],
+                activities: (d.activities || []).map((a: any) =>
+                  typeof a === "string" ? { title: a, image: "", images: [] } : { title: a.title || "", image: a.image || (a.images?.[0] || ""), images: a.images || (a.image ? [a.image] : []) }
+                ),
                 meals: d.meals || [],
                 accommodation: d.accommodation || "",
                 images: d.images || [],
@@ -573,7 +576,14 @@ export default function EditPackagePage() {
           day: d.day,
           title: d.title,
           description: d.description,
-          activities: d.activities,
+          activities: (d.activities || []).map((a: any) => {
+            if (typeof a === "string") return a;
+            return {
+              title: a.title || "",
+              image: a.image || (a.images && a.images[0]) || "",
+              images: a.images && a.images.length > 0 ? a.images : (a.image ? [a.image] : []),
+            };
+          }),
           meals: d.meals,
           accommodation: d.accommodation,
           images: d.images,
@@ -1090,8 +1100,8 @@ export default function EditPackagePage() {
                         <input type="text" value={day.title} onChange={(e) => updateItinerary(i, "title", e.target.value)} placeholder="Day title (e.g. Arrival & City Tour)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         <textarea value={day.description} onChange={(e) => updateItinerary(i, "description", e.target.value)} placeholder="What happens this day..." rows={2} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" />
                         <div>
-                          <label className="text-xs font-medium text-slate-500 mb-1 block">Activities</label>
-                          <ListInput label="" items={day.activities} onChange={(items) => updateItinerary(i, "activities", items)} placeholder="Add activity (e.g. Desert Safari)" />
+                          <label className="text-xs font-medium text-slate-500 mb-1 block">Activities & Photos</label>
+                          <DayActivitiesInput activities={day.activities} onChange={(items) => updateItinerary(i, "activities", items)} placeholder="Add activity (e.g. Shikara Ride on Dal Lake)" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -1338,7 +1348,10 @@ export default function EditPackagePage() {
                                           onClick={() => {
                                             const updated = [...transfers];
                                             const legs = [...updated[i].legs];
-                                            const newStops = matched.activities.filter(a => !legs[li].stops.includes(a));
+                                            const actTitles = matched.activities
+                                              .map(a => typeof a === 'string' ? a : a.title)
+                                              .filter(Boolean);
+                                            const newStops = actTitles.filter(a => !legs[li].stops.includes(a));
                                             if (newStops.length === 0) return;
                                             legs[li] = { ...legs[li], stops: [...legs[li].stops, ...newStops] };
                                             updated[i] = { ...updated[i], legs };
@@ -1505,7 +1518,7 @@ export default function EditPackagePage() {
             // Apply all template fields atomically to prevent stale-closure overwrites
             setItinerary(prev => prev.map((d, i) =>
               i === loadTemplateDayIndex
-                ? { ...d, title: template.title || "", description: template.description || "", activities: template.activities || [], meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
+                ? { ...d, title: template.title || "", description: template.description || "", activities: (template.activities || []).map((a: any) => typeof a === 'string' ? { title: a, image: '', images: [] } : a), meals: template.meals || [], accommodation: template.accommodation || "", images: template.images || [] }
                 : d
             ));
           }
