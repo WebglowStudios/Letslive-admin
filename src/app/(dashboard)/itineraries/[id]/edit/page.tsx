@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown, Download, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import ListInput from "@/components/ui/ListInput";
 import DayActivitiesInput, { DayActivityItem } from "@/components/ui/DayActivitiesInput";
@@ -24,6 +24,7 @@ interface ItineraryDay {
 interface Stay {
   _key: number; name: string; rating: string; nights: number; roomType: string; rooms?: number;
   checkIn: string; checkOut: string; address: string; confirmationNo: string; amenities: string[];
+  remark?: string; showRemarkToCustomer?: boolean;
 }
 interface Transfer {
   _key: number; title: string; description: string; transferType: string; vehicleType: string;
@@ -298,7 +299,7 @@ export default function EditCustomItineraryPage() {
       );
       setStays(
         p.stays?.length > 0
-          ? p.stays.map((s: any, i: number) => ({ _key: Date.now() + i + 1000, name: s.name || "", rating: s.rating || "", nights: s.nights || 0, roomType: s.roomType || "", rooms: s.rooms || 0, checkIn: s.checkIn || "", checkOut: s.checkOut || "", address: s.address || "", confirmationNo: s.confirmationNo || "", amenities: s.amenities || [] }))
+          ? p.stays.map((s: any, i: number) => ({ _key: Date.now() + i + 1000, name: s.name || "", rating: s.rating || "", nights: s.nights || 0, roomType: s.roomType || "", rooms: s.rooms || 0, checkIn: s.checkIn || "", checkOut: s.checkOut || "", address: s.address || "", confirmationNo: s.confirmationNo || "", amenities: s.amenities || [], remark: s.remark || s.remarks || "", showRemarkToCustomer: s.showRemarkToCustomer ?? false }))
           : []
       );
       setTransfers(
@@ -378,7 +379,7 @@ export default function EditCustomItineraryPage() {
   }
 
 
-  function addStay() { setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, checkIn: "", checkOut: "", address: "", confirmationNo: "", amenities: [] }]); }
+  function addStay() { setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, checkIn: "", checkOut: "", address: "", confirmationNo: "", amenities: [], remark: "", showRemarkToCustomer: false }]); }
   function removeStay(i: number) { setStays(stays.filter((_, idx) => idx !== i)); }
   function updateStay(i: number, field: string, value: unknown) { 
     const u = [...stays]; 
@@ -464,7 +465,7 @@ export default function EditCustomItineraryPage() {
           accommodation: d.accommodation,
           images: d.images,
         })),
-        stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, rooms: Number(s.rooms) || 0, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities })),
+        stays: stays.filter((s) => s.name).map((s) => ({ name: s.name, rating: s.rating, nights: Number(s.nights) || 0, roomType: s.roomType, rooms: Number(s.rooms) || 0, checkIn: s.checkIn || undefined, checkOut: s.checkOut || undefined, address: s.address || undefined, confirmationNo: s.confirmationNo || undefined, amenities: s.amenities, remark: s.remark?.trim() || undefined, showRemarkToCustomer: !!s.showRemarkToCustomer })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
         departures: isGroupTour ? departures.filter((d) => d.startDate && d.endDate).map((d) => ({
@@ -838,6 +839,35 @@ export default function EditCustomItineraryPage() {
                       </div>
                       <input type="text" value={stay.address} onChange={(e) => updateStay(i, "address", e.target.value)} placeholder="Hotel address" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                       <input type="text" value={stay.confirmationNo} onChange={(e) => updateStay(i, "confirmationNo", e.target.value)} placeholder="Confirmation number" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                      <div className="space-y-2 pt-1 border-t border-slate-100">
+                        <textarea
+                          value={stay.remark || ""}
+                          onChange={(e) => updateStay(i, "remark", e.target.value)}
+                          placeholder="Stay remark / notes (e.g. Complimentary breakfast included, base category room, mountain view...)"
+                          rows={2}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+                        />
+                        <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={!!stay.showRemarkToCustomer}
+                              onChange={(e) => updateStay(i, "showRemarkToCustomer", e.target.checked)}
+                              className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 border-slate-300 cursor-pointer"
+                            />
+                            <span className="text-xs font-semibold text-slate-700">
+                              Show remark to customer
+                            </span>
+                          </label>
+                          <span className={`text-[11px] font-medium flex items-center gap-1 ${stay.showRemarkToCustomer ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                            {stay.showRemarkToCustomer ? (
+                              <><Eye size={12} /> Visible on customer itinerary & PDF</>
+                            ) : (
+                              <><EyeOff size={12} /> Internal only (hidden from client)</>
+                            )}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {stays.length === 0 && <p className="text-sm text-slate-400 text-center py-6">No stays yet.</p>}

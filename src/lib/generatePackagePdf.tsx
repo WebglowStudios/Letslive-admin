@@ -74,6 +74,7 @@ interface Stay {
   name: string; rating: string; nights: number; roomType: string; amenities: string[];
   rooms?: number;
   checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string;
+  remark?: string; showRemarkToCustomer?: boolean;
 }
 interface TransferLeg {
   from?: string; to?: string; stops?: string[];
@@ -1353,6 +1354,25 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
           ))}
         </View>
       )}
+      {/* Show customer-visible remarks below table if available */}
+      {(() => {
+        const remarkStays = (pkg.stays || []).filter(s => s.remark && s.showRemarkToCustomer);
+        if (remarkStays.length === 0) return null;
+        return (
+          <View style={{ marginTop: 6, padding: 6, backgroundColor: C.iv, borderRadius: 4, borderWidth: 1, borderColor: C.line }}>
+            {remarkStays.map((stay, i) => (
+              <View key={i} style={{ marginBottom: i < remarkStays.length - 1 ? 3 : 0, flexDirection: "row", alignItems: "flex-start", gap: 4 }}>
+                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>
+                  {stay.name} Remark:
+                </Text>
+                <Text style={{ fontSize: 7.5, color: C.ink2, flex: 1 }}>
+                  {stay.remark}
+                </Text>
+              </View>
+            ))}
+          </View>
+        );
+      })()}
     </View>
   );
 };

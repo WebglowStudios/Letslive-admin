@@ -45,6 +45,7 @@ const BOOKING_STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
   confirmed: "bg-cyan-100 text-cyan-700",
   "staff-confirmed": "bg-indigo-100 text-indigo-700",
+  "vendor-confirmed": "bg-teal-100 text-teal-700",
   "in-progress": "bg-blue-100 text-blue-700",
   completed: "bg-emerald-100 text-emerald-700",
   cancelled: "bg-red-100 text-red-700",
@@ -62,6 +63,7 @@ function StatusIcon({ status }: { status: string }) {
   if (status === "cancelled") return <XCircle size={14} className="text-red-500" />;
   if (status === "confirmed") return <CheckCircle size={14} className="text-cyan-500" />;
   if (status === "staff-confirmed") return <CheckCircle size={14} className="text-indigo-500" />;
+  if (status === "vendor-confirmed") return <CheckCircle size={14} className="text-teal-500" />;
   if (status === "in-progress") return <RefreshCw size={14} className="text-blue-500" />;
   return <Clock size={14} className="text-amber-500" />;
 }
@@ -231,7 +233,7 @@ export default function BookingDetailPage() {
           <ChevronRight size={14} className="text-slate-300" />
           <span className="text-sm font-semibold text-slate-800">{booking.bookingId}</span>
           <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${BOOKING_STATUS_COLORS[booking.bookingStatus] || ""}`}>
-            {booking.bookingStatus === 'confirmed' ? 'Guest Confirmed' : booking.bookingStatus === 'staff-confirmed' ? 'Staff Confirmed' : booking.bookingStatus}
+            {booking.bookingStatus === 'confirmed' ? 'Guest Confirmed' : booking.bookingStatus === 'staff-confirmed' ? 'Staff Confirmed' : booking.bookingStatus === 'vendor-confirmed' ? 'Vendor Confirmed' : booking.bookingStatus}
           </span>
         </div>
 
@@ -256,8 +258,8 @@ export default function BookingDetailPage() {
                       disabled={updatingStatus}
                       className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     >
-                      {["pending", "confirmed", "staff-confirmed", "in-progress", "completed", "cancelled"].map((s) => (
-                        <option key={s} value={s}>{s === 'confirmed' ? 'Guest Confirmed' : s === 'staff-confirmed' ? 'Staff Confirmed' : s.replace("-", " ")}</option>
+                      {["pending", "confirmed", "staff-confirmed", "vendor-confirmed", "in-progress", "completed", "cancelled"].map((s) => (
+                        <option key={s} value={s}>{s === 'confirmed' ? 'Guest Confirmed' : s === 'staff-confirmed' ? 'Staff Confirmed' : s === 'vendor-confirmed' ? 'Vendor Confirmed' : s.replace("-", " ")}</option>
                       ))}
                     </select>
                   </div>

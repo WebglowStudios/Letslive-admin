@@ -119,6 +119,7 @@ export default function OperationsPage() {
   const statusColors: Record<string, string> = {
     planning: "bg-blue-100 text-blue-700",
     booked: "bg-cyan-100 text-cyan-700",
+    "vendor-confirmed": "bg-teal-100 text-teal-700",
     "in-progress": "bg-amber-100 text-amber-700",
     completed: "bg-emerald-100 text-emerald-700",
     cancelled: "bg-red-100 text-red-700",
@@ -138,40 +139,42 @@ export default function OperationsPage() {
     <RoleGuard permission="bookings.view">
       {deleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-red-600">
-                <AlertTriangle size={18} />
-                <h2 className="font-bold">Delete Operation</h2>
-              </div>
-              <button onClick={() => setDeleteModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
-                <X size={16} />
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <AlertTriangle size={18} className="text-red-600" />
+                Confirm Deletion
+              </h3>
+              <button onClick={() => setDeleteModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
               </button>
             </div>
-            <div className="p-5">
-              <p className="text-sm text-slate-600 mb-4">
-                Are you sure you want to delete this operation? This will permanently remove all associated vendor payments, customer payments, and records.
-              </p>
-              <div>
-                <label className="text-xs font-bold text-slate-700 uppercase block mb-1">Reason for Deletion <span className="text-red-500">*</span></label>
-                <textarea
-                  value={deleteReason}
-                  onChange={(e) => setDeleteReason(e.target.value)}
-                  placeholder="E.g., Customer cancelled trip, duplicate operation..."
-                  className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 min-h-[80px]"
-                ></textarea>
-              </div>
+            <p className="text-xs text-slate-600">
+              Are you sure you want to delete this operation? This action will permanently remove all associated transports, stays, activities, and payment schedules.
+            </p>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">Reason for Deletion <span className="text-red-500">*</span></label>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="e.g. Booking cancelled by user, duplicate record..."
+                className="w-full text-xs border border-slate-200 rounded-lg p-2.5 outline-none focus:border-red-500 min-h-[80px]"
+              />
             </div>
-            <div className="p-4 bg-slate-50 flex items-center gap-3 justify-end">
-              <button onClick={() => setDeleteModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50"
+              >
                 Cancel
               </button>
-              <button 
-                onClick={executeDelete} 
+              <button
+                onClick={executeDelete}
                 disabled={isDeleting || !deleteReason.trim()}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5"
               >
-                {isDeleting ? "Deleting..." : "Delete Permanently"}
+                {isDeleting ? "Deleting..." : "Delete Operation"}
               </button>
             </div>
           </div>
@@ -218,7 +221,7 @@ export default function OperationsPage() {
             )}
             <div className="w-px h-6 bg-slate-200 mx-1"></div>
             <Filter size={14} className="text-slate-400" />
-            {["all", "planning", "booked", "in-progress", "completed"].map((s) => (
+            {["all", "planning", "booked", "vendor-confirmed", "in-progress", "completed"].map((s) => (
               <button key={s} onClick={() => { setStatusFilter(s); setPendingIncentivesOnly(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${statusFilter === s && !pendingIncentivesOnly ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
                 {s === "all" ? "All" : s.replace("-", " ")}
               </button>

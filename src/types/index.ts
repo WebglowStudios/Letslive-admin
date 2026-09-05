@@ -75,8 +75,8 @@ export interface Booking {
   travelDate: string;
   travellers: number;
   totalAmount: number;
-  status: "pending" | "confirmed" | "staff-confirmed" | "in-progress" | "completed" | "cancelled";
-  bookingStatus?: "pending" | "confirmed" | "staff-confirmed" | "in-progress" | "completed" | "cancelled";
+  status: "pending" | "confirmed" | "staff-confirmed" | "vendor-confirmed" | "in-progress" | "completed" | "cancelled";
+  bookingStatus?: "pending" | "confirmed" | "staff-confirmed" | "vendor-confirmed" | "in-progress" | "completed" | "cancelled";
   paymentStatus?: string;
   specialRequests?: string;
   createdAt: string;

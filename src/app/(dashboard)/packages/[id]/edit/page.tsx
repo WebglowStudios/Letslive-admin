@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown, Download, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
@@ -39,6 +39,8 @@ interface Stay {
   checkOut: string;
   address: string;
   confirmationNo: string;
+  remark?: string;
+  showRemarkToCustomer?: boolean;
 }
 
 interface Transfer {
@@ -327,7 +329,7 @@ export default function EditPackagePage() {
         );
         setStays(
           p.stays && p.stays.length > 0
-            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; rooms?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string }, i: number) => ({
+            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; rooms?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string; remark?: string; remarks?: string; showRemarkToCustomer?: boolean }, i: number) => ({
                 _key: Date.now() + i + 1000,
                 name: s.name || "",
                 rating: s.rating || "",
@@ -339,6 +341,8 @@ export default function EditPackagePage() {
                 checkOut: s.checkOut || "",
                 address: s.address || "",
                 confirmationNo: s.confirmationNo || "",
+                remark: s.remark || s.remarks || "",
+                showRemarkToCustomer: s.showRemarkToCustomer ?? false,
               }))
             : []
         );
@@ -464,7 +468,7 @@ export default function EditPackagePage() {
 
   // Stays helpers
   function addStay() {
-    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, amenities: [], checkIn: "", checkOut: "", address: "", confirmationNo: "" }]);
+    setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, amenities: [], checkIn: "", checkOut: "", address: "", confirmationNo: "", remark: "", showRemarkToCustomer: false }]);
   }
   function removeStay(index: number) {
     setStays(stays.filter((_, i) => i !== index));
@@ -600,6 +604,8 @@ export default function EditPackagePage() {
           checkOut: s.checkOut || undefined,
           address: s.address || undefined,
           confirmationNo: s.confirmationNo || undefined,
+          remark: s.remark?.trim() || undefined,
+          showRemarkToCustomer: !!s.showRemarkToCustomer,
         })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({
           title: t.title,
@@ -1165,6 +1171,35 @@ export default function EditPackagePage() {
                         <input type="text" value={stay.confirmationNo} onChange={(e) => updateStay(i, "confirmationNo", e.target.value)} placeholder="Booking confirmation no. (optional)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         </>
                         )}
+                        <div className="space-y-2 pt-1 border-t border-slate-100">
+                          <textarea
+                            value={stay.remark || ""}
+                            onChange={(e) => updateStay(i, "remark", e.target.value)}
+                            placeholder="Stay remark / notes (e.g. Complimentary breakfast included, base category room, mountain view...)"
+                            rows={2}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+                          />
+                          <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!stay.showRemarkToCustomer}
+                                onChange={(e) => updateStay(i, "showRemarkToCustomer", e.target.checked)}
+                                className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 border-slate-300 cursor-pointer"
+                              />
+                              <span className="text-xs font-semibold text-slate-700">
+                                Show remark to customer
+                              </span>
+                            </label>
+                            <span className={`text-[11px] font-medium flex items-center gap-1 ${stay.showRemarkToCustomer ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                              {stay.showRemarkToCustomer ? (
+                                <><Eye size={12} /> Visible on customer itinerary & PDF</>
+                              ) : (
+                                <><EyeOff size={12} /> Internal only (hidden from client)</>
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     ))}
                     {stays.length === 0 && (
