@@ -649,7 +649,7 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
   return (
     <Page size="A4" style={{ padding: 0 }}>
       <View style={{ width: "100%", height: "100%", position: "relative", backgroundColor: "#08151a" }}>
-        {/* Full-bleed hero image with reduced brightness */}
+        {/* Full-bleed hero image with balanced brightness */}
         {coverImg ? (
           <Image
             src={coverImg}
@@ -660,12 +660,12 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              opacity: 0.35,
+              opacity: 0.65,
             }}
           />
         ) : null}
 
-        {/* Full-page darkening overlay to dim bright areas */}
+        {/* Subtle full-page darkening overlay to preserve color while controlling glare */}
         <View
           style={{
             position: "absolute",
@@ -673,26 +673,20 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(5, 18, 24, 0.5)",
+            backgroundColor: "rgba(5, 18, 24, 0.25)",
           }}
         />
 
-        {/* Deep bottom gradient overlay for maximum text contrast */}
-        <View
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 460,
-            backgroundColor: "rgba(5, 18, 24, 0.85)",
-          }}
-        />
-
-        {/* Bottom content */}
+        {/* Bottom content container with dynamic overlay that sizes to content */}
         <View style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          padding: 44, paddingBottom: 36,
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: "rgba(5, 18, 24, 0.72)",
+          paddingHorizontal: 44,
+          paddingTop: 36,
+          paddingBottom: 36,
         }}>
         {/* Title */}
         <Text style={{
@@ -1850,15 +1844,12 @@ const PartnersPage = ({ pkg }: { pkg?: PackageData }) => {
 
       {/* Main Title Section */}
       <View style={{ marginBottom: 14, marginTop: 4 }}>
-        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 1.5, marginBottom: 4 }}>
-          TREKTROV TRAVELS
-        </Text>
         <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#004d5e", letterSpacing: 0.2 }}>
           Our Partners
         </Text>
         <View style={{ width: 48, height: 3.5, backgroundColor: "#F5A623", borderRadius: 2, marginTop: 6, marginBottom: 12 }} />
         <Text style={{ fontSize: 8.5, color: "#4a7a85", lineHeight: 1.4 }}>
-          Partner and service-provider logos are presented as listed in the original package brochure.
+          Our trusted network of verified global airlines, hospitality, and ground partners.
         </Text>
       </View>
 
