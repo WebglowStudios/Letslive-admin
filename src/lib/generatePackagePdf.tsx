@@ -1743,7 +1743,7 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
               <Text style={s.priceCardOriginal}>INR {pkg.originalPrice.toLocaleString("en-IN")}</Text>
             ) : null}
             <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
-            <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"} (twin sharing)</Text>
+            <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"}</Text>
           </View>
           {pkg.discount && pkg.discount > 0 ? (
             <View style={s.priceCardBottom}>
