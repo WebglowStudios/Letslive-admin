@@ -196,14 +196,24 @@ function EditImageNameDialog({
   onClose: () => void;
   onSaved: (publicId: string, newName: string) => void;
 }) {
-  const [name, setName] = useState(image?.name || "");
+  const getInitialName = (img: LibraryImage | null) => {
+    if (!img) return "";
+    if (img.name) return img.name;
+    const base = img.publicId.split('/').pop() || "";
+    return sanitizeSuggestedName(base);
+  };
+
+  const [name, setName] = useState(getInitialName(image));
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (image) {
-      setName(image.name || "");
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setName(getInitialName(image));
+      setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }, 100);
     }
   }, [image]);
 
@@ -211,19 +221,36 @@ function EditImageNameDialog({
 
   async function handleSave() {
     setSaving(true);
+    const trimmedName = name.trim();
     try {
-      const res = await authFetch(`${API_URL}/upload/${encodeURIComponent(image!.publicId)}/name`, {
+      // 1. Primary: POST /name with body
+      const res = await authFetch(`${API_URL}/upload/name`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ publicId: image!.publicId, url: image!.url, name: trimmedName }),
       });
-      const json = await res.json();
-      if (json.status === "success") {
-        onSaved(image!.publicId, name.trim());
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.status === "success") {
+        onSaved(image!.publicId, trimmedName);
+        onClose();
+        return;
+      }
+
+      // 2. Fallback: PATCH /:publicId/name
+      const fallbackRes = await authFetch(`${API_URL}/upload/${encodeURIComponent(image!.publicId)}/name`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: trimmedName }),
+      });
+      const fallbackJson = await fallbackRes.json().catch(() => ({}));
+      if (fallbackRes.ok && fallbackJson.status === "success") {
+        onSaved(image!.publicId, trimmedName);
         onClose();
       } else {
-        alert(json.message || "Failed to update image name");
+        alert(json.message || fallbackJson.message || "Failed to update image name");
       }
     } catch {
       alert("Failed to update image name");
@@ -1011,9 +1038,14 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                             key={img.publicId}
                             className={`group flex flex-col items-center cursor-pointer ${draggedImage?.publicId === img.publicId ? 'opacity-40' : ''}`}
                             onClick={() => toggleSelect(img.url)}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditingImage(img);
+                            }}
                             draggable
                             onDragStart={(e) => handleDragStart(e, img)}
                             onDragEnd={handleDragEnd}
+                            title="Single click to select · Double click to edit name"
                           >
                             {/* Image tile */}
                             <div
@@ -1022,6 +1054,10 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                                   ? 'ring-2 ring-cyan-500 ring-offset-2 shadow-md'
                                   : 'border border-slate-200 hover:border-cyan-300 hover:shadow-sm'
                               }`}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingImage(img);
+                              }}
                             >
                               <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
 
@@ -1067,39 +1103,40 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                               )}
                             </div>
 
-                            {/* Image name / click to edit or add name */}
-                            {img.name ? (
-                              <div
-                                className="mt-1.5 w-full flex items-center justify-center gap-1 group/name px-1 hover:text-cyan-600 transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingImage(img);
-                                }}
-                                title={`Click to edit name: ${img.name}`}
-                              >
-                                <p
-                                  className={`text-[10px] text-center leading-tight truncate ${
-                                    isSelected ? 'text-cyan-700 font-bold' : 'text-slate-700 font-medium group-hover/name:text-cyan-600'
-                                  }`}
+                            {/* Image name below tile — always visible and clickable to edit */}
+                            {(() => {
+                              const displayName = img.name || sanitizeSuggestedName(img.publicId.split('/').pop() || "");
+                              return (
+                                <div
+                                  className="mt-1.5 w-full flex items-center justify-between gap-1 group/name px-1 py-0.5 rounded hover:bg-cyan-50 cursor-pointer transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingImage(img);
+                                  }}
+                                  onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingImage(img);
+                                  }}
+                                  title={`Click to edit location name: ${displayName}`}
                                 >
-                                  {truncateName(img.name, 16)}
-                                </p>
-                                <Edit2 size={9} className="text-slate-400 group-hover/name:text-cyan-600 flex-shrink-0 opacity-0 group-hover/name:opacity-100 transition-opacity" />
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingImage(img);
-                                }}
-                                className="mt-1.5 w-full py-0.5 px-1 rounded bg-slate-50 hover:bg-cyan-50 text-slate-400 hover:text-cyan-700 text-[9.5px] font-medium border border-dashed border-slate-200 hover:border-cyan-300 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
-                                title="Click to name this image"
-                              >
-                                <Tag size={9} className="text-cyan-600" />
-                                <span>+ Name</span>
-                              </button>
-                            )}
+                                  <p
+                                    className={`text-[10px] leading-tight truncate flex-1 text-left ${
+                                      img.name
+                                        ? isSelected
+                                          ? 'text-cyan-700 font-bold'
+                                          : 'text-slate-700 font-semibold group-hover/name:text-cyan-700'
+                                        : 'text-slate-400 font-medium group-hover/name:text-slate-600'
+                                    }`}
+                                  >
+                                    {truncateName(displayName, 15)}
+                                  </p>
+                                  <Edit2
+                                    size={9}
+                                    className="text-slate-400 group-hover/name:text-cyan-600 flex-shrink-0 opacity-40 group-hover/name:opacity-100 transition-opacity"
+                                  />
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       })}
