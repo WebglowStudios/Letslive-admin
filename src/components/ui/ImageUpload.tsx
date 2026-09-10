@@ -180,10 +180,39 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function sanitizeSuggestedName(filename: string): string {
-  const withoutExt = filename.replace(/\.[^/.]+$/, "");
-  const spaced = withoutExt.replace(/[-_]+/g, " ").trim();
-  return spaced.replace(/\b\w/g, (c) => c.toUpperCase());
+function sanitizeSuggestedName(raw: string): string {
+  if (!raw) return "";
+
+  // 1. Remove file extension
+  let s = raw.replace(/\.[^/.]+$/, "");
+
+  // 2. Remove Cloudinary server-generated unique suffix (e.g. -mr6f1lv4, -mqz08bq0, -1a2b3c)
+  // Must be preceded by a dash and have a mix of letters and digits
+  s = s.replace(/-(?=[a-z0-9]*\d)(?=[a-z0-9]*[a-z])[a-z0-9]{5,15}$/i, "");
+  s = s.replace(/-[a-f0-9]{8,}$/i, "");
+
+  // 3. Remove trailing duplicate copy/counter numbers like (1), (2), -1, -2, _2
+  s = s.replace(/[\s\-_]*\(\d+\)$/, "");
+  s = s.replace(/[\s\-_]+\d+$/, "");
+
+  // 4. Remove WhatsApp / Screenshot / Camera time codes (e.g. 'at 072204', '072204', '07.22.04')
+  s = s.replace(/\b(at[\s\-_]+)?\d{6,8}\b/gi, "");
+  // Remove dates (e.g. 2026-09-07, 20260907)
+  s = s.replace(/\b\d{4}[\-_]\d{2}[\-_]\d{2}\b/g, "");
+  s = s.replace(/\b\d{2}[\.:]\d{2}[\.:]\d{2}\b/g, "");
+  s = s.replace(/\bat\b/gi, "");
+
+  // 5. Remove generic camera/device prefixes (WhatsApp Image, IMG, DSC, PXL, Screenshot)
+  s = s.replace(/^(WhatsApp[\s\-_]*Image|IMG|PXL|DSC|PHOTO|Screenshot)[\s\-_]*/i, "");
+
+  // 6. Clean up separators and whitespace
+  s = s.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+
+  // 7. If everything was stripped (e.g. purely timestamps like IMG_072204), fallback to "Image"
+  if (!s || s.length < 2) return "Image";
+
+  // 8. Proper Title Case
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ─── EDIT IMAGE NAME DIALOG ───
@@ -200,7 +229,8 @@ function EditImageNameDialog({
     if (!img) return "";
     if (img.name) return img.name;
     const base = img.publicId.split('/').pop() || "";
-    return sanitizeSuggestedName(base);
+    const clean = sanitizeSuggestedName(base);
+    return clean === "Image" ? "" : clean;
   };
 
   const [name, setName] = useState(getInitialName(image));
@@ -701,14 +731,16 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
 
     if (validFiles.length === 0) return;
 
-    // Create pending upload items with suggested names
-    const items: PendingUploadItem[] = validFiles.map((file, idx) => ({
-      id: `${Date.now()}-${idx}-${file.name}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-      name: sanitizeSuggestedName(file.name),
-      sizeFormatted: formatFileSize(file.size),
-    }));
+    const items: PendingUploadItem[] = validFiles.map((file, idx) => {
+      const suggested = sanitizeSuggestedName(file.name);
+      return {
+        id: `${Date.now()}-${idx}-${file.name}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        name: suggested === "Image" ? "" : suggested,
+        sizeFormatted: formatFileSize(file.size),
+      };
+    });
 
     setPendingUploads(items);
     setUploadNamingOpen(true);
@@ -1030,7 +1062,7 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 sticky top-0 bg-white py-1 z-10">
                       {group.date}
                     </p>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-3">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3.5">
                       {group.images.map((img) => {
                         const isSelected = selected.includes(img.url);
                         return (
@@ -1103,12 +1135,12 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                               )}
                             </div>
 
-                            {/* Image name below tile — always visible and clickable to edit */}
+                            {/* Image name below tile — multi-line and full length */}
                             {(() => {
                               const displayName = img.name || sanitizeSuggestedName(img.publicId.split('/').pop() || "");
                               return (
                                 <div
-                                  className="mt-1.5 w-full flex items-center justify-between gap-1 group/name px-1 py-0.5 rounded hover:bg-cyan-50 cursor-pointer transition-colors"
+                                  className="mt-1.5 w-full flex items-start justify-between gap-1 group/name px-1 py-0.5 rounded hover:bg-cyan-50 cursor-pointer transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingImage(img);
@@ -1120,19 +1152,19 @@ export function MediaLibraryModal({ open, onClose, onSelect, multiple = false }:
                                   title={`Click to edit location name: ${displayName}`}
                                 >
                                   <p
-                                    className={`text-[10px] leading-tight truncate flex-1 text-left ${
+                                    className={`text-[10.5px] leading-snug break-words line-clamp-2 flex-1 text-left ${
                                       img.name
                                         ? isSelected
-                                          ? 'text-cyan-700 font-bold'
-                                          : 'text-slate-700 font-semibold group-hover/name:text-cyan-700'
-                                        : 'text-slate-400 font-medium group-hover/name:text-slate-600'
+                                          ? 'text-cyan-800 font-bold'
+                                          : 'text-slate-800 font-semibold group-hover/name:text-cyan-700'
+                                        : 'text-slate-500 font-medium group-hover/name:text-slate-700'
                                     }`}
                                   >
-                                    {truncateName(displayName, 15)}
+                                    {displayName}
                                   </p>
                                   <Edit2
-                                    size={9}
-                                    className="text-slate-400 group-hover/name:text-cyan-600 flex-shrink-0 opacity-40 group-hover/name:opacity-100 transition-opacity"
+                                    size={10}
+                                    className="text-slate-400 group-hover/name:text-cyan-600 flex-shrink-0 opacity-40 group-hover/name:opacity-100 transition-opacity mt-0.5"
                                   />
                                 </div>
                               );
