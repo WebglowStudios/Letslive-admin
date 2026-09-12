@@ -72,7 +72,8 @@ export interface VoucherData {
   isInternational?: boolean;
   visaIncluded?: boolean;
   flightsIncluded?: boolean;
-  flights: any[];
+  flights: any[];   // flight-type entries only
+  trains?: any[];   // train-type entries only (optional for backward compat)
   accommodations: any[];
   transports: any[];
   itinerary: any[];
@@ -342,7 +343,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, flights, accommodations, transports, itinerary, activities, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, flights, trains, accommodations, transports, itinerary, activities, transferSummary } = data;
 
   const transfersByDay: Record<number | string, any[]> = {};
   
@@ -521,11 +522,39 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
               </View>
               {flights.map((f, i) => (
                 <View style={s.tableRow} key={i}>
-                  <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "—"}</Text>
+                  <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "\u2014"}</Text>
                   <Text style={[s.td, { width: "20%" }]}>{formatDateSafe(f.date)}</Text>
-                  <Text style={[s.td, { width: "30%" }]}>{f.from && f.to ? `${f.from} → ${f.to}` : (f.route || "—")}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.departure || f.departureTime || "—"}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.arrival || f.arrivalTime || "—"}</Text>
+                  <Text style={[s.td, { width: "30%" }]}>{f.from && f.to ? `${f.from} \u2192 ${f.to}` : (f.route || "\u2014")}</Text>
+                  <Text style={[s.td, { width: "15%" }]}>{f.departure || f.departureTime || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "15%" }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* TRAIN SCHEDULE */}
+        {trains && trains.length > 0 && (
+          <View style={s.sectionWrapper} wrap={false}>
+            <View style={s.sectionHeader}>
+              <Icon d={ICONS.flight} color={C.cu} size={14} />
+              <Text style={s.sectionTitle}>TRAIN SCHEDULE</Text>
+            </View>
+            <View style={s.table}>
+              <View style={s.tableHeaderRow}>
+                <Text style={[s.th, { width: "20%" }]}>RAILWAY</Text>
+                <Text style={[s.th, { width: "20%" }]}>DATE</Text>
+                <Text style={[s.th, { width: "30%" }]}>ROUTE</Text>
+                <Text style={[s.th, { width: "15%" }]}>DEP.</Text>
+                <Text style={[s.th, { width: "15%" }]}>ARR.</Text>
+              </View>
+              {trains.map((f, i) => (
+                <View style={s.tableRow} key={i}>
+                  <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "20%" }]}>{formatDateSafe(f.date)}</Text>
+                  <Text style={[s.td, { width: "30%" }]}>{f.from && f.to ? `${f.from} \u2192 ${f.to}` : (f.route || "\u2014")}</Text>
+                  <Text style={[s.td, { width: "15%" }]}>{f.departure || f.departureTime || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "15%" }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
                 </View>
               ))}
             </View>

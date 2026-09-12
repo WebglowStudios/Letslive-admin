@@ -333,20 +333,39 @@ export default function OperationDetailPage() {
           arrival: leg.arrivalTime,
         })));
 
-      // Fallback: If no flights imported into transports yet, use package flights from custom itinerary
-      if (pdfFlights.length === 0) {
+      let pdfTrains: any[] = transports
+        .filter(t => t.type === 'train')
+        .flatMap(t => t.legs.map(leg => ({
+          airline: t.vendorName || t.title,
+          date: leg.date,
+          from: leg.from,
+          to: leg.to,
+          departure: leg.departureTime,
+          arrival: leg.arrivalTime,
+        })));
+
+      // Fallback: If no flights/trains imported into transports yet, use package flights from custom itinerary
+      if (pdfFlights.length === 0 && pdfTrains.length === 0) {
         const pkgFlights = (op?.package?.flights || op?.booking?.package?.flights || []);
-        pdfFlights = pkgFlights.filter((f: any) => f && (f.airline || f.from || f.to)).map((f: any) => ({
-          airline: f.airline || "Flight",
-          date: f.day ? `Day ${f.day}` : undefined,
-          from: f.from,
-          to: f.to,
-          departure: f.departure,
-          arrival: f.arrival,
-        }));
+        pkgFlights.filter((f: any) => f && (f.airline || f.from || f.to)).forEach((f: any) => {
+          const entry = {
+            airline: f.airline || (f.type === "train" ? "Railway" : "Flight"),
+            date: f.day ? `Day ${f.day}` : undefined,
+            from: f.from,
+            to: f.to,
+            departure: f.departure,
+            arrival: f.arrival,
+          };
+          if (f.type === "train") {
+            pdfTrains.push(entry);
+          } else {
+            pdfFlights.push(entry);
+          }
+        });
       }
 
-      const pdfTransports = transports.filter(t => t.type !== 'flight');
+      // Road-only transports (exclude flights and trains)
+      const pdfTransports = transports.filter(t => t.type !== 'flight' && t.type !== 'train');
 
       await generateVoucherPdf({
         operationId: op?.operationId || "",
@@ -362,6 +381,7 @@ export default function OperationDetailPage() {
         visaIncluded: op?.package?.visaIncluded !== undefined ? op?.package?.visaIncluded : op?.booking?.package?.visaIncluded,
         flightsIncluded: op?.package?.flightsIncluded !== undefined ? op?.package?.flightsIncluded : op?.booking?.package?.flightsIncluded,
         flights: pdfFlights,
+        trains: pdfTrains,
         accommodations: accommodations,
         transports: pdfTransports,
         itinerary,

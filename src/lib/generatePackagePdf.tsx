@@ -88,6 +88,7 @@ interface Transfer {
   legs?: TransferLeg[]; day?: number;
 }
 interface Flight {
+  type?: string; // 'flight' | 'train'; defaults to 'flight' for older records
   day?: number; airline: string; flightNumber: string;
   from: string; to: string; departure: string; arrival: string;
   pnr?: string; class?: string; notes?: string;
@@ -1444,47 +1445,61 @@ const TransferSummarySection = ({ pkg }: { pkg: PackageData }) => {
 
 const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.flights || pkg.flights.length === 0) return null;
-  return (
-    <View wrap={false} style={{ marginBottom: 20 }}>
-      <SectionTitle title="Flight / Transport Details" />
-      <View style={s.tableWrap}>
-        <View style={s.tableHead}>
-          <Text style={[s.tableHeadCell, { width: "8%" }]}>Day</Text>
-          <Text style={[s.tableHeadCell, { width: "18%" }]}>Airline</Text>
-          <Text style={[s.tableHeadCell, { width: "12%" }]}>Flight No.</Text>
-          <Text style={[s.tableHeadCell, { width: "17%" }]}>From</Text>
-          <Text style={[s.tableHeadCell, { width: "17%" }]}>To</Text>
-          <Text style={[s.tableHeadCell, { width: "14%" }]}>Depart</Text>
-          <Text style={[s.tableHeadCell, { width: "14%" }]}>Arrive</Text>
-        </View>
-        {pkg.flights.map((f, i) => (
-          <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-            <Text style={[s.tableCell, { width: "8%" }]}>{f.day || "—"}</Text>
-            <Text style={[s.tableCell, { width: "18%", fontFamily: "Helvetica-Bold" }]}>{f.airline}</Text>
-            <Text style={[s.tableCell, { width: "12%" }]}>{f.flightNumber}</Text>
-            <Text style={[s.tableCell, { width: "17%" }]}>{f.from}</Text>
-            <Text style={[s.tableCell, { width: "17%" }]}>{f.to}</Text>
-            <Text style={[s.tableCell, { width: "14%" }]}>{f.departure}</Text>
-            <Text style={[s.tableCell, { width: "14%" }]}>{f.arrival}</Text>
+
+  const flightEntries = pkg.flights.filter(f => (f.type ?? "flight") === "flight");
+  const trainEntries = pkg.flights.filter(f => f.type === "train");
+
+  const renderTable = (entries: Flight[], label: string, colLabels: { airline: string; number: string }) => {
+    if (entries.length === 0) return null;
+    return (
+      <View wrap={false} style={{ marginBottom: 20 }}>
+        <SectionTitle title={label} />
+        <View style={s.tableWrap}>
+          <View style={s.tableHead}>
+            <Text style={[s.tableHeadCell, { width: "8%" }]}>Day</Text>
+            <Text style={[s.tableHeadCell, { width: "18%" }]}>{colLabels.airline}</Text>
+            <Text style={[s.tableHeadCell, { width: "12%" }]}>{colLabels.number}</Text>
+            <Text style={[s.tableHeadCell, { width: "17%" }]}>From</Text>
+            <Text style={[s.tableHeadCell, { width: "17%" }]}>To</Text>
+            <Text style={[s.tableHeadCell, { width: "14%" }]}>Depart</Text>
+            <Text style={[s.tableHeadCell, { width: "14%" }]}>Arrive</Text>
           </View>
-        ))}
-      </View>
-      {/* PNR / class notes below the table */}
-      {pkg.flights.some(f => f.pnr || f.class || f.notes) && (
-        <View style={{ marginTop: 8 }}>
-          {pkg.flights.filter(f => f.pnr || f.class || f.notes).map((f, i) => (
-            <View key={i} style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
-              <Text style={{ fontSize: 7.5, color: C.ink3 }}>
-                {f.airline} {f.flightNumber}:
-                {f.class ? ` ${f.class}` : ""}
-                {f.pnr ? ` · PNR: ${f.pnr}` : ""}
-                {f.notes ? ` · ${f.notes}` : ""}
-              </Text>
+          {entries.map((f, i) => (
+            <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
+              <Text style={[s.tableCell, { width: "8%" }]}>{f.day || "\u2014"}</Text>
+              <Text style={[s.tableCell, { width: "18%", fontFamily: "Helvetica-Bold" }]}>{f.airline}</Text>
+              <Text style={[s.tableCell, { width: "12%" }]}>{f.flightNumber}</Text>
+              <Text style={[s.tableCell, { width: "17%" }]}>{f.from}</Text>
+              <Text style={[s.tableCell, { width: "17%" }]}>{f.to}</Text>
+              <Text style={[s.tableCell, { width: "14%" }]}>{f.departure}</Text>
+              <Text style={[s.tableCell, { width: "14%" }]}>{f.arrival}</Text>
             </View>
           ))}
         </View>
-      )}
-    </View>
+        {/* PNR / class notes below the table */}
+        {entries.some(f => f.pnr || f.class || f.notes) && (
+          <View style={{ marginTop: 8 }}>
+            {entries.filter(f => f.pnr || f.class || f.notes).map((f, i) => (
+              <View key={i} style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
+                <Text style={{ fontSize: 7.5, color: C.ink3 }}>
+                  {f.airline} {f.flightNumber}:
+                  {f.class ? ` ${f.class}` : ""}
+                  {f.pnr ? ` \u00b7 PNR: ${f.pnr}` : ""}
+                  {f.notes ? ` \u00b7 ${f.notes}` : ""}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  return (
+    <>
+      {renderTable(flightEntries, "\u2708 Flight Details", { airline: "Airline", number: "Flight No." })}
+      {renderTable(trainEntries, "\ud83d\ude86 Train Details", { airline: "Railway", number: "Train No." })}
+    </>
   );
 };
 
