@@ -566,7 +566,7 @@ export default function NewCustomItineraryPage() {
           try { await api.put(`/enquiries/${enquiryId}`, { package: res.data._id, packageName: res.data.name }); } catch { /* non-fatal */ }
         }
       } else { setError(res?.message || "Failed to create"); }
-    } catch { setError("Failed to create itinerary"); }
+    } catch (err: any) { setError(err?.response?.data?.message || err?.message || "Failed to create itinerary"); }
     finally { setLoading(false); }
   }
 
