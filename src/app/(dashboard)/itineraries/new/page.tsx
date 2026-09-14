@@ -138,11 +138,14 @@ export default function NewCustomItineraryPage() {
           }),
           recommendations: (day.recommendations || []).map((a: any) => {
             if (typeof a === "string") {
-              return { title: a, description: "" };
+              return { title: a, description: "", image: "", images: [] };
             }
+            const img = a.image || (a.images && a.images[0]) || "";
             return {
               title: a.title || a.name || "",
               description: a.description || "",
+              image: img,
+              images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
             };
           }),
           meals: day.meals || [],
@@ -543,9 +546,14 @@ export default function NewCustomItineraryPage() {
               images: a.images && a.images.length > 0 ? a.images : (a.image ? [a.image] : []),
             };
           }),
-          recommendations: (d.recommendations || [])
-            .map((a: any) => (typeof a === "string" ? a : (a.title || "")).trim())
-            .filter(Boolean),
+          recommendations: (d.recommendations || []).map((a: any) => {
+            if (typeof a === "string") return { title: a, image: "", images: [] };
+            return {
+              title: a.title || "",
+              image: a.image || (a.images && a.images[0]) || "",
+              images: a.images && a.images.length > 0 ? a.images : (a.image ? [a.image] : []),
+            };
+          }).filter((a: any) => a.title),
           meals: d.meals,
           accommodation: d.accommodation,
           images: d.images,
@@ -1005,7 +1013,7 @@ export default function NewCustomItineraryPage() {
                           </div>
                         </div>
                         <p className="text-[11px] text-amber-700">Suggest optional sights, cafes, nightlife, or activities clients can explore on their own.</p>
-                        <DayActivitiesInput activities={day.recommendations || []} onChange={(items) => updateItinerary(i, "recommendations", items)} placeholder="Add recommendation (e.g. Sunset drinks at Curlies Beach Shack)" hideImages={true} hideDescription={true} theme="amber" />
+                        <DayActivitiesInput activities={day.recommendations || []} onChange={(items) => updateItinerary(i, "recommendations", items)} placeholder="Add recommendation (e.g. Sunset drinks at Curlies Beach Shack)" hideDescription={true} theme="amber" />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <MealPicker meals={day.meals} onChange={(items) => updateItinerary(i, "meals", items)} />
