@@ -519,22 +519,19 @@ function OfflineBookingModal({
   const [foundUser, setFoundUser] = useState<{ _id: string; firstName: string; lastName: string; email: string; phone?: string } | null>(null);
   const [userNotFound, setUserNotFound] = useState(false);
 
-  // Package info
-  const [packages, setPackages] = useState<{ _id: string; name: string; isInternational: boolean }[]>([]);
-  const [isInternational, setIsInternational] = useState(prefilledPackage?.isInternational || false);
+  // Derive isInternational directly from prefilledPackage (now includes isInternational from backend)
+  const [isInternational, setIsInternational] = useState(!!prefilledPackage?.isInternational);
 
   useEffect(() => {
-    api.get('/packages?limit=1000&admin=true').then((res) => {
-      if (res.data) {
-        setPackages(res.data);
-        // If prefilled package exists, update isInternational from the fetched list to ensure accuracy
-        if (prefilledPackage?._id) {
-          const matched = res.data.find((p: any) => p._id === prefilledPackage._id);
-          if (matched) setIsInternational(!!matched.isInternational);
-        }
-      }
-    }).catch(console.error);
-  }, [prefilledPackage?._id]);
+    // If no prefilled package, or isInternational already known, skip API call
+    if (prefilledPackage?._id && prefilledPackage.isInternational === undefined) {
+      // Only fetch if isInternational wasn't provided by the backend
+      api.get(`/packages/${prefilledPackage._id}`).then((res) => {
+        const pkg = res?.data?.data || res?.data;
+        if (pkg) setIsInternational(!!pkg.isInternational);
+      }).catch(() => {});
+    }
+  }, [prefilledPackage?._id, prefilledPackage?.isInternational]);
 
   // Form state
   const [form, setForm] = useState({
@@ -775,14 +772,18 @@ function OfflineBookingModal({
             )}
           </div>
 
-          {/* ── Section 3: PAN Card & Primary Passport (international only) ── */}
+          {/* ── Section 3: Primary Traveller Passport (international only) ── */}
           {isInternational && (
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">3. Primary Traveller International Details</p>
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">International</span>
+                Primary Traveller — Passport & PAN Details
+              </p>
+              <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
                 <div className="col-span-2">
-                  <label className={labelCls}>Primary Traveller PAN Card *</label>
+                  <label className={labelCls}>PAN Card Number *</label>
                   <input type="text" value={form.panCard} onChange={(e) => setForm({ ...form, panCard: e.target.value.toUpperCase() })} className={inputCls} placeholder="ABCDE1234F" />
+                  <p className="text-[10px] text-slate-400 mt-1">Required for international bookings (TCS compliance)</p>
                 </div>
                 <div>
                   <label className={labelCls}>Passport Number *</label>
@@ -800,7 +801,7 @@ function OfflineBookingModal({
             </div>
           )}
 
-          {/* ── Section 5: Offline Payment ── */}
+          {/* ── Offline Payment ── */}
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{isInternational ? '5' : '3'}. Offline Payment</p>
             <div className="grid grid-cols-2 gap-3">
