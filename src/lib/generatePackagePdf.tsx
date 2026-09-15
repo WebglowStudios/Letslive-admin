@@ -1078,7 +1078,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
       {/* Row 5: Two Feature Cards (Airfare & Airport Transfers) */}
       <View style={{ flexDirection: "row", gap: 12 }}>
-        {/* Card 1: Airfare */}
+        {/* Card 1: Flight Tickets */}
         <View
           style={{
             flex: 1,
@@ -1091,11 +1091,11 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           }}
         >
           <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
-            {pkg.isInternational ? "International + Domestic Airfare" : "Airfare & Transport"}
+            Flight Tickets
           </Text>
           <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
             {pkg.flightsIncluded
-              ? "Both international and domestic flights are included in the package as stated in the inclusions."
+              ? "Flight tickets are included in the package as stated in the inclusions."
               : "Flight arrangements will be planned according to your departure city as per airline availability."}
           </Text>
         </View>
