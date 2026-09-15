@@ -54,30 +54,86 @@ const CALL_OUTCOME_COLORS: Record<string, string> = {
   "callback-scheduled": "bg-purple-50 text-purple-700 border-purple-200",
 };
 
-// ─── DNP Dots ─────────────────────────────────────────────────────────────────
-function DnpDots({ count }: { count: number }) {
+// ─── Call Dots ────────────────────────────────────────────────────────────────
+function CallDots({ callLog, dnpCount }: { callLog: { outcome: string }[]; dnpCount: number }) {
   const max = 6;
+  const total = callLog.length;
+
+  function dotColor(outcome: string): string {
+    switch (outcome) {
+      case 'answered': return 'bg-emerald-500 border-emerald-500';
+      case 'dnp': return 'bg-red-500 border-red-500';
+      case 'busy': return 'bg-amber-400 border-amber-400';
+      case 'whatsapp-sent': return 'bg-green-500 border-green-500';
+      case 'email-sent': return 'bg-blue-500 border-blue-500';
+      case 'callback-scheduled': return 'bg-purple-500 border-purple-500';
+      default: return 'bg-slate-400 border-slate-400';
+    }
+  }
+
+  function dotTitle(outcome: string): string {
+    const map: Record<string, string> = {
+      answered: 'Answered', dnp: 'DNP', busy: 'Busy',
+      'whatsapp-sent': 'WhatsApp', 'email-sent': 'Email', 'callback-scheduled': 'Callback'
+    };
+    return map[outcome] || outcome;
+  }
+
+  const lastOutcome = callLog.length > 0 ? callLog[callLog.length - 1].outcome : null;
+  const labelColor = dnpCount >= 6 ? 'text-red-600' : dnpCount >= 3 ? 'text-orange-600' : total > 0 ? 'text-emerald-600' : 'text-slate-400';
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex gap-1">
-        {Array.from({ length: max }).map((_, i) => (
-          <div
-            key={i}
-            className={`w-3 h-3 rounded-full border-2 transition-all ${
-              i < count
-                ? count >= 6 ? "bg-red-500 border-red-500"
-                  : count >= 3 ? "bg-orange-500 border-orange-500"
-                  : "bg-amber-400 border-amber-400"
-                : "border-slate-300 bg-white"
-            }`}
-          />
-        ))}
+    <div className="space-y-2">
+      <div className="flex gap-1.5">
+        {Array.from({ length: max }).map((_, i) => {
+          const entry = callLog[i];
+          return (
+            <div
+              key={i}
+              title={entry ? dotTitle(entry.outcome) : 'Not called'}
+              className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
+                entry ? dotColor(entry.outcome) : 'border-slate-200 bg-white'
+              }`}
+            />
+          );
+        })}
+        {total > max && (
+          <span className="text-[10px] text-slate-500 font-semibold ml-1">+{total - max}</span>
+        )}
       </div>
-      <span className={`text-xs font-bold ${
-        count >= 6 ? "text-red-600" : count >= 3 ? "text-orange-600" : count > 0 ? "text-amber-600" : "text-slate-400"
-      }`}>
-        {count === 0 ? "Not called yet" : `DNP ${count}${count >= 6 ? "+" : ""} / 6`}
-      </span>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {total === 0 ? (
+          <span className={`text-xs font-semibold ${labelColor}`}>Not called yet</span>
+        ) : (
+          <>
+            <span className={`text-xs font-semibold ${labelColor}`}>{total} call{total !== 1 ? 's' : ''} logged</span>
+            {dnpCount > 0 && <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-bold">{dnpCount} DNP</span>}
+            {lastOutcome === 'answered' && <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">Last: Answered ✓</span>}
+          </>
+        )}
+      </div>
+      {/* Legend */}
+      {total > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {['answered','dnp','busy','whatsapp-sent','email-sent','callback-scheduled'].map(o => {
+            const count = callLog.filter(c => c.outcome === o).length;
+            if (!count) return null;
+            return (
+              <span key={o} className={`text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded-full border font-medium ${
+                o === 'answered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                o === 'dnp' ? 'bg-red-50 text-red-700 border-red-200' :
+                o === 'busy' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                o === 'whatsapp-sent' ? 'bg-green-50 text-green-700 border-green-200' :
+                o === 'email-sent' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                'bg-purple-50 text-purple-700 border-purple-200'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{background: 'currentColor'}} />
+                {dotTitle(o)} {count}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1986,10 +2042,10 @@ export default function EnquiryDetailPage() {
               </div>
             </div>
 
-            {/* DNP tracker */}
+            {/* Call Attempts */}
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Call Attempts</p>
-              <DnpDots count={enquiry.dnpCount || 0} />
+              <CallDots callLog={enquiry.callLog || []} dnpCount={enquiry.dnpCount || 0} />
               {enquiry.lastContactedAt && (
                 <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
                   <CheckCircle size={11} className="text-emerald-500" />
