@@ -1025,6 +1025,7 @@ export default function EnquiryDetailPage() {
   const [linkSent, setLinkSent] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpTime, setFollowUpTime] = useState("");
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [savingFollowUp, setSavingFollowUp] = useState(false);
@@ -1032,6 +1033,7 @@ export default function EnquiryDetailPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [reassigning, setReassigning] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [copiedItineraryId, setCopiedItineraryId] = useState<string | null>(null);
 
   // ── Inline customer detail editing ──
   const [editingDetails, setEditingDetails] = useState(false);
@@ -1109,8 +1111,21 @@ export default function EnquiryDetailPage() {
       const data = res?.data || res;
       setEnquiry(data);
       if (data.followUpDate) {
-        setFollowUpDate(data.followUpDate.slice(0, 10));
+        const d = new Date(data.followUpDate);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          setFollowUpDate(`${yyyy}-${mm}-${dd}`);
+          const hh = String(d.getHours()).padStart(2, "0");
+          const min = String(d.getMinutes()).padStart(2, "0");
+          setFollowUpTime(`${hh}:${min}`);
+        }
         setFollowUpNotes(data.followUpNotes || "");
+      } else {
+        setFollowUpDate("");
+        setFollowUpTime("");
+        setFollowUpNotes("");
       }
     } catch {
       router.push("/enquiries");
@@ -1189,15 +1204,43 @@ export default function EnquiryDetailPage() {
   }
 
   async function saveFollowUp() {
+    if (!followUpDate) return;
     setSavingFollowUp(true);
     setFollowUpSaved(false);
     try {
-      await api.put(`/enquiries/${id}`, { followUpDate, followUpNotes });
+      let isoDate: string;
+      if (followUpTime) {
+        const [hours, minutes] = followUpTime.split(":");
+        const d = new Date(followUpDate);
+        d.setHours(parseInt(hours, 10) || 0, parseInt(minutes, 10) || 0, 0, 0);
+        isoDate = d.toISOString();
+      } else {
+        const d = new Date(followUpDate);
+        d.setHours(10, 0, 0, 0); // Default to 10:00 AM if no time specified
+        isoDate = d.toISOString();
+      }
+      await api.put(`/enquiries/${id}`, { followUpDate: isoDate, followUpNotes });
       fetchEnquiry();
       setFollowUpSaved(true);
       setTimeout(() => setFollowUpSaved(false), 3000);
     } catch { alert("Failed to save follow-up"); }
     finally { setSavingFollowUp(false); }
+  }
+
+  async function clearFollowUp() {
+    if (!window.confirm("Clear this scheduled follow-up?")) return;
+    setSavingFollowUp(true);
+    try {
+      await api.put(`/enquiries/${id}`, { followUpDate: null, followUpNotes: "" });
+      setFollowUpDate("");
+      setFollowUpTime("");
+      setFollowUpNotes("");
+      fetchEnquiry();
+    } catch {
+      alert("Failed to clear follow-up");
+    } finally {
+      setSavingFollowUp(false);
+    }
   }
 
   const [timelineFilter, setTimelineFilter] = useState<"all" | "lifecycle" | "calls" | "notes" | "proposals">("all");
@@ -1617,6 +1660,26 @@ export default function EnquiryDetailPage() {
     }
   }
 
+  function handleCopyItineraryLink(packageId: string) {
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://letslivetours.com";
+    const url = `${frontendUrl.replace(/\/$/, "")}/itinerary/${packageId}`;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand("copy");
+      textArea.remove();
+    }
+    setCopiedItineraryId(packageId);
+    setTimeout(() => setCopiedItineraryId(null), 2000);
+  }
+
   return (
     <RoleGuard permission="enquiries.view">
       {showLogCall && (
@@ -1915,16 +1978,26 @@ export default function EnquiryDetailPage() {
                               <p className="flex items-center gap-2 text-sm text-cyan-700 font-medium leading-tight">
                                 <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
                               </p>
-                              <div className="flex items-center gap-2 mt-1">
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyItineraryLink(pkg._id)}
+                                  className="flex-1 flex items-center justify-center gap-1 text-center text-xs bg-white border border-emerald-200 text-emerald-700 py-1.5 rounded-md hover:bg-emerald-50 transition-colors font-medium shadow-sm"
+                                  title="Copy customer itinerary link"
+                                >
+                                  <Copy size={12} className={copiedItineraryId === pkg._id ? "text-emerald-600" : "text-emerald-500"} />
+                                  {copiedItineraryId === pkg._id ? "Copied!" : "Copy Link"}
+                                </button>
                                 <Link
                                   href={`/itineraries/${pkg._id}/edit`}
-                                  className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium"
+                                  className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium shadow-sm"
                                 >
                                   Edit
                                 </Link>
                                 <button
+                                  type="button"
                                   onClick={() => handleDelink(pkg._id)}
-                                  className="flex-1 text-center text-xs bg-white border border-rose-200 text-rose-600 py-1.5 rounded-md hover:bg-rose-50 transition-colors font-medium"
+                                  className="flex-1 text-center text-xs bg-white border border-rose-200 text-rose-600 py-1.5 rounded-md hover:bg-rose-50 transition-colors font-medium shadow-sm"
                                 >
                                   Delink
                                 </button>
@@ -1938,12 +2011,22 @@ export default function EnquiryDetailPage() {
                             <Package size={13} className="shrink-0" /> {enquiry.packageName}
                           </p>
                           {enquiry.package && typeof enquiry.package === 'object' && '_id' in enquiry.package && (
-                            <Link
-                              href={`/itineraries/${(enquiry.package as any)._id}/edit`}
-                              className="text-[10px] bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md hover:bg-cyan-100 transition-colors font-semibold"
-                            >
-                              Edit
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyItineraryLink((enquiry.package as any)._id)}
+                                className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md hover:bg-emerald-100 transition-colors font-semibold flex items-center gap-1 border border-emerald-200"
+                                title="Copy customer itinerary link"
+                              >
+                                <Copy size={11} /> {copiedItineraryId === (enquiry.package as any)._id ? "Copied!" : "Copy Link"}
+                              </button>
+                              <Link
+                                href={`/itineraries/${(enquiry.package as any)._id}/edit`}
+                                className="text-[11px] bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md hover:bg-cyan-100 transition-colors font-semibold border border-cyan-100"
+                              >
+                                Edit
+                              </Link>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2316,31 +2399,76 @@ export default function EnquiryDetailPage() {
                 <PhoneCall size={16} /> Log a Call
               </button>
 
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-slate-500 pt-1">Schedule Follow-up</p>
-                <input
-                  type="date"
-                  value={followUpDate}
-                  onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                />
+              <div className="space-y-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-purple-600" /> Schedule Follow-up
+                  </p>
+                  {enquiry.followUpDate && (
+                    <button
+                      type="button"
+                      onClick={clearFollowUp}
+                      className="text-[11px] font-medium text-rose-500 hover:text-rose-700 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {enquiry.followUpDate && (
+                  <div className="text-[11px] text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <Clock size={12} className="shrink-0 text-purple-600" />
+                    <span>
+                      Scheduled: <strong>{new Date(enquiry.followUpDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</strong>
+                      {(() => {
+                        const d = new Date(enquiry.followUpDate);
+                        return (
+                          <> at <strong>{d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}</strong></>
+                        );
+                      })()}
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-medium text-slate-500 block mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={followUpDate}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-slate-500 block mb-1">Time</label>
+                    <input
+                      type="time"
+                      value={followUpTime}
+                      onChange={(e) => setFollowUpTime(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
                 <input
                   type="text"
                   value={followUpNotes}
                   onChange={(e) => setFollowUpNotes(e.target.value)}
-                  placeholder="Follow-up note..."
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="Follow-up note (e.g. Call regarding quotation)..."
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 placeholder:text-slate-400"
                 />
+
                 <button
                   onClick={saveFollowUp}
                   disabled={!followUpDate || savingFollowUp}
-                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 border rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 ${
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40 ${
                     followUpSaved 
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" 
-                      : "border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                      ? "border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" 
+                      : "bg-purple-600 text-white hover:bg-purple-700 shadow-sm"
                   }`}
                 >
-                  <Calendar size={14} /> {savingFollowUp ? "Saving..." : followUpSaved ? "✓ Scheduled!" : "Schedule"}
+                  <Calendar size={13} /> {savingFollowUp ? "Saving..." : followUpSaved ? "✓ Scheduled!" : "Schedule Follow-up"}
                 </button>
               </div>
 

@@ -556,8 +556,15 @@ export default function EnquiriesPage() {
                       {e.destination && <p className="text-xs text-slate-400">📍 {e.destination}</p>}
                       {e.travelDate && <p className="text-xs text-slate-400">📅 Travel: {formatDate(e.travelDate)}</p>}
                       {e.followUpDate && (
-                        <p className="text-xs text-purple-600 mt-1 flex items-center gap-1">
+                        <p className="text-xs text-purple-600 mt-1 flex items-center gap-1 flex-wrap">
                           <Calendar size={10} /> Follow-up: {formatDate(e.followUpDate)}
+                          {(() => {
+                            const d = new Date(e.followUpDate);
+                            if (d.getHours() !== 0 || d.getMinutes() !== 0) {
+                              return <span className="font-semibold text-purple-700">at {d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>;
+                            }
+                            return null;
+                          })()}
                           {e.followUpNotes && <span className="text-slate-400">— {e.followUpNotes}</span>}
                         </p>
                       )}

@@ -87,6 +87,13 @@ function KanbanCard({
         {followUpToday && (
           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 flex items-center gap-0.5">
             <Calendar size={8} /> Today
+            {(() => {
+              const d = new Date(enquiry.followUpDate!);
+              if (d.getHours() !== 0 || d.getMinutes() !== 0) {
+                return <span>{d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>;
+              }
+              return null;
+            })()}
           </span>
         )}
 
