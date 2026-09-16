@@ -9,10 +9,12 @@ import {
   Phone, Mail, MapPin, Package, Calendar, Users, DollarSign,
   Tag, User, ArrowLeft, MessageSquare, PhoneCall, PhoneOff,
   MessageCircle, Clock, CheckCircle, AlertTriangle, ChevronDown,
-  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2, Edit2, Banknote, Search
+  Save, Plus, X, ExternalLink, RefreshCw, UserPlus, Send, Copy, Trash2, Edit2, Banknote, Search,
+  Download, Loader2
 } from "lucide-react";
 
 import Link from "next/link";
+import { generatePackagePdf } from "@/lib/generatePackagePdf";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermission } from "@/hooks/usePermission";
 import RoleGuard from "@/components/guards/RoleGuard";
@@ -1034,6 +1036,7 @@ export default function EnquiryDetailPage() {
   const [reassigning, setReassigning] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [copiedItineraryId, setCopiedItineraryId] = useState<string | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
 
   // ── Inline customer detail editing ──
   const [editingDetails, setEditingDetails] = useState(false);
@@ -1680,6 +1683,33 @@ export default function EnquiryDetailPage() {
     setTimeout(() => setCopiedItineraryId(null), 2000);
   }
 
+  async function handleDownloadItineraryPdf(packageId: string) {
+    setDownloadingPdfId(packageId);
+    try {
+      const res = await api.get(`/packages/${packageId}`);
+      const pkgData = res?.data || res;
+      if (pkgData) {
+        // Resolve assigned handler name from enquiry or package
+        const assignedName = enquiry?.assignedTo
+          ? (typeof enquiry.assignedTo === 'object'
+              ? `${(enquiry.assignedTo as any).firstName || ''} ${(enquiry.assignedTo as any).lastName || ''}`.trim() || (enquiry.assignedTo as any).name
+              : undefined)
+          : undefined;
+        await generatePackagePdf({
+          ...pkgData,
+          preparedBy: assignedName || pkgData.preparedBy,
+        });
+      } else {
+        alert("Failed to fetch itinerary details for PDF");
+      }
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      alert("Failed to generate PDF. Check console for details.");
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  }
+
   return (
     <RoleGuard permission="enquiries.view">
       {showLogCall && (
@@ -1988,6 +2018,20 @@ export default function EnquiryDetailPage() {
                                   <Copy size={12} className={copiedItineraryId === pkg._id ? "text-emerald-600" : "text-emerald-500"} />
                                   {copiedItineraryId === pkg._id ? "Copied!" : "Copy Link"}
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadItineraryPdf(pkg._id)}
+                                  disabled={downloadingPdfId === pkg._id}
+                                  className="flex-1 flex items-center justify-center gap-1 text-center text-xs bg-white border border-cyan-200 text-cyan-700 py-1.5 rounded-md hover:bg-cyan-50 transition-colors font-medium shadow-sm disabled:opacity-50"
+                                  title="Download itinerary PDF"
+                                >
+                                  {downloadingPdfId === pkg._id ? (
+                                    <Loader2 size={12} className="animate-spin text-cyan-600" />
+                                  ) : (
+                                    <Download size={12} className="text-cyan-600" />
+                                  )}
+                                  {downloadingPdfId === pkg._id ? "PDF..." : "PDF"}
+                                </button>
                                 <Link
                                   href={`/itineraries/${pkg._id}/edit`}
                                   className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium shadow-sm"
@@ -2019,6 +2063,20 @@ export default function EnquiryDetailPage() {
                                 title="Copy customer itinerary link"
                               >
                                 <Copy size={11} /> {copiedItineraryId === (enquiry.package as any)._id ? "Copied!" : "Copy Link"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadItineraryPdf((enquiry.package as any)._id)}
+                                disabled={downloadingPdfId === (enquiry.package as any)._id}
+                                className="text-[11px] bg-cyan-50 text-cyan-700 px-2 py-1 rounded-md hover:bg-cyan-100 transition-colors font-semibold flex items-center gap-1 border border-cyan-200 disabled:opacity-50"
+                                title="Download itinerary PDF"
+                              >
+                                {downloadingPdfId === (enquiry.package as any)._id ? (
+                                  <Loader2 size={11} className="animate-spin text-cyan-600" />
+                                ) : (
+                                  <Download size={11} className="text-cyan-600" />
+                                )}
+                                PDF
                               </button>
                               <Link
                                 href={`/itineraries/${(enquiry.package as any)._id}/edit`}

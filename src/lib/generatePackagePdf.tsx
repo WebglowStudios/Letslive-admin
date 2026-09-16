@@ -122,6 +122,10 @@ interface PackageData {
   travellerCount?: string; adultCount?: number; childCount?: number;
   transferSummary?: string;
   partnerLogos?: PartnerItem[];
+  preparedBy?: string;
+  assignedTo?: { firstName?: string; lastName?: string; name?: string; email?: string } | string;
+  createdBy?: { firstName?: string; lastName?: string; name?: string; email?: string } | string;
+  enquiryId?: { assignedTo?: { firstName?: string; lastName?: string; name?: string; email?: string } | string } | string;
   bookingMeta?: {
     dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
     totalAmount?: number;
@@ -647,6 +651,32 @@ const SectionTitle = ({ title }: { title: string }) => (
 const CoverPage = ({ pkg }: { pkg: PackageData }) => {
   const coverImg = pkg.heroImage || (pkg.images && pkg.images.length > 0 ? pkg.images[0] : undefined);
 
+  // Resolve assigned user / handler name
+  const resolveHandlerName = (): string | null => {
+    if (pkg.preparedBy && pkg.preparedBy.trim()) {
+      return pkg.preparedBy.trim();
+    }
+    if (pkg.enquiryId && typeof pkg.enquiryId === "object" && (pkg.enquiryId as any).assignedTo) {
+      const a = (pkg.enquiryId as any).assignedTo;
+      const n = typeof a === "object" ? `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name : typeof a === "string" ? a : "";
+      if (n) return n;
+    }
+    if (pkg.assignedTo) {
+      const a = pkg.assignedTo as any;
+      const n = typeof a === "object" ? `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name : typeof a === "string" ? a : "";
+      if (n) return n;
+    }
+    if (pkg.createdBy) {
+      const c = pkg.createdBy as any;
+      const n = typeof c === "object" ? `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name : typeof c === "string" ? c : "";
+      if (n) return n;
+    }
+    return null;
+  };
+
+  const handler = resolveHandlerName();
+  const preparedByBrand = handler ? `${handler}_Lets Live Tours` : "LETS LIVE TOURS";
+
   return (
     <Page size="A4" style={{ padding: 0 }}>
       <View style={{ width: "100%", height: "100%", position: "relative", backgroundColor: "#08151a" }}>
@@ -776,11 +806,11 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ marginTop: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.gn3 }}>
           {pkg.isCustom && pkg.clientName ? (
             <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
-              Specially prepared for <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{pkg.clientName.toUpperCase()}</Text> by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>LETS LIVE TOURS</Text>
+              Specially prepared for <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{pkg.clientName.toUpperCase()}</Text>  ·  Prepared by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{preparedByBrand}</Text>
             </Text>
           ) : (
             <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
-              Curated by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>LETS LIVE TOURS</Text>
+              Prepared by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{preparedByBrand}</Text>
             </Text>
           )}
         </View>
