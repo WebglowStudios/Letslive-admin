@@ -45,7 +45,9 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
     destination: "", packageName: "", message: "",
-    channel: "phone", travelDate: "", travellerCount: "", budget: "",
+    channel: "phone", travelDate: "",
+    adultCount: "1", childCount: "0", infantCount: "0",
+    budget: "",
     assignedTo: "",
   });
   const [saving, setSaving] = useState(false);
@@ -62,10 +64,18 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
     }
     setSaving(true);
     setError("");
+    const adults = Math.max(0, parseInt(form.adultCount, 10) || 0);
+    const children = Math.max(0, parseInt(form.childCount, 10) || 0);
+    const infants = Math.max(0, parseInt(form.infantCount, 10) || 0);
+    const totalTravellers = adults + children + infants;
+
     try {
       await api.post("/enquiries/manual", {
         ...form,
-        travellerCount: form.travellerCount ? Number(form.travellerCount) : undefined,
+        adultCount: adults,
+        childCount: children,
+        infantCount: infants,
+        travellerCount: totalTravellers > 0 ? totalTravellers : undefined,
         budget: form.budget ? Number(form.budget) : undefined,
         assignedTo: form.assignedTo || undefined,
       });
@@ -128,18 +138,36 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
             <label className="block text-xs font-medium text-slate-600 mb-1">Package interested in</label>
             <input value={form.packageName} onChange={(e) => set("packageName", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Package name (optional)" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Travel Date</label>
               <input type="date" value={form.travelDate} onChange={(e) => set("travelDate", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Travellers</label>
-              <input type="number" min="1" value={form.travellerCount} onChange={(e) => set("travellerCount", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Pax" />
-            </div>
-            <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Budget (₹)</label>
               <input type="number" value={form.budget} onChange={(e) => set("budget", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Optional" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-slate-600">Traveller Breakdown</label>
+              <span className="text-[11px] font-semibold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-100">
+                Total: {(parseInt(form.adultCount, 10) || 0) + (parseInt(form.childCount, 10) || 0) + (parseInt(form.infantCount, 10) || 0)} pax
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 mb-1">Adults</label>
+                <input type="number" min="0" value={form.adultCount} onChange={(e) => set("adultCount", e.target.value)} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="1" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 mb-1">Child</label>
+                <input type="number" min="0" value={form.childCount} onChange={(e) => set("childCount", e.target.value)} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="0" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-slate-500 mb-1">Infant</label>
+                <input type="number" min="0" value={form.infantCount} onChange={(e) => set("infantCount", e.target.value)} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="0" />
+              </div>
             </div>
           </div>
           <div>

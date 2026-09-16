@@ -605,10 +605,11 @@ function OfflineBookingModal({
     paymentRemarks: '',
   });
 
-  // Primary traveller passport (international)
+  // Primary traveller passport & details
   const [primaryPassport, setPrimaryPassport] = useState('');
   const [primaryPassportExpiry, setPrimaryPassportExpiry] = useState('');
   const [primaryIssuingCountry, setPrimaryIssuingCountry] = useState('');
+  const [primaryAge, setPrimaryAge] = useState('');
 
   // Additional travellers
   const [travellers, setTravellers] = useState<{ name: string; age: string; type: 'adult'|'child'|'infant'; passportNumber: string; passportExpiry: string; issuingCountry: string }[]>([]);
@@ -658,10 +659,35 @@ function OfflineBookingModal({
         travellers: { adults: adultsCount, children: childrenCount, infants: infantsCount },
         travellersDetails: isInternational 
           ? [
-              { name: `${foundUser.firstName} ${foundUser.lastName}`, age: "Adult", type: "adult", passportNumber: primaryPassport, passportExpiry: primaryPassportExpiry, issuingCountry: primaryIssuingCountry },
-              ...travellers
+              {
+                name: `${foundUser.firstName} ${foundUser.lastName}`.trim(),
+                age: (primaryAge && !isNaN(parseInt(primaryAge, 10))) ? parseInt(primaryAge, 10) : undefined,
+                type: "adult" as const,
+                passportNumber: primaryPassport,
+                passportExpiry: primaryPassportExpiry,
+                issuingCountry: primaryIssuingCountry,
+              },
+              ...travellers.map((t) => ({
+                name: t.name,
+                age: (t.age && !isNaN(parseInt(t.age, 10))) ? parseInt(t.age, 10) : undefined,
+                type: t.type,
+                passportNumber: t.passportNumber,
+                passportExpiry: t.passportExpiry,
+                issuingCountry: t.issuingCountry,
+              }))
             ]
-          : travellers.map(t => ({ name: t.name, age: t.age, type: t.type })),
+          : [
+              {
+                name: `${foundUser.firstName} ${foundUser.lastName}`.trim(),
+                age: (primaryAge && !isNaN(parseInt(primaryAge, 10))) ? parseInt(primaryAge, 10) : undefined,
+                type: "adult" as const,
+              },
+              ...travellers.map((t) => ({
+                name: t.name,
+                age: (t.age && !isNaN(parseInt(t.age, 10))) ? parseInt(t.age, 10) : undefined,
+                type: t.type,
+              })),
+            ],
         primaryTraveller: {
           firstName: foundUser.firstName,
           lastName: foundUser.lastName,
@@ -725,15 +751,34 @@ function OfflineBookingModal({
               </button>
             </div>
             {foundUser && (
-              <div className="mt-2 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                  {foundUser.firstName[0]}
+              <div className="mt-3 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                    {foundUser.firstName[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{foundUser.firstName} {foundUser.lastName}</p>
+                    <p className="text-xs text-slate-500">{foundUser.email} {foundUser.phone ? `· ${foundUser.phone}` : ''}</p>
+                  </div>
+                  <CheckCircle size={16} className="text-emerald-600 ml-auto shrink-0" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{foundUser.firstName} {foundUser.lastName}</p>
-                  <p className="text-xs text-slate-500">{foundUser.email} {foundUser.phone ? `· ${foundUser.phone}` : ''}</p>
+                <div className="pt-2.5 border-t border-emerald-200/60 flex items-center gap-3">
+                  <div className="w-36">
+                    <label className={labelCls}>Primary Age (yrs)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={primaryAge}
+                      onChange={(e) => setPrimaryAge(e.target.value)}
+                      placeholder="e.g. 28"
+                      className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-4">
+                    Primary traveller is counted as Adult 1.
+                  </p>
                 </div>
-                <CheckCircle size={16} className="text-emerald-600 ml-auto shrink-0" />
               </div>
             )}
             {userNotFound && (
@@ -1047,7 +1092,9 @@ export default function EnquiryDetailPage() {
     phone: "",
     destination: "",
     travelDate: "",
-    travellerCount: "",
+    adultCount: "",
+    childCount: "",
+    infantCount: "",
     budget: "",
     packageName: "",
     source: "",
@@ -1064,7 +1111,11 @@ export default function EnquiryDetailPage() {
       phone: enquiry.phone || "",
       destination: enquiry.destination || "",
       travelDate: enquiry.travelDate ? String(enquiry.travelDate).slice(0, 10) : "",
-      travellerCount: enquiry.travellerCount != null ? String(enquiry.travellerCount) : "",
+      adultCount: enquiry.adultCount != null
+        ? String(enquiry.adultCount)
+        : (enquiry.travellerCount != null ? String(enquiry.travellerCount) : "1"),
+      childCount: enquiry.childCount != null ? String(enquiry.childCount) : "0",
+      infantCount: enquiry.infantCount != null ? String(enquiry.infantCount) : "0",
       budget: enquiry.budget != null ? String(enquiry.budget) : "",
       packageName: enquiry.packageName || "",
       source: enquiry.source || "",
@@ -1079,6 +1130,11 @@ export default function EnquiryDetailPage() {
       return;
     }
     setSavingDetails(true);
+    const adults = editForm.adultCount !== "" ? Math.max(0, parseInt(editForm.adultCount, 10) || 0) : 0;
+    const children = editForm.childCount !== "" ? Math.max(0, parseInt(editForm.childCount, 10) || 0) : 0;
+    const infants = editForm.infantCount !== "" ? Math.max(0, parseInt(editForm.infantCount, 10) || 0) : 0;
+    const totalTravellers = adults + children + infants;
+
     try {
       await api.put(`/enquiries/${id}`, {
         firstName: editForm.firstName.trim(),
@@ -1087,7 +1143,10 @@ export default function EnquiryDetailPage() {
         phone: editForm.phone.trim(),
         destination: editForm.destination.trim() || undefined,
         travelDate: editForm.travelDate || undefined,
-        travellerCount: editForm.travellerCount ? Number(editForm.travellerCount) : undefined,
+        adultCount: adults,
+        childCount: children,
+        infantCount: infants,
+        travellerCount: totalTravellers > 0 ? totalTravellers : undefined,
         budget: editForm.budget ? Number(editForm.budget) : undefined,
         packageName: editForm.packageName.trim() || undefined,
         source: editForm.source || undefined,
@@ -1421,10 +1480,18 @@ export default function EnquiryDetailPage() {
 
     // Synthesize Customer Trip Requirements if missing
     const hasReq = items.some((it) => it.type === "requirements");
-    if (!hasReq && (enquiry.destination || enquiry.travellerCount || enquiry.budget || enquiry.travelDate)) {
+    const totalPax = enquiry.travellerCount ?? ((Number(enquiry.adultCount) || 0) + (Number(enquiry.childCount) || 0) + (Number(enquiry.infantCount) || 0) || undefined);
+    if (!hasReq && (enquiry.destination || totalPax || enquiry.budget || enquiry.travelDate)) {
       const parts: string[] = [];
       if (enquiry.destination) parts.push(`Destination: ${enquiry.destination}`);
-      if (enquiry.travellerCount) parts.push(`Travellers: ${enquiry.travellerCount} pax`);
+      if (totalPax) {
+        const paxParts: string[] = [];
+        if (enquiry.adultCount != null) paxParts.push(`${enquiry.adultCount} Adult${enquiry.adultCount === 1 ? '' : 's'}`);
+        if (enquiry.childCount != null && enquiry.childCount > 0) paxParts.push(`${enquiry.childCount} Child${enquiry.childCount === 1 ? '' : 'ren'}`);
+        if (enquiry.infantCount != null && enquiry.infantCount > 0) paxParts.push(`${enquiry.infantCount} Infant${enquiry.infantCount === 1 ? '' : 's'}`);
+        const paxBreakdown = paxParts.length > 0 ? ` (${paxParts.join(', ')})` : '';
+        parts.push(`Travellers: ${totalPax} pax${paxBreakdown}`);
+      }
       if (enquiry.budget) parts.push(`Budget: ₹${enquiry.budget.toLocaleString("en-IN")}`);
       if (enquiry.travelDate) parts.push(`Travel Date: ${formatDate(enquiry.travelDate)}`);
 
@@ -1863,25 +1930,13 @@ export default function EnquiryDetailPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Travel Date</label>
-                    <input
-                      type="date"
-                      value={editForm.travelDate}
-                      onChange={(e) => setEditForm({ ...editForm, travelDate: e.target.value })}
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                  </div>
-
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Travellers</label>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Travel Date</label>
                       <input
-                        type="number"
-                        min="1"
-                        value={editForm.travellerCount}
-                        onChange={(e) => setEditForm({ ...editForm, travellerCount: e.target.value })}
-                        placeholder="2"
+                        type="date"
+                        value={editForm.travelDate}
+                        onChange={(e) => setEditForm({ ...editForm, travelDate: e.target.value })}
                         className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       />
                     </div>
@@ -1894,6 +1949,53 @@ export default function EnquiryDetailPage() {
                         placeholder="50000"
                         className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       />
+                    </div>
+                  </div>
+
+                  {/* Travellers: Adults, Child, Infant */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                        Travellers
+                      </label>
+                      <span className="text-[10px] font-semibold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-100">
+                        Total: {(parseInt(editForm.adultCount, 10) || 0) + (parseInt(editForm.childCount, 10) || 0) + (parseInt(editForm.infantCount, 10) || 0)} pax
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                      <div>
+                        <label className="block text-[10px] font-medium text-slate-600 mb-1">Adults</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editForm.adultCount}
+                          onChange={(e) => setEditForm({ ...editForm, adultCount: e.target.value })}
+                          placeholder="1"
+                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-slate-600 mb-1">Child</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editForm.childCount}
+                          onChange={(e) => setEditForm({ ...editForm, childCount: e.target.value })}
+                          placeholder="0"
+                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-slate-600 mb-1">Infant</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editForm.infantCount}
+                          onChange={(e) => setEditForm({ ...editForm, infantCount: e.target.value })}
+                          placeholder="0"
+                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -2098,10 +2200,27 @@ export default function EnquiryDetailPage() {
                         <Calendar size={12} className="shrink-0 text-slate-400" /> {formatDate(enquiry.travelDate)}
                       </p>
                     )}
-                    {enquiry.travellerCount && (
-                      <p className="flex items-center gap-2 text-xs text-slate-500">
-                        <Users size={12} className="shrink-0 text-slate-400" /> {enquiry.travellerCount} traveller{enquiry.travellerCount > 1 ? "s" : ""}
-                      </p>
+                    {((enquiry.travellerCount && enquiry.travellerCount > 0) || (enquiry.adultCount != null && enquiry.adultCount > 0) || (enquiry.childCount != null && enquiry.childCount > 0) || (enquiry.infantCount != null && enquiry.infantCount > 0)) && (
+                      <div className="flex items-start gap-2 text-xs text-slate-500">
+                        <Users size={12} className="shrink-0 text-slate-400 mt-0.5" />
+                        <div>
+                          <p className="font-medium text-slate-700">
+                            {(enquiry.adultCount != null || enquiry.childCount != null || enquiry.infantCount != null)
+                              ? `${(enquiry.adultCount || 0) + (enquiry.childCount || 0) + (enquiry.infantCount || 0)} traveller${((enquiry.adultCount || 0) + (enquiry.childCount || 0) + (enquiry.infantCount || 0)) === 1 ? "" : "s"}`
+                              : `${enquiry.travellerCount} traveller${(enquiry.travellerCount || 0) > 1 ? "s" : ""}`
+                            }
+                          </p>
+                          {(enquiry.adultCount != null || enquiry.childCount != null || enquiry.infantCount != null) && (
+                            <p className="text-[11px] text-slate-400">
+                              {[
+                                `${enquiry.adultCount ?? 0} Adult${(enquiry.adultCount ?? 0) === 1 ? "" : "s"}`,
+                                (enquiry.childCount ?? 0) > 0 ? `${enquiry.childCount} Child${(enquiry.childCount ?? 0) === 1 ? "" : "ren"}` : null,
+                                (enquiry.infantCount ?? 0) > 0 ? `${enquiry.infantCount} Infant${(enquiry.infantCount ?? 0) === 1 ? "" : "s"}` : null,
+                              ].filter(Boolean).join(", ")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     )}
                     {enquiry.budget && (
                       <p className="flex items-center gap-2 text-xs text-slate-500">
@@ -2381,9 +2500,19 @@ export default function EnquiryDetailPage() {
                                   <MapPin size={10} /> {enquiry.destination}
                                 </span>
                               )}
-                              {enquiry.travellerCount && (
-                                <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-medium border border-purple-100">
-                                  <Users size={10} /> {enquiry.travellerCount} Pax
+                              {((enquiry.travellerCount && enquiry.travellerCount > 0) || (enquiry.adultCount != null && enquiry.adultCount > 0) || (enquiry.childCount != null && enquiry.childCount > 0) || (enquiry.infantCount != null && enquiry.infantCount > 0)) && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[11px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-medium border border-purple-100"
+                                  title={[
+                                    enquiry.adultCount != null ? `${enquiry.adultCount} Adult${enquiry.adultCount === 1 ? '' : 's'}` : null,
+                                    enquiry.childCount != null && enquiry.childCount > 0 ? `${enquiry.childCount} Child${enquiry.childCount === 1 ? '' : 'ren'}` : null,
+                                    enquiry.infantCount != null && enquiry.infantCount > 0 ? `${enquiry.infantCount} Infant${enquiry.infantCount === 1 ? '' : 's'}` : null,
+                                  ].filter(Boolean).join(', ')}
+                                >
+                                  <Users size={10} />
+                                  {(enquiry.adultCount != null || enquiry.childCount != null || enquiry.infantCount != null)
+                                    ? `${(enquiry.adultCount || 0) + (enquiry.childCount || 0) + (enquiry.infantCount || 0)} Pax`
+                                    : `${enquiry.travellerCount} Pax`}
                                 </span>
                               )}
                               {enquiry.budget && (

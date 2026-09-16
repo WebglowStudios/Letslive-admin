@@ -167,6 +167,9 @@ export interface Enquiry {
   conversionValue?: number;
   bookingRef?: { bookingId: string; totalAmount: number; bookingStatus?: string } | string;
   travellerCount?: number;
+  adultCount?: number;
+  childCount?: number;
+  infantCount?: number;
   budget?: number;
   tags: string[];
   channel?: string;
