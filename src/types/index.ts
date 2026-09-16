@@ -135,9 +135,9 @@ export interface Enquiry {
   travelDate?: string;
   message?: string;
   packageName?: string;
-  package?: string;
+  package?: string | { _id: string; name: string; slug?: string; price?: number; isInternational?: boolean };
   departureId?: string;
-  linkedItineraries?: { _id: string; name: string; slug: string; price?: number }[];
+  linkedItineraries?: { _id: string; name: string; slug: string; price?: number; isInternational?: boolean; duration?: any }[];
   status: "new" | "assigned" | "in-progress" | "follow-up" | "converted" | "resolved" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
   assignedTo?: { _id: string; firstName: string; lastName: string; avatar?: string; email?: string };

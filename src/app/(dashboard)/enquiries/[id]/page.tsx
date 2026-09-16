@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
@@ -556,6 +556,14 @@ function DuplicateItineraryModal({ enquiryId, onClose }: { enquiryId: string; on
 }
 
 // ─── Offline Booking Modal ────────────────────────────────────────────────────
+interface ItineraryOption {
+  _id: string;
+  name: string;
+  price?: number;
+  isInternational?: boolean;
+  slug?: string;
+}
+
 function OfflineBookingModal({
   enquiry,
   prefilledPackage,
@@ -563,7 +571,7 @@ function OfflineBookingModal({
   onSuccess,
 }: {
   enquiry: Enquiry;
-  prefilledPackage: { _id: string; name: string; isInternational?: boolean } | null;
+  prefilledPackage: { _id: string; name: string; isInternational?: boolean; price?: number } | null;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -577,26 +585,67 @@ function OfflineBookingModal({
   const [foundUser, setFoundUser] = useState<{ _id: string; firstName: string; lastName: string; email: string; phone?: string } | null>(null);
   const [userNotFound, setUserNotFound] = useState(false);
 
-  // Derive isInternational directly from prefilledPackage (now includes isInternational from backend)
-  const [isInternational, setIsInternational] = useState(!!prefilledPackage?.isInternational);
+  // Collect all available itineraries (linked custom itineraries + primary enquiry package)
+  const availableItineraries: ItineraryOption[] = useMemo(() => {
+    const list: ItineraryOption[] = [];
+    const seenIds = new Set<string>();
 
-  useEffect(() => {
-    // If no prefilled package, or isInternational already known, skip API call
-    if (prefilledPackage?._id && prefilledPackage.isInternational === undefined) {
-      // Only fetch if isInternational wasn't provided by the backend
-      api.get(`/packages/${prefilledPackage._id}`).then((res) => {
-        const pkg = res?.data?.data || res?.data;
-        if (pkg) setIsInternational(!!pkg.isInternational);
-      }).catch(() => {});
+    if (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0) {
+      for (const it of enquiry.linkedItineraries) {
+        if (it._id && !seenIds.has(it._id)) {
+          seenIds.add(it._id);
+          list.push({
+            _id: it._id,
+            name: it.name,
+            price: it.price,
+            isInternational: (it as any).isInternational,
+            slug: it.slug,
+          });
+        }
+      }
     }
-  }, [prefilledPackage?._id, prefilledPackage?.isInternational]);
+
+    if (enquiry.package && typeof enquiry.package === 'object' && (enquiry.package as any)._id) {
+      const pkg = enquiry.package as any;
+      if (!seenIds.has(pkg._id)) {
+        seenIds.add(pkg._id);
+        list.push({
+          _id: pkg._id,
+          name: pkg.name || enquiry.packageName || 'Primary Package',
+          price: pkg.price,
+          isInternational: pkg.isInternational,
+          slug: pkg.slug,
+        });
+      }
+    } else if (prefilledPackage?._id && !seenIds.has(prefilledPackage._id)) {
+      seenIds.add(prefilledPackage._id);
+      list.push({
+        _id: prefilledPackage._id,
+        name: prefilledPackage.name,
+        price: (prefilledPackage as any).price,
+        isInternational: prefilledPackage.isInternational,
+      });
+    }
+
+    return list;
+  }, [enquiry.linkedItineraries, enquiry.package, enquiry.packageName, prefilledPackage]);
+
+  // Determine initial selected itinerary
+  const initialItinerary = prefilledPackage?._id
+    ? (availableItineraries.find((it) => it._id === prefilledPackage._id) || prefilledPackage)
+    : (availableItineraries[0] || null);
+
+  const [selectedItinerary, setSelectedItinerary] = useState<ItineraryOption | null>(initialItinerary);
+  const [isInternational, setIsInternational] = useState<boolean>(!!initialItinerary?.isInternational);
 
   // Form state
   const [form, setForm] = useState({
-    packageId: prefilledPackage?._id || '',
+    packageId: initialItinerary?._id || '',
     travelDate: enquiry.travelDate ? String(enquiry.travelDate).slice(0, 10) : '',
     returnDate: '',
-    totalAmount: enquiry.budget || 0,
+    totalAmount: (initialItinerary && (initialItinerary as any).price && (initialItinerary as any).price > 0)
+      ? (initialItinerary as any).price
+      : (enquiry.budget || 0),
     panCard: '',
     specialRequests: '',
     paymentMode: 'cash',
@@ -604,6 +653,48 @@ function OfflineBookingModal({
     transactionId: '',
     paymentRemarks: '',
   });
+
+  const handleItineraryChange = (packageId: string) => {
+    const found = availableItineraries.find((it) => it._id === packageId) || null;
+    setSelectedItinerary(found);
+    if (found) {
+      setIsInternational(!!found.isInternational);
+      setForm((prev) => ({
+        ...prev,
+        packageId: found._id,
+        totalAmount: (found.price && found.price > 0) ? found.price : prev.totalAmount,
+      }));
+      // If isInternational or price is undefined, fetch package details
+      if (found.isInternational === undefined || !found.price) {
+        api.get(`/packages/${found._id}`).then((res) => {
+          const pkg = res?.data?.data || res?.data;
+          if (pkg) {
+            setIsInternational(!!pkg.isInternational);
+            if (pkg.price && (!found.price || found.price === 0)) {
+              setForm((prev) => ({ ...prev, totalAmount: pkg.price }));
+            }
+          }
+        }).catch(() => {});
+      }
+    } else {
+      setForm((prev) => ({ ...prev, packageId }));
+    }
+  };
+
+  useEffect(() => {
+    // If selected itinerary isInternational is undefined, fetch it
+    if (selectedItinerary?._id && selectedItinerary.isInternational === undefined) {
+      api.get(`/packages/${selectedItinerary._id}`).then((res) => {
+        const pkg = res?.data?.data || res?.data;
+        if (pkg) {
+          setIsInternational(!!pkg.isInternational);
+          if (pkg.price && (!selectedItinerary.price || selectedItinerary.price === 0)) {
+            setForm((prev) => ({ ...prev, totalAmount: pkg.price }));
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [selectedItinerary]);
 
   // Primary traveller passport & details
   const [primaryPassport, setPrimaryPassport] = useState('');
@@ -792,19 +883,63 @@ function OfflineBookingModal({
           {/* ── Section 2: Trip Details ── */}
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">2. Trip Details</p>
-            <div className="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Linked Package / Itinerary</p>
-                {prefilledPackage ? (
-                  <p className="text-sm font-bold text-slate-800">{prefilledPackage.name}</p>
-                ) : (
-                  <p className="text-sm font-semibold text-rose-600">No itinerary linked!</p>
+
+            {/* Itinerary Dropdown / Selector */}
+            <div className="mb-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-slate-600 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Package size={14} className="text-cyan-600" />
+                  Select Itinerary for this Booking *
+                </label>
+                {selectedItinerary && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                    isInternational ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                  }`}>
+                    {isInternational ? 'International' : 'Domestic'}
+                  </span>
                 )}
               </div>
-              {!prefilledPackage && (
-                <span className="text-xs text-rose-600 bg-rose-100 px-2 py-1 rounded font-bold">Required</span>
+
+              {availableItineraries.length === 0 ? (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-medium">
+                  ⚠️ No itinerary linked to this enquiry yet. Please link or create an itinerary first.
+                </div>
+              ) : availableItineraries.length === 1 ? (
+                <div className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{availableItineraries[0].name}</p>
+                    {availableItineraries[0].price ? (
+                      <p className="text-xs text-emerald-600 font-semibold mt-0.5">
+                        Itinerary Price: ₹{availableItineraries[0].price.toLocaleString('en-IN')}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="text-xs text-slate-400 font-medium">1 Linked Itinerary</span>
+                </div>
+              ) : (
+                <div>
+                  <select
+                    value={form.packageId}
+                    onChange={(e) => handleItineraryChange(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                  >
+                    <option value="">-- Choose Itinerary ({availableItineraries.length} Options Linked) --</option>
+                    {availableItineraries.map((it) => (
+                      <option key={it._id} value={it._id}>
+                        {it.name} {it.price ? `— ₹${it.price.toLocaleString('en-IN')}` : ''} {it.isInternational ? '(International)' : '(Domestic)'}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedItinerary && selectedItinerary.price ? (
+                    <div className="flex items-center justify-between mt-2 px-1 text-xs">
+                      <span className="text-slate-500">Selected Itinerary Base Price:</span>
+                      <span className="font-bold text-emerald-700">₹{selectedItinerary.price.toLocaleString('en-IN')}</span>
+                    </div>
+                  ) : null}
+                </div>
               )}
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Travel Date *</label>
@@ -814,9 +949,10 @@ function OfflineBookingModal({
                 <label className={labelCls}>Return Date</label>
                 <input type="date" value={form.returnDate} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} className={inputCls} />
               </div>
-              <div>
-                <label className={labelCls}>Total Amount (₹) *</label>
+              <div className="col-span-2 sm:col-span-1">
+                <label className={labelCls}>Total Agreed Amount (₹) *</label>
                 <input type="number" min={1} value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: Number(e.target.value) })} className={inputCls} />
+                <p className="text-[10px] text-slate-400 mt-1">Total package cost agreed with client</p>
               </div>
             </div>
             <div className="mt-3">
@@ -906,11 +1042,24 @@ function OfflineBookingModal({
 
           {/* ── Offline Payment ── */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{isInternational ? '5' : '3'}. Offline Payment</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{isInternational ? '5' : '3'}. Offline Payment</p>
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full">
+                Routes to Finance Approval
+              </span>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Amount Paid (₹)</label>
-                <input type="number" min={0} value={form.paidAmount} onChange={(e) => setForm({ ...form, paidAmount: Number(e.target.value) })} className={inputCls} placeholder="0 if nothing paid yet" />
+                <label className={labelCls}>Amount Paid by Client (₹)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.paidAmount}
+                  onChange={(e) => setForm({ ...form, paidAmount: Number(e.target.value) })}
+                  className={inputCls}
+                  placeholder="0 if nothing paid yet"
+                />
               </div>
               <div>
                 <label className={labelCls}>Payment Mode</label>
@@ -933,11 +1082,29 @@ function OfflineBookingModal({
                 <input value={form.paymentRemarks} onChange={(e) => setForm({ ...form, paymentRemarks: e.target.value })} className={inputCls} placeholder="e.g. Collected at office" />
               </div>
             </div>
-            {form.paidAmount > 0 && form.totalAmount > 0 && (
-              <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-700 font-medium">
-                Payment Status: {form.paidAmount >= form.totalAmount ? '✅ Fully Paid' : `🟡 Partial — ₹${(form.totalAmount - form.paidAmount).toLocaleString('en-IN')} balance remaining`}
+
+            {/* Payment Summary */}
+            <div className="mt-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-600">Total Booking Amount:</span>
+                <span className="font-bold text-slate-800">₹{Number(form.totalAmount || 0).toLocaleString('en-IN')}</span>
               </div>
-            )}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-600">Amount Paid Now (To Approve):</span>
+                <span className="font-bold text-emerald-700">₹{Number(form.paidAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-slate-200">
+                <span className="text-slate-600 font-medium">Remaining Balance:</span>
+                <span className="font-bold text-slate-800">
+                  ₹{Math.max(0, (Number(form.totalAmount || 0) - Number(form.paidAmount || 0))).toLocaleString('en-IN')}
+                </span>
+              </div>
+              {form.paidAmount > 0 && (
+                <div className="mt-2 text-[11px] bg-blue-50 border border-blue-200 text-blue-700 p-2 rounded-lg leading-relaxed">
+                  ℹ️ <strong>Financial Approval:</strong> An approval request for <strong>₹{Number(form.paidAmount).toLocaleString('en-IN')}</strong> will appear in Finance Approvals. The remaining balance of ₹{Math.max(0, (Number(form.totalAmount || 0) - Number(form.paidAmount))).toLocaleString('en-IN')} will be scheduled under Operations installments.
+                </div>
+              )}
+            </div>
           </div>
 
           {error && (
@@ -1067,7 +1234,7 @@ export default function EnquiryDetailPage() {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showSendLinkModal, setShowSendLinkModal] = useState(false);
   const [showOfflineModal, setShowOfflineModal] = useState(false);
-  const [offlinePrefilledPackage, setOfflinePrefilledPackage] = useState<{ _id: string; name: string; isInternational?: boolean } | null>(null);
+  const [offlinePrefilledPackage, setOfflinePrefilledPackage] = useState<{ _id: string; name: string; isInternational?: boolean; price?: number } | null>(null);
   const [sendingLink, setSendingLink] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -2106,19 +2273,42 @@ export default function EnquiryDetailPage() {
                         <div className="space-y-2 mt-2">
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Linked Itineraries</p>
                           {enquiry.linkedItineraries.map((pkg) => (
-                            <div key={pkg._id} className="flex flex-col gap-2 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                              <p className="flex items-center gap-2 text-sm text-cyan-700 font-medium leading-tight">
-                                <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
-                              </p>
+                            <div key={pkg._id} className="flex flex-col gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <p className="flex items-center gap-2 text-sm text-cyan-800 font-semibold leading-tight">
+                                  <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
+                                </p>
+                                {pkg.price ? (
+                                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                                    ₹{pkg.price.toLocaleString('en-IN')}
+                                  </span>
+                                ) : null}
+                              </div>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <button
                                   type="button"
+                                  onClick={() => {
+                                    setOfflinePrefilledPackage({
+                                      _id: pkg._id,
+                                      name: pkg.name,
+                                      price: pkg.price,
+                                      isInternational: (pkg as any).isInternational,
+                                    });
+                                    setShowOfflineModal(true);
+                                  }}
+                                  className="flex-1 text-center text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 py-1.5 rounded-md hover:bg-emerald-100 transition-colors font-bold shadow-sm"
+                                  title="Proceed to manual booking for this itinerary"
+                                >
+                                  Book Offline
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => handleCopyItineraryLink(pkg._id)}
-                                  className="flex-1 flex items-center justify-center gap-1 text-center text-xs bg-white border border-emerald-200 text-emerald-700 py-1.5 rounded-md hover:bg-emerald-50 transition-colors font-medium shadow-sm"
+                                  className="flex-1 flex items-center justify-center gap-1 text-center text-xs bg-white border border-slate-200 text-slate-700 py-1.5 rounded-md hover:bg-slate-50 transition-colors font-medium shadow-sm"
                                   title="Copy customer itinerary link"
                                 >
-                                  <Copy size={12} className={copiedItineraryId === pkg._id ? "text-emerald-600" : "text-emerald-500"} />
-                                  {copiedItineraryId === pkg._id ? "Copied!" : "Copy Link"}
+                                  <Copy size={12} className={copiedItineraryId === pkg._id ? "text-emerald-600" : "text-slate-500"} />
+                                  {copiedItineraryId === pkg._id ? "Copied!" : "Copy"}
                                 </button>
                                 <button
                                   type="button"
@@ -2692,18 +2882,20 @@ export default function EnquiryDetailPage() {
               {/* Manual / Offline Booking */}
               <button
                 onClick={() => {
-                  let selectedPackage = null;
+                  let selectedPackage: { _id: string; name: string; isInternational?: boolean; price?: number } | null = null;
                   if (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0) {
                     const firstLinked = enquiry.linkedItineraries[0];
                     selectedPackage = { 
                       _id: firstLinked._id, 
                       name: firstLinked.name, 
+                      price: firstLinked.price,
                       isInternational: (firstLinked as any).isInternational 
                     };
                   } else if (enquiry.package && typeof enquiry.package === 'object') {
                     selectedPackage = { 
                       _id: (enquiry.package as any)._id, 
                       name: (enquiry.package as any).name || enquiry.packageName || 'Package', 
+                      price: (enquiry.package as any).price,
                       isInternational: (enquiry.package as any).isInternational 
                     };
                   }

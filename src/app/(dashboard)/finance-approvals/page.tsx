@@ -123,8 +123,17 @@ export default function FinanceApprovalsPage() {
                         <p className="text-xs text-slate-500">{b.user.firstName} {b.user.lastName}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-slate-400">Requested Amount</p>
-                        <p className="font-bold text-slate-800">{formatCurrency(b.totalAmount - b.paidAmount)}</p>
+                        <p className="text-xs text-slate-400">Payment to Approve</p>
+                        <p className="font-bold text-emerald-600 text-base">
+                          {formatCurrency(
+                            b.financeDetails?.paidAmount !== undefined && b.financeDetails?.paidAmount !== null
+                              ? b.financeDetails.paidAmount
+                              : (b.totalAmount - b.paidAmount)
+                          )}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Total: {formatCurrency(b.totalAmount)} · Balance after: {formatCurrency(Math.max(0, b.totalAmount - (b.paidAmount + (b.financeDetails?.paidAmount ?? (b.totalAmount - b.paidAmount)))))}
+                        </p>
                       </div>
                     </div>
                     
