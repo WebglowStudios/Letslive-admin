@@ -104,6 +104,7 @@ export interface CallLogEntry {
   notes?: string;
   by?: { firstName: string; lastName: string };
   duration?: number;
+  callbackDate?: string;
 }
 
 export interface EnquiryNote {
@@ -165,7 +166,7 @@ export interface Enquiry {
   lostReason?: string;
   lostReasonOtherText?: string;
   conversionValue?: number;
-  bookingRef?: { bookingId: string; totalAmount: number; bookingStatus?: string } | string;
+  bookingRef?: { _id?: string; bookingId: string; totalAmount: number; bookingStatus?: string; paymentFinanceStatus?: string; paymentStatus?: string } | string;
   travellerCount?: number;
   adultCount?: number;
   childCount?: number;

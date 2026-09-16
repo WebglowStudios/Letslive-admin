@@ -73,12 +73,25 @@ function CallDots({ callLog, dnpCount }: { callLog: { outcome: string }[]; dnpCo
     }
   }
 
-  function dotTitle(outcome: string): string {
+  function dotTitle(entry: any): string {
+    if (!entry) return 'Not called';
+    if (entry.outcome === 'callback-scheduled') {
+      if (entry.callbackDate) {
+        return `Callback: ${new Date(entry.callbackDate).toLocaleString('en-IN', {
+          day: 'numeric',
+          month: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        })}`;
+      }
+      return 'Callback Scheduled';
+    }
     const map: Record<string, string> = {
       answered: 'Answered', dnp: 'DNP', busy: 'Busy',
-      'whatsapp-sent': 'WhatsApp', 'email-sent': 'Email', 'callback-scheduled': 'Callback'
+      'whatsapp-sent': 'WhatsApp', 'email-sent': 'Email',
     };
-    return map[outcome] || outcome;
+    return map[entry.outcome] || entry.outcome;
   }
 
   const lastOutcome = callLog.length > 0 ? callLog[callLog.length - 1].outcome : null;
@@ -92,7 +105,7 @@ function CallDots({ callLog, dnpCount }: { callLog: { outcome: string }[]; dnpCo
           return (
             <div
               key={i}
-              title={entry ? dotTitle(entry.outcome) : 'Not called'}
+              title={entry ? dotTitle(entry) : 'Not called'}
               className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
                 entry ? dotColor(entry.outcome) : 'border-slate-200 bg-white'
               }`}
@@ -221,6 +234,8 @@ function LogCallModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClo
   const [outcome, setOutcome] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [callbackDate, setCallbackDate] = useState("");
+  const [callbackTime, setCallbackTime] = useState("");
 
   const outcomes = [
     { value: "answered", label: "Answered", icon: "✅", desc: "Customer picked up and we spoke" },
@@ -231,68 +246,275 @@ function LogCallModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClo
     { value: "callback-scheduled", label: "Callback Scheduled", icon: "📅", desc: "Customer asked for callback" },
   ];
 
+  function handleSelectOutcome(val: string) {
+    setOutcome(val);
+    if (val === "callback-scheduled" && !callbackDate) {
+      // Default to tomorrow 11:00 AM or today +2h if early
+      const now = new Date();
+      if (now.getHours() < 16) {
+        now.setHours(now.getHours() + 2, 0, 0, 0);
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        const hh = String(now.getHours()).padStart(2, "0");
+        setCallbackDate(`${yyyy}-${mm}-${dd}`);
+        setCallbackTime(`${hh}:00`);
+      } else {
+        const tom = new Date();
+        tom.setDate(tom.getDate() + 1);
+        const yyyy = tom.getFullYear();
+        const mm = String(tom.getMonth() + 1).padStart(2, "0");
+        const dd = String(tom.getDate()).padStart(2, "0");
+        setCallbackDate(`${yyyy}-${mm}-${dd}`);
+        setCallbackTime("11:00");
+      }
+    }
+  }
+
+  function applyPreset(type: "today-2h" | "tomorrow-10" | "tomorrow-15" | "in-2-days") {
+    const now = new Date();
+    if (type === "today-2h") {
+      now.setHours(now.getHours() + 2, 0, 0, 0);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      setCallbackDate(`${yyyy}-${mm}-${dd}`);
+      setCallbackTime(`${hh}:00`);
+    } else if (type === "tomorrow-10") {
+      const tom = new Date();
+      tom.setDate(tom.getDate() + 1);
+      const yyyy = tom.getFullYear();
+      const mm = String(tom.getMonth() + 1).padStart(2, "0");
+      const dd = String(tom.getDate()).padStart(2, "0");
+      setCallbackDate(`${yyyy}-${mm}-${dd}`);
+      setCallbackTime("10:00");
+    } else if (type === "tomorrow-15") {
+      const tom = new Date();
+      tom.setDate(tom.getDate() + 1);
+      const yyyy = tom.getFullYear();
+      const mm = String(tom.getMonth() + 1).padStart(2, "0");
+      const dd = String(tom.getDate()).padStart(2, "0");
+      setCallbackDate(`${yyyy}-${mm}-${dd}`);
+      setCallbackTime("15:00");
+    } else if (type === "in-2-days") {
+      const d2 = new Date();
+      d2.setDate(d2.getDate() + 2);
+      const yyyy = d2.getFullYear();
+      const mm = String(d2.getMonth() + 1).padStart(2, "0");
+      const dd = String(d2.getDate()).padStart(2, "0");
+      setCallbackDate(`${yyyy}-${mm}-${dd}`);
+      setCallbackTime("11:00");
+    }
+  }
+
+  const isCallback = outcome === "callback-scheduled";
+  const canSave = Boolean(outcome && (!isCallback || (callbackDate && callbackTime)) && !saving);
+
   async function handleSave() {
     if (!outcome) return;
+    if (isCallback && (!callbackDate || !callbackTime)) {
+      alert("Please choose both date and time for the callback.");
+      return;
+    }
     setSaving(true);
     try {
-      await api.post(`/enquiries/${enquiryId}/call`, { outcome, notes: notes || undefined });
+      const payload: any = { outcome, notes: notes || undefined };
+      if (isCallback) {
+        const [hours, minutes] = callbackTime.split(":");
+        const d = new Date(callbackDate);
+        d.setHours(parseInt(hours, 10), parseInt(minutes || "0", 10), 0, 0);
+        payload.callbackDate = d.toISOString();
+      }
+      await api.post(`/enquiries/${enquiryId}/call`, payload);
       onSave();
       onClose();
-    } catch {
-      alert("Failed to log call");
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to log call");
     } finally {
       setSaving(false);
     }
   }
 
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md my-8 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
             <h3 className="font-bold text-slate-800">Log a Call</h3>
             <p className="text-xs text-slate-400">Record what happened in this interaction</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
         </div>
-        <div className="p-5 space-y-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Call Outcome</p>
-          <div className="grid grid-cols-2 gap-2">
-            {outcomes.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => setOutcome(o.value)}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${
-                  outcome === o.value
-                    ? "border-cyan-500 bg-cyan-50"
-                    : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                <span className="text-xl">{o.icon}</span>
-                <p className="text-xs font-semibold text-slate-700 mt-1">{o.label}</p>
-                <p className="text-[10px] text-slate-400">{o.desc}</p>
-              </button>
-            ))}
-          </div>
+
+        <div className="p-5 overflow-y-auto space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Notes (optional)</label>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Call Outcome</p>
+            <div className="grid grid-cols-2 gap-2">
+              {outcomes.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => handleSelectOutcome(o.value)}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${
+                    outcome === o.value
+                      ? o.value === "callback-scheduled"
+                        ? "border-purple-500 bg-purple-50"
+                        : "border-cyan-500 bg-cyan-50"
+                      : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="text-xl">{o.icon}</span>
+                  <p className="text-xs font-semibold text-slate-700 mt-1">{o.label}</p>
+                  <p className="text-[10px] text-slate-400">{o.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ─── CALLBACK SCHEDULE PICKER ─── */}
+          {isCallback && (
+            <div className="bg-purple-50/70 border-2 border-purple-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-purple-200 text-purple-800 flex items-center justify-center font-bold shrink-0">
+                  <Calendar size={15} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wide">
+                    Set Callback Date & Time <span className="text-rose-500">*</span>
+                  </h4>
+                  <p className="text-[11px] text-purple-700">When should we call the customer back?</p>
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div>
+                <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-1.5">Quick Presets</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("today-2h")}
+                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
+                  >
+                    Today +2 hrs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("tomorrow-10")}
+                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
+                  >
+                    Tmrw 10:00 AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("tomorrow-15")}
+                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
+                  >
+                    Tmrw 3:00 PM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("in-2-days")}
+                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
+                  >
+                    In 2 Days
+                  </button>
+                </div>
+              </div>
+
+              {/* Date and Time Inputs */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Calendar size={11} className="text-purple-600" /> Date
+                  </label>
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={callbackDate}
+                    onChange={(e) => setCallbackDate(e.target.value)}
+                    className="w-full border border-purple-200 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-xs"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Clock size={11} className="text-purple-600" /> Time
+                  </label>
+                  <input
+                    type="time"
+                    value={callbackTime}
+                    onChange={(e) => setCallbackTime(e.target.value)}
+                    className="w-full border border-purple-200 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-xs"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Selection summary preview */}
+              {callbackDate && callbackTime ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-xs text-purple-800">
+                  <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shrink-0" />
+                  <span>
+                    Scheduled:{" "}
+                    <strong className="text-purple-900 font-bold">
+                      {new Date(`${callbackDate}T${callbackTime}`).toLocaleString("en-IN", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
+                    </strong>
+                  </span>
+                </div>
+              ) : (
+                <p className="text-[11px] text-amber-700 font-medium flex items-center gap-1">
+                  ⚠️ Please select both date and time above
+                </p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              {isCallback ? "Callback Notes / Discussion (optional)" : "Notes (optional)"}
+            </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              placeholder="What was discussed, any commitments made..."
+              placeholder={
+                isCallback
+                  ? "e.g. Customer in meeting, call back to discuss Maldives pricing..."
+                  : "What was discussed, any commitments made..."
+              }
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
             />
           </div>
         </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium">
+            Cancel
+          </button>
           <button
             onClick={handleSave}
-            disabled={!outcome || saving}
-            className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm font-semibold hover:bg-cyan-700 disabled:opacity-40"
+            disabled={!canSave}
+            className={`flex-1 px-4 py-2 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-40 shadow-sm ${
+              isCallback ? "bg-purple-600 hover:bg-purple-700" : "bg-cyan-600 hover:bg-cyan-700"
+            }`}
           >
-            {saving ? "Saving..." : "Log Call"}
+            {saving ? "Saving..." : isCallback ? "Schedule Callback & Log" : "Log Call"}
           </button>
         </div>
       </div>
@@ -1776,7 +1998,7 @@ export default function EnquiryDetailPage() {
 
     // Synthesize Converted Booking
     const hasConverted = items.some((it) => it.type === "converted");
-    if (!hasConverted && (enquiry.bookingRef || enquiry.status === "converted")) {
+    if (!hasConverted && enquiry.status === "converted") {
       const refCode = typeof enquiry.bookingRef === "object" ? enquiry.bookingRef.bookingId : enquiry.bookingRef;
       const val = enquiry.conversionValue || (typeof enquiry.bookingRef === "object" ? enquiry.bookingRef.totalAmount : undefined);
       items.push({
@@ -2511,10 +2733,37 @@ export default function EnquiryDetailPage() {
 
             {/* Booking ref */}
             {enquiry.bookingRef && typeof enquiry.bookingRef === "object" && (
-              <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4">
-                <p className="text-xs font-semibold text-emerald-600 mb-1">Converted Booking</p>
-                <p className="text-sm font-bold text-emerald-800">{enquiry.bookingRef.bookingId}</p>
-                <p className="text-xs text-emerald-600">{formatCurrency(enquiry.bookingRef.totalAmount)}</p>
+              <div className={`rounded-2xl border p-4 ${
+                enquiry.bookingRef.paymentFinanceStatus === 'pending_approval'
+                  ? 'bg-amber-50 border-amber-200'
+                  : enquiry.bookingRef.paymentFinanceStatus === 'rejected'
+                  ? 'bg-rose-50 border-rose-200'
+                  : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className={`text-xs font-semibold ${
+                    enquiry.bookingRef.paymentFinanceStatus === 'pending_approval'
+                      ? 'text-amber-800'
+                      : enquiry.bookingRef.paymentFinanceStatus === 'rejected'
+                      ? 'text-rose-700'
+                      : 'text-emerald-700'
+                  }`}>
+                    {enquiry.bookingRef.paymentFinanceStatus === 'pending_approval'
+                      ? 'Booking Pending Finance Approval'
+                      : enquiry.bookingRef.paymentFinanceStatus === 'rejected'
+                      ? 'Booking Payment Disapproved'
+                      : 'Converted Booking'}
+                  </p>
+                  {enquiry.bookingRef.paymentFinanceStatus === 'pending_approval' && (
+                    <span className="text-[10px] bg-amber-200 text-amber-800 font-bold px-1.5 py-0.5 rounded">
+                      Pending
+                    </span>
+                  )}
+                </div>
+                <Link href={`/bookings/${enquiry.bookingRef._id || enquiry.bookingRef.bookingId}`} className="text-sm font-bold text-slate-800 hover:text-cyan-600 hover:underline block">
+                  {enquiry.bookingRef.bookingId}
+                </Link>
+                <p className="text-xs text-slate-500 mt-0.5">{formatCurrency(enquiry.bookingRef.totalAmount)}</p>
               </div>
             )}
           </div>
