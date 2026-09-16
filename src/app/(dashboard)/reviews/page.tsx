@@ -61,11 +61,24 @@ export default function ReviewsPage() {
     }
   }, [selectedPackage]);
 
+  const updatePackageStats = (pkgId: string, stats?: { rating: number; reviewCount: number }) => {
+    if (!stats) return;
+    setPackages((prev) =>
+      prev.map((p) => (p._id === pkgId ? { ...p, rating: stats.rating, reviewCount: stats.reviewCount } : p))
+    );
+    setSelectedPackage((prev) =>
+      prev && prev._id === pkgId ? { ...prev, rating: stats.rating, reviewCount: stats.reviewCount } : prev
+    );
+  };
+
   async function fetchReviews(packageId: string) {
     setLoadingReviews(true);
     try {
       const res = await api.get(`/reviews/admin/package/${packageId}`);
       setReviews(res?.data || []);
+      if (res?.packageStats) {
+        updatePackageStats(packageId, res.packageStats);
+      }
     } catch {
       setReviews([]);
     } finally {
@@ -75,8 +88,14 @@ export default function ReviewsPage() {
 
   async function handleApprove(id: string) {
     try {
-      await api.put(`/reviews/${id}/approve`);
+      const res = await api.put(`/reviews/${id}/approve`);
       setReviews((prev) => prev.map((r) => r._id === id ? { ...r, isApproved: true } : r));
+      if (selectedPackage) {
+        if (res?.packageStats) {
+          updatePackageStats(selectedPackage._id, res.packageStats);
+        }
+        fetchPackages(searchQuery);
+      }
     } catch {
       alert("Failed to approve");
     }
@@ -85,8 +104,14 @@ export default function ReviewsPage() {
   async function handleDelete(id: string) {
     if (!confirm("Delete this review?")) return;
     try {
-      await api.del(`/reviews/${id}`);
+      const res = await api.del(`/reviews/${id}`);
       setReviews((prev) => prev.filter((r) => r._id !== id));
+      if (selectedPackage) {
+        if (res?.packageStats) {
+          updatePackageStats(selectedPackage._id, res.packageStats);
+        }
+        fetchPackages(searchQuery);
+      }
     } catch {
       alert("Failed to delete");
     }
@@ -104,7 +129,11 @@ export default function ReviewsPage() {
       if (res.status === "success") {
         setShowManualModal(false);
         setManualForm({ reviewerName: "", rating: 5, title: "", text: "", tripType: "", travelDate: "" });
-        fetchReviews(selectedPackage._id);
+        await fetchReviews(selectedPackage._id);
+        if (res?.packageStats) {
+          updatePackageStats(selectedPackage._id, res.packageStats);
+        }
+        await fetchPackages(searchQuery);
       } else {
         alert(res.message || "Failed to submit");
       }
