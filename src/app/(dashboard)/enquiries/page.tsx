@@ -13,6 +13,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { useAuthStore } from "@/stores/authStore";
 import { Enquiry } from "@/types";
 import PhoneInput from "@/components/ui/PhoneInput";
+import DestinationSelect from "@/components/ui/DestinationSelect";
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
@@ -44,17 +45,43 @@ const ALL_CHANNELS = ["all", "website", "whatsapp", "phone", "walk-in", "instagr
 function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onSave: () => void; staffList: { _id: string; firstName: string; lastName: string }[] }) {
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", phone: "",
-    destination: "", packageName: "", message: "",
+    destination: "", packageName: "", packageId: "", message: "",
     channel: "phone", travelDate: "",
     adultCount: "1", childCount: "0", infantCount: "0",
     budget: "",
     assignedTo: "",
   });
+  const [packagesList, setPackagesList] = useState<{ _id: string; name: string; destinationName?: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    api.get("/packages?admin=true&limit=100").then((res) => {
+      const list = res?.data?.data || res?.data || [];
+      if (Array.isArray(list)) {
+        setPackagesList(
+          list.map((p: any) => ({
+            _id: p._id,
+            name: p.name,
+            destinationName: p.destination?.name || p.customDestinationText || "",
+          }))
+        );
+      }
+    }).catch(() => {});
+  }, []);
+
   function set(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handlePackageSelect(name: string) {
+    const matched = packagesList.find((p) => p.name.toLowerCase().trim() === name.toLowerCase().trim());
+    setForm((prev) => ({
+      ...prev,
+      packageName: name,
+      packageId: matched?._id || "",
+      destination: (!prev.destination && matched?.destinationName) ? matched.destinationName : prev.destination,
+    }));
   }
 
   async function handleSave() {
@@ -72,6 +99,8 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
     try {
       await api.post("/enquiries/manual", {
         ...form,
+        package: form.packageId || undefined,
+        destination: form.destination.trim() || undefined,
         adultCount: adults,
         childCount: children,
         infantCount: infants,
@@ -130,13 +159,32 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Destination</label>
-              <input value={form.destination} onChange={(e) => set("destination", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="e.g. Maldives" />
+              <DestinationSelect
+                label="Destination"
+                value={form.destination}
+                onChange={(val) => set("destination", val)}
+                suggestedDestination={
+                  packagesList.find((p) => p.name.toLowerCase().trim() === form.packageName.toLowerCase().trim())?.destinationName
+                }
+              />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Package interested in</label>
-            <input value={form.packageName} onChange={(e) => set("packageName", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Package name (optional)" />
+            <input
+              list="packages-autocomplete-list"
+              value={form.packageName}
+              onChange={(e) => handlePackageSelect(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="Search or type package name (optional)..."
+            />
+            <datalist id="packages-autocomplete-list">
+              {packagesList.map((p) => (
+                <option key={p._id} value={p.name}>
+                  {p.destinationName ? `(${p.destinationName})` : ""}
+                </option>
+              ))}
+            </datalist>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -206,12 +254,21 @@ export default function EnquiriesPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [destinationFilter, setDestinationFilter] = useState("");
+  const [destinationsList, setDestinationsList] = useState<{ _id: string; name: string }[]>([]);
   const [paxFilter, setPaxFilter] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "follow-ups">("all");
   const [showAddLead, setShowAddLead] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [bulkAssignStaff, setBulkAssignStaff] = useState("");
+
+  useEffect(() => {
+    api.get("/destinations?limit=100&admin=true").then((res) => {
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const sorted = [...list].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      setDestinationsList(sorted);
+    }).catch(() => {});
+  }, []);
 
 
   const canSeeAll = usePermission("enquiries.respond");
@@ -446,13 +503,18 @@ export default function EnquiriesPage() {
 
             {/* Location + PAX filter */}
             <div className="flex items-center gap-2">
-              <input
-                type="text"
+              <select
                 value={destinationFilter}
                 onChange={(e) => setDestinationFilter(e.target.value)}
-                placeholder="Destination..."
-                className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 w-28"
-              />
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500 max-w-[130px]"
+              >
+                <option value="">All Destinations</option>
+                {destinationsList.map((d) => (
+                  <option key={d._id} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
               <input
                 type="number"
                 min="1"

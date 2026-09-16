@@ -19,6 +19,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { usePermission } from "@/hooks/usePermission";
 import RoleGuard from "@/components/guards/RoleGuard";
 import PhoneInput from "@/components/ui/PhoneInput";
+import DestinationSelect from "@/components/ui/DestinationSelect";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -271,42 +272,6 @@ function LogCallModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClo
     }
   }
 
-  function applyPreset(type: "today-2h" | "tomorrow-10" | "tomorrow-15" | "in-2-days") {
-    const now = new Date();
-    if (type === "today-2h") {
-      now.setHours(now.getHours() + 2, 0, 0, 0);
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, "0");
-      const dd = String(now.getDate()).padStart(2, "0");
-      const hh = String(now.getHours()).padStart(2, "0");
-      setCallbackDate(`${yyyy}-${mm}-${dd}`);
-      setCallbackTime(`${hh}:00`);
-    } else if (type === "tomorrow-10") {
-      const tom = new Date();
-      tom.setDate(tom.getDate() + 1);
-      const yyyy = tom.getFullYear();
-      const mm = String(tom.getMonth() + 1).padStart(2, "0");
-      const dd = String(tom.getDate()).padStart(2, "0");
-      setCallbackDate(`${yyyy}-${mm}-${dd}`);
-      setCallbackTime("10:00");
-    } else if (type === "tomorrow-15") {
-      const tom = new Date();
-      tom.setDate(tom.getDate() + 1);
-      const yyyy = tom.getFullYear();
-      const mm = String(tom.getMonth() + 1).padStart(2, "0");
-      const dd = String(tom.getDate()).padStart(2, "0");
-      setCallbackDate(`${yyyy}-${mm}-${dd}`);
-      setCallbackTime("15:00");
-    } else if (type === "in-2-days") {
-      const d2 = new Date();
-      d2.setDate(d2.getDate() + 2);
-      const yyyy = d2.getFullYear();
-      const mm = String(d2.getMonth() + 1).padStart(2, "0");
-      const dd = String(d2.getDate()).padStart(2, "0");
-      setCallbackDate(`${yyyy}-${mm}-${dd}`);
-      setCallbackTime("11:00");
-    }
-  }
 
   const isCallback = outcome === "callback-scheduled";
   const canSave = Boolean(outcome && (!isCallback || (callbackDate && callbackTime)) && !saving);
@@ -395,40 +360,6 @@ function LogCallModal({ enquiryId, onClose, onSave }: { enquiryId: string; onClo
                 </div>
               </div>
 
-              {/* Quick Presets */}
-              <div>
-                <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-1.5">Quick Presets</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("today-2h")}
-                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
-                  >
-                    Today +2 hrs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("tomorrow-10")}
-                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
-                  >
-                    Tmrw 10:00 AM
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("tomorrow-15")}
-                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
-                  >
-                    Tmrw 3:00 PM
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("in-2-days")}
-                    className="px-2 py-1 bg-white hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-semibold rounded-md transition-colors text-center"
-                  >
-                    In 2 Days
-                  </button>
-                </div>
-              </div>
 
               {/* Date and Time Inputs */}
               <div className="grid grid-cols-2 gap-2">
@@ -1493,12 +1424,20 @@ export default function EnquiryDetailPage() {
 
   function startEditingDetails() {
     if (!enquiry) return;
+    const fallbackDestination =
+      enquiry.destination ||
+      (enquiry.package as any)?.destination?.name ||
+      (enquiry.package as any)?.customDestinationText ||
+      (enquiry.linkedItineraries && (enquiry.linkedItineraries[0] as any)?.destination?.name) ||
+      (enquiry.linkedItineraries && (enquiry.linkedItineraries[0] as any)?.customDestinationText) ||
+      "";
+
     setEditForm({
       firstName: enquiry.firstName || "",
       lastName: enquiry.lastName || "",
       email: enquiry.email || "",
       phone: enquiry.phone || "",
-      destination: enquiry.destination || "",
+      destination: fallbackDestination,
       travelDate: enquiry.travelDate ? String(enquiry.travelDate).slice(0, 10) : "",
       adultCount: enquiry.adultCount != null
         ? String(enquiry.adultCount)
@@ -1506,7 +1445,7 @@ export default function EnquiryDetailPage() {
       childCount: enquiry.childCount != null ? String(enquiry.childCount) : "0",
       infantCount: enquiry.infantCount != null ? String(enquiry.infantCount) : "0",
       budget: enquiry.budget != null ? String(enquiry.budget) : "",
-      packageName: enquiry.packageName || "",
+      packageName: enquiry.packageName || (enquiry.package as any)?.name || "",
       source: enquiry.source || "",
       channel: enquiry.channel || "",
     });
@@ -2299,15 +2238,18 @@ export default function EnquiryDetailPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Destination</label>
-                    <input
-                      value={editForm.destination}
-                      onChange={(e) => setEditForm({ ...editForm, destination: e.target.value })}
-                      placeholder="e.g. Maldives"
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                  </div>
+                  <DestinationSelect
+                    label="Destination"
+                    value={editForm.destination}
+                    onChange={(val) => setEditForm({ ...editForm, destination: val })}
+                    suggestedDestination={
+                      (enquiry.package as any)?.destination?.name ||
+                      (enquiry.package as any)?.customDestinationText ||
+                      (enquiry.linkedItineraries && (enquiry.linkedItineraries[0] as any)?.destination?.name) ||
+                      (enquiry.linkedItineraries && (enquiry.linkedItineraries[0] as any)?.customDestinationText) ||
+                      ""
+                    }
+                  />
 
                   <div>
                     <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Package Interest</label>
@@ -2482,13 +2424,27 @@ export default function EnquiryDetailPage() {
                   </div>
 
                   {/* Travel interest */}
-                  {(enquiry.destination || enquiry.packageName || (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0)) && (
-                    <div className="pt-3 border-t border-slate-100 space-y-2">
-                      {enquiry.destination && (
-                        <p className="flex items-center gap-2 text-sm text-slate-600">
-                          <MapPin size={13} className="text-slate-400 shrink-0" /> {enquiry.destination}
-                        </p>
-                      )}
+                  {(() => {
+                    const resolvedDestination =
+                      enquiry.destination ||
+                      (enquiry.package as any)?.destination?.name ||
+                      (enquiry.package as any)?.customDestinationText ||
+                      (enquiry.linkedItineraries && (enquiry.linkedItineraries[0] as any)?.destination?.name) ||
+                      (enquiry.linkedItineraries && (enquiry.linkedItineraries[0] as any)?.customDestinationText) ||
+                      "";
+
+                    if (!resolvedDestination && !enquiry.packageName && (!enquiry.linkedItineraries || enquiry.linkedItineraries.length === 0)) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="pt-3 border-t border-slate-100 space-y-2">
+                        {resolvedDestination && (
+                          <p className="flex items-center gap-2 text-sm text-slate-600">
+                            <MapPin size={13} className="text-slate-400 shrink-0" />
+                            <span>{resolvedDestination}</span>
+                          </p>
+                        )}
                       
                       {/* Linked Custom Itineraries */}
                       {enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0 ? (
@@ -2603,7 +2559,8 @@ export default function EnquiryDetailPage() {
                         </div>
                       )}
                     </div>
-                  )}
+                  );
+                })()}
 
                   {/* Trip details — read mode */}
                   <div className="pt-3 border-t border-slate-100 space-y-2">
