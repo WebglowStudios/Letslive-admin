@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import {
   Search, Filter, MessageSquare, User, Clock, Phone, Plus,
-  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, Download, X
+  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, Download, Upload, X
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { Enquiry } from "@/types";
 import PhoneInput from "@/components/ui/PhoneInput";
 import DestinationSelect from "@/components/ui/DestinationSelect";
+import ImportLeadsModal from "@/components/enquiries/ImportLeadsModal";
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
@@ -34,12 +35,12 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 const CHANNEL_ICONS: Record<string, string> = {
   whatsapp: "💬", phone: "📞", website: "🌐",
-  instagram: "📸", google: "🔍", referral: "🤝",
+  instagram: "📸", facebook: "📘", google: "🔍", referral: "🤝",
   "walk-in": "🚶", repeat: "🔄", other: "📋",
 };
 
 const ALL_STATUSES = ["all", "new", "assigned", "in-progress", "follow-up", "converted", "resolved", "closed"];
-const ALL_CHANNELS = ["all", "website", "whatsapp", "phone", "walk-in", "instagram", "google", "referral"];
+const ALL_CHANNELS = ["all", "website", "whatsapp", "phone", "walk-in", "instagram", "facebook", "google", "referral"];
 
 // ─── Manual Lead Modal ────────────────────────────────────────────────────────
 function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onSave: () => void; staffList: { _id: string; firstName: string; lastName: string }[] }) {
@@ -258,6 +259,7 @@ export default function EnquiriesPage() {
   const [paxFilter, setPaxFilter] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "follow-ups">("all");
   const [showAddLead, setShowAddLead] = useState(false);
+  const [showImportCsv, setShowImportCsv] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [bulkAssignStaff, setBulkAssignStaff] = useState("");
@@ -378,6 +380,7 @@ export default function EnquiriesPage() {
   return (
     <RoleGuard permission="enquiries.view">
       {showAddLead && <AddLeadModal onClose={() => setShowAddLead(false)} onSave={fetchEnquiries} staffList={staffList} />}
+      {showImportCsv && <ImportLeadsModal onClose={() => setShowImportCsv(false)} onSuccess={fetchEnquiries} staffList={staffList} />}
 
       <div className="space-y-5">
         {/* Header */}
@@ -393,16 +396,24 @@ export default function EnquiriesPage() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">{enquiries.length} lead{enquiries.length !== 1 ? "s" : ""}</span>
             {!isStaffOnly && (
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/enquiries/export`}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50"
-              >
-                <Download size={13} /> Export CSV
-              </a>
+              <>
+                <button
+                  onClick={() => setShowImportCsv(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition-colors"
+                >
+                  <Upload size={13} /> Import CSV
+                </button>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/enquiries/export`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-xs transition-colors"
+                >
+                  <Download size={13} /> Export CSV
+                </a>
+              </>
             )}
             <button
               onClick={() => setShowAddLead(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700 shadow-xs transition-colors"
             >
               <Plus size={13} /> Add Lead
             </button>

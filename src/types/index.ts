@@ -158,7 +158,8 @@ export interface Enquiry {
     comments?: string;
     submittedAt: string;
   };
-  source: "website" | "whatsapp" | "phone" | "walk-in" | "instagram" | "google" | "referral" | "other";
+  externalLeadId?: string;
+  source: "website" | "whatsapp" | "phone" | "walk-in" | "instagram" | "facebook" | "google" | "referral" | "other";
   // CRM fields
   dnpCount: number;
   followUpDate?: string;
