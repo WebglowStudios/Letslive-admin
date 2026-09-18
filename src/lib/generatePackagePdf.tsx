@@ -1527,8 +1527,8 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
 
   return (
     <>
-      {renderTable(flightEntries, "\u2708 Flight Details", { airline: "Airline", number: "Flight No." })}
-      {renderTable(trainEntries, "\ud83d\ude86 Train Details", { airline: "Railway", number: "Train No." })}
+      {renderTable(flightEntries, "Flight Details", { airline: "Airline", number: "Flight No." })}
+      {renderTable(trainEntries, "Train Details", { airline: "Railway", number: "Train No." })}
     </>
   );
 };
