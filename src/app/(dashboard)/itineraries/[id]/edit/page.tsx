@@ -72,6 +72,7 @@ export default function EditCustomItineraryPage() {
   const [isGroupTour, setIsGroupTour] = useState(false);
   const [departures, setDepartures] = useState<{ _id?: string; startDate: string; endDate: string; totalSlots: number; bookedSlots?: number; status?: string; priceCategory?: string; price: number }[]>([]);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
+  const [trainsIncluded, setTrainsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
@@ -251,6 +252,7 @@ export default function EditCustomItineraryPage() {
       setIsInternational(p.isInternational || false);
       setVisaIncluded(p.visaIncluded || false);
       setFlightsIncluded(p.flightsIncluded || false);
+      setTrainsIncluded(p.trainsIncluded || false);
       if (p.departures) setDepartures(p.departures.map((d: any) => ({ ...d, startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' })));
       setTravellerCount(p.travellerCount || "");
       setAdultCount(p.adultCount != null ? String(p.adultCount) : "");
@@ -444,7 +446,7 @@ export default function EditCustomItineraryPage() {
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
         discountType,
-        isFeatured, isActive, isGroupTour, flightsIncluded,
+        isFeatured, isActive, isGroupTour, flightsIncluded, trainsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -677,6 +679,7 @@ export default function EditCustomItineraryPage() {
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Active</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Group Tour</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Flights Included</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={trainsIncluded} onChange={(e) => setTrainsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Trains Included</span></label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={isInternational} onChange={(e) => {
                   setIsInternational(e.target.checked);

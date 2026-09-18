@@ -109,6 +109,7 @@ export default function NewPackagePage() {
     if (p.isActive !== undefined) setIsActive(p.isActive);
     if (p.isGroupTour !== undefined) setIsGroupTour(p.isGroupTour);
     if (p.flightsIncluded !== undefined) setFlightsIncluded(p.flightsIncluded);
+    if (p.trainsIncluded !== undefined) setTrainsIncluded(p.trainsIncluded);
     if (p.departures) setDepartures(p.departures.map((d: any) => ({ ...d, startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' })));
     if (p.travellerCount) setTravellerCount(p.travellerCount.toString());
     if (p.adultCount) setAdultCount(p.adultCount.toString());
@@ -242,6 +243,7 @@ export default function NewPackagePage() {
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
+  const [trainsIncluded, setTrainsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
@@ -540,6 +542,7 @@ export default function NewPackagePage() {
           status: d.status || "available",
         })) : undefined,
         flightsIncluded,
+        trainsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -832,6 +835,10 @@ export default function NewPackagePage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Flights Included</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={trainsIncluded} onChange={(e) => setTrainsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Trains Included</span>
                 </label>
               </div>
               <div className="grid grid-cols-3 gap-4">

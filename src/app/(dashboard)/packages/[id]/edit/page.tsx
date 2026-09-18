@@ -102,6 +102,7 @@ export default function EditPackagePage() {
   const [isCustom, setIsCustom] = useState(false);
   const [isGroupTour, setIsGroupTour] = useState(false);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
+  const [trainsIncluded, setTrainsIncluded] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
@@ -287,6 +288,7 @@ export default function EditPackagePage() {
         setIsCustom(p.isCustom || false);
         setIsGroupTour(p.isGroupTour || false);
         setFlightsIncluded(p.flightsIncluded || false);
+        setTrainsIncluded(p.trainsIncluded || false);
         setTravellerCount(p.travellerCount || "");
         setAdultCount(p.adultCount != null ? String(p.adultCount) : "");
         setChildCount(p.childCount != null ? String(p.childCount) : "");
@@ -559,6 +561,7 @@ export default function EditPackagePage() {
         isActive,
         isGroupTour,
         flightsIncluded,
+        trainsIncluded,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -927,6 +930,10 @@ export default function EditPackagePage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Flights Included</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={trainsIncluded} onChange={(e) => setTrainsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Trains Included</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={isInternational} onChange={(e) => {

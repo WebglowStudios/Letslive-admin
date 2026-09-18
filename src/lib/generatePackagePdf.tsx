@@ -45,6 +45,7 @@ const Icon = ({ d, color = C.gn3, size = 12 }: { d: string; color?: string; size
 const ICONS = {
   location: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z",
   calendar: "M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z",
+  people: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
   star: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
   hotel: "M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9c0-2.21-1.79-4-4-4z",
   restaurant: "M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z",
@@ -102,6 +103,7 @@ interface PackageData {
   isInternational?: boolean;
   visaIncluded?: boolean;
   flightsIncluded?: boolean;
+  trainsIncluded?: boolean;
   destination?: { name: string; slug?: string; country?: string };
   description?: string; shortDescription?: string;
   duration: { nights: number; days: number };
@@ -677,6 +679,18 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
   const handler = resolveHandlerName();
   const preparedByBrand = handler ? `${handler}_Lets Live Tours` : "LETS LIVE TOURS";
 
+  // Resolve travellers / adults count
+  let travellersCoverText = "";
+  if (pkg.adultCount || pkg.childCount) {
+    const a = pkg.adultCount || 0;
+    const c = pkg.childCount || 0;
+    travellersCoverText = `${a} Adult${a === 1 ? "" : "s"}${c ? `, ${c} Child${c === 1 ? "" : "ren"}` : ""}`;
+  } else if (pkg.travellerCount && pkg.travellerCount.trim()) {
+    travellersCoverText = pkg.travellerCount.trim();
+  } else {
+    travellersCoverText = "2 Adults";
+  }
+
   return (
     <Page size="A4" style={{ padding: 0 }}>
       <View style={{ width: "100%", height: "100%", position: "relative", backgroundColor: "#08151a" }}>
@@ -760,6 +774,16 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
               {pkg.travelDates?.startDate ? ` · ${new Date(pkg.travelDates.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}${pkg.travelDates.endDate ? ` – ${new Date(pkg.travelDates.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}` : ""}
             </Text>
           </View>
+          {travellersCoverText ? (
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d={ICONS.people} fill={C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                {travellersCoverText}
+              </Text>
+            </View>
+          ) : null}
           {pkg.hotelRating && (
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
@@ -787,6 +811,16 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
               </Svg>
               <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.flightsIncluded ? C.gn3 : C.cu }}>
                 {pkg.flightsIncluded ? "Flights Included" : "Flights Not Included"}
+              </Text>
+            </View>
+          )}
+          {pkg.trainsIncluded !== undefined && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d={ICONS.train} fill={pkg.trainsIncluded ? C.gn3 : C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.trainsIncluded ? C.gn3 : C.cu }}>
+                {pkg.trainsIncluded ? "Trains Included" : "Trains Not Included"}
               </Text>
             </View>
           )}
@@ -914,7 +948,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           TRIP OVERVIEW
         </Text>
         <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#0a2936", letterSpacing: 0.2 }}>
-          Package Snapshot & Flight Information
+          Package Snapshot & {pkg.flightsIncluded && pkg.trainsIncluded ? "Flight / Train Information" : pkg.trainsIncluded ? "Train Information" : pkg.flightsIncluded ? "Flight Information" : "Travel Information"}
         </Text>
         <View style={{ width: 46, height: 3.5, backgroundColor: "#F5A623", borderRadius: 2, marginTop: 6 }} />
       </View>
@@ -985,7 +1019,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         </View>
       </View>
 
-      {/* Row 2: Flight Arrangements Banner */}
+      {/* Row 2: Travel Arrangements Banner */}
       <View
         style={{
           backgroundColor: "#f0f8fb",
@@ -998,8 +1032,27 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         }}
       >
         <Text style={{ fontSize: 8.5, color: "#1a3a42", lineHeight: 1.5 }}>
-          <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Flight arrangements: </Text>
-          Flights will be planned according to your departure city. Final airline and schedule details will be shared during booking.
+          {pkg.flightsIncluded && pkg.trainsIncluded ? (
+            <>
+              <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Flight & Train arrangements: </Text>
+              Flight and train arrangements will be planned according to your departure city. Final schedule details will be shared during booking.
+            </>
+          ) : pkg.trainsIncluded ? (
+            <>
+              <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Train arrangements: </Text>
+              Trains will be planned according to your departure city. Final railway and schedule details will be shared during booking.
+            </>
+          ) : pkg.flightsIncluded ? (
+            <>
+              <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Flight arrangements: </Text>
+              Flights will be planned according to your departure city. Final airline and schedule details will be shared during booking.
+            </>
+          ) : (
+            <>
+              <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Travel arrangements: </Text>
+              Travel arrangements will be planned according to your departure city. Final transit and schedule details will be shared during booking.
+            </>
+          )}
         </Text>
       </View>
 
@@ -1106,9 +1159,9 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         </View>
       </View>
 
-      {/* Row 5: Two Feature Cards (Airfare & Airport Transfers) */}
+      {/* Row 5: Two Feature Cards (Transport Tickets & Transfers) */}
       <View style={{ flexDirection: "row", gap: 12 }}>
-        {/* Card 1: Flight Tickets */}
+        {/* Card 1: Tickets */}
         <View
           style={{
             flex: 1,
@@ -1121,16 +1174,26 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           }}
         >
           <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
-            Flight Tickets
+            {pkg.flightsIncluded && pkg.trainsIncluded
+              ? "Flight & Train Tickets"
+              : pkg.trainsIncluded
+              ? "Train Tickets"
+              : pkg.flightsIncluded
+              ? "Flight Tickets"
+              : "Transit / Tickets"}
           </Text>
           <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
-            {pkg.flightsIncluded
+            {pkg.flightsIncluded && pkg.trainsIncluded
+              ? "Flight and train tickets are included in the package as stated in the inclusions."
+              : pkg.trainsIncluded
+              ? "Train tickets are included in the package as stated in the inclusions."
+              : pkg.flightsIncluded
               ? "Flight tickets are included in the package as stated in the inclusions."
-              : "Flight arrangements will be planned according to your departure city as per airline availability."}
+              : "Flight or train arrangements will be planned according to your departure city as per availability."}
           </Text>
         </View>
 
-        {/* Card 2: Airport Transfers */}
+        {/* Card 2: Transfers */}
         <View
           style={{
             flex: 1,
@@ -1143,11 +1206,13 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           }}
         >
           <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
-            Airport Transfers
+            {pkg.trainsIncluded && !pkg.flightsIncluded ? "Station Transfers" : "Airport / Local Transfers"}
           </Text>
           <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
             {pkg.transferSummary
               ? pkg.transferSummary
+              : pkg.trainsIncluded && !pkg.flightsIncluded
+              ? "Station-to-hotel transfers and sightseeing transportation are coordinated as part of the package."
               : "Two-way airport-to-hotel transfers and sightseeing transportation are included as part of the package."}
           </Text>
         </View>
