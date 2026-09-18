@@ -23,7 +23,7 @@ export default function StaffPage() {
   const [editAvatar, setEditAvatar] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editPermissionsId, setEditPermissionsId] = useState<string | null>(null);
-  const [editingPermissions, setEditingPermissions] = useState<{ permission: string; expiresAt?: string }[]>([]);
+  const [editingPermissions, setEditingPermissions] = useState<{ permission: string; action?: "grant" | "revoke"; granted?: boolean; expiresAt?: string }[]>([]);
   const canCreate = usePermission("staff.create");
   const canEdit = usePermission("staff.edit");
   const currentRole = useRole();
@@ -336,9 +336,30 @@ export default function StaffPage() {
                     {editPermissionsId === member._id && (
                       <tr key={`perms-${member._id}`} className="bg-slate-50 border-t border-slate-100">
                         <td colSpan={5} className="px-6 py-6">
-                          <div className="bg-white p-6 rounded-xl border border-slate-200">
-                            <h3 className="text-sm font-bold text-slate-800 mb-4">Custom Permissions</h3>
-                            <p className="text-xs text-slate-500 mb-6">Assign temporary or permanent permissions beyond their base role.</p>
+                          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                              <div>
+                                <h3 className="text-sm font-bold text-slate-800">Custom Permissions & Access Overrides</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  Customize permissions for {member.firstName}: check to grant extra permissions, or uncheck to revoke base role permissions.
+                                </p>
+                              </div>
+                              {/* Legend */}
+                              <div className="flex items-center gap-3 text-[11px]">
+                                <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                  In Role
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 font-medium text-indigo-600">
+                                  <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                                  Custom Grant
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 font-medium text-rose-600">
+                                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                  Revoked
+                                </span>
+                              </div>
+                            </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
                               {Object.entries(groupedPermissions).map(([module, perms]) => (
@@ -348,40 +369,96 @@ export default function StaffPage() {
                                     {perms.map((p) => {
                                       const isIncludedInRole = rolePermissions[member.role]?.includes(p);
                                       const customPerm = editingPermissions.find(cp => cp.permission === p);
-                                      const isChecked = isIncludedInRole || !!customPerm;
+                                      
+                                      const isRevoked = isIncludedInRole && customPerm ? (customPerm.action === "revoke" || customPerm.granted === false) : false;
+                                      const isGranted = !isIncludedInRole && customPerm ? (customPerm.action !== "revoke" && customPerm.granted !== false) : false;
+                                      const isChecked = isIncludedInRole ? !isRevoked : isGranted;
 
                                       return (
-                                        <div key={p} className="flex flex-col gap-2 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                                        <div 
+                                          key={p} 
+                                          className={`flex flex-col gap-2 p-3 rounded-lg border transition-all ${
+                                            isRevoked 
+                                              ? "border-rose-200 bg-rose-50/50 shadow-sm" 
+                                              : isGranted 
+                                                ? "border-indigo-200 bg-indigo-50/30" 
+                                                : isIncludedInRole
+                                                  ? "border-slate-200 bg-slate-50/70"
+                                                  : "border-slate-100 bg-slate-50/30 hover:border-slate-200"
+                                          }`}
+                                        >
                                           <div className="flex items-center justify-between">
-                                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                            <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
                                               <input
                                                 type="checkbox"
                                                 checked={isChecked}
-                                                disabled={isIncludedInRole}
-                                                onChange={(e) => {
-                                                  if (e.target.checked) {
-                                                    setEditingPermissions([...editingPermissions, { permission: p }]);
+                                                onChange={() => {
+                                                  if (isIncludedInRole) {
+                                                    if (isChecked) {
+                                                      // In role -> unchecking means REVOKING permission
+                                                      setEditingPermissions([
+                                                        ...editingPermissions.filter(cp => cp.permission !== p),
+                                                        { permission: p, action: "revoke", granted: false }
+                                                      ]);
+                                                    } else {
+                                                      // Revoked -> checking restores default role access
+                                                      setEditingPermissions(editingPermissions.filter(cp => cp.permission !== p));
+                                                    }
                                                   } else {
-                                                    setEditingPermissions(editingPermissions.filter(cp => cp.permission !== p));
+                                                    if (isChecked) {
+                                                      // Custom granted -> unchecking removes the extra grant
+                                                      setEditingPermissions(editingPermissions.filter(cp => cp.permission !== p));
+                                                    } else {
+                                                      // Not in role -> checking grants extra permission
+                                                      setEditingPermissions([
+                                                        ...editingPermissions.filter(cp => cp.permission !== p),
+                                                        { permission: p, action: "grant", granted: true }
+                                                      ]);
+                                                    }
                                                   }
                                                 }}
-                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                className={`w-4 h-4 rounded ${
+                                                  isRevoked
+                                                    ? "border-rose-300 text-rose-600 focus:ring-rose-500"
+                                                    : "border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                }`}
                                               />
-                                              <span className={isIncludedInRole ? "text-slate-400" : "font-medium"}>
+                                              <span className={
+                                                isRevoked
+                                                  ? "line-through text-rose-500 font-medium"
+                                                  : isChecked
+                                                    ? "text-slate-800 font-medium"
+                                                    : "text-slate-400"
+                                              }>
                                                 {p.split('.')[1]}
                                               </span>
                                             </label>
-                                            {isIncludedInRole && (
-                                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">In Role</span>
+
+                                            {/* Status badges */}
+                                            {isRevoked && (
+                                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                                                Revoked
+                                              </span>
+                                            )}
+                                            {!isRevoked && isIncludedInRole && (
+                                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
+                                                In Role
+                                              </span>
+                                            )}
+                                            {isGranted && (
+                                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                                Custom
+                                              </span>
                                             )}
                                           </div>
                                           
-                                          {customPerm && !isIncludedInRole && (
+                                          {/* Date picker for custom grant expiration OR temporary revocation */}
+                                          {(isGranted || isRevoked) && (
                                             <div className="flex items-center gap-2 mt-1 pl-6">
-                                              <Calendar size={12} className="text-slate-400" />
+                                              <Calendar size={12} className={isRevoked ? "text-rose-400" : "text-slate-400"} />
                                               <input
                                                 type="date"
-                                                value={customPerm.expiresAt ? new Date(customPerm.expiresAt).toISOString().split('T')[0] : ""}
+                                                value={customPerm?.expiresAt ? new Date(customPerm.expiresAt).toISOString().split('T')[0] : ""}
                                                 onChange={(e) => {
                                                   const newPerms = [...editingPermissions];
                                                   const idx = newPerms.findIndex(cp => cp.permission === p);
@@ -395,7 +472,9 @@ export default function StaffPage() {
                                                 }}
                                                 className="text-xs px-2 py-1 border border-slate-200 rounded text-slate-600 focus:outline-none focus:border-indigo-500 bg-white"
                                               />
-                                              <span className="text-[10px] text-slate-400">(Expires)</span>
+                                              <span className={`text-[10px] ${isRevoked ? "text-rose-500 font-medium" : "text-slate-400"}`}>
+                                                {isRevoked ? "(Revoked Until)" : "(Expires)"}
+                                              </span>
                                             </div>
                                           )}
                                         </div>
@@ -406,19 +485,30 @@ export default function StaffPage() {
                               ))}
                             </div>
 
-                            <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
-                              <button
-                                onClick={() => updatePermissions(member._id)}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
-                              >
-                                Save Permissions
-                              </button>
-                              <button
-                                onClick={() => setEditPermissionsId(null)}
-                                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
-                              >
-                                Cancel
-                              </button>
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => updatePermissions(member._id)}
+                                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+                                >
+                                  Save Permissions
+                                </button>
+                                <button
+                                  onClick={() => setEditPermissionsId(null)}
+                                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              {editingPermissions.length > 0 && (
+                                <button
+                                  onClick={() => setEditingPermissions([])}
+                                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-rose-600 font-medium transition-colors"
+                                  title="Clear all custom grants and revocations, resetting to standard role permissions"
+                                >
+                                  Reset to Role Defaults
+                                </button>
+                              )}
                             </div>
                           </div>
                         </td>

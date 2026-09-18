@@ -13,6 +13,8 @@ export interface User {
   isVerified?: boolean;
   customPermissions?: {
     permission: string;
+    action?: "grant" | "revoke";
+    granted?: boolean;
     expiresAt?: string;
   }[];
   createdAt: string;

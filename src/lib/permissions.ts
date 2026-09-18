@@ -148,18 +148,29 @@ export const rolePermissions: Record<Role, Permission[]> = {
 export function hasPermission(user: User | null, permission: Permission): boolean {
   if (!user) return false;
   
-  // 1. Check inherent role permissions
-  if (rolePermissions[user.role]?.includes(permission)) {
-    return true;
-  }
-  
-  // 2. Check active custom permissions
+  const now = new Date();
+
+  // 1. Check active custom permissions override (grant or revoke)
   if (user.customPermissions) {
     const custom = user.customPermissions.find((p) => p.permission === permission);
     if (custom) {
-      if (!custom.expiresAt) return true;
-      if (new Date(custom.expiresAt) > new Date()) return true;
+      const isRevoked = custom.action === "revoke" || custom.granted === false;
+      const isExpired = custom.expiresAt ? new Date(custom.expiresAt) <= now : false;
+
+      if (!isExpired) {
+        // If explicitly revoked and not expired, deny permission immediately
+        if (isRevoked) {
+          return false;
+        }
+        // If explicitly granted and not expired, grant permission immediately
+        return true;
+      }
     }
+  }
+
+  // 2. Check inherent role permissions
+  if (rolePermissions[user.role]?.includes(permission)) {
+    return true;
   }
   
   return false;
@@ -167,6 +178,11 @@ export function hasPermission(user: User | null, permission: Permission): boolea
 
 export function getPermissions(role: Role): Permission[] {
   return rolePermissions[role] || [];
+}
+
+export function getUserPermissions(user: User | null): Permission[] {
+  if (!user) return [];
+  return ALL_PERMISSIONS.filter((p) => hasPermission(user, p));
 }
 
 export type { Permission };
