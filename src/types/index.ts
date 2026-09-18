@@ -141,7 +141,20 @@ export interface Enquiry {
   package?: string | { _id: string; name: string; slug?: string; price?: number; isInternational?: boolean };
   departureId?: string;
   linkedItineraries?: { _id: string; name: string; slug: string; price?: number; isInternational?: boolean; duration?: any }[];
-  status: "new" | "assigned" | "in-progress" | "follow-up" | "converted" | "resolved" | "closed";
+  status:
+    | "new"
+    | "begin"
+    | "assigned"
+    | "responded"
+    | "dnp"
+    | "busy"
+    | "callback-scheduled"
+    | "in-progress"
+    | "follow-up"
+    | "whatsapp-sent"
+    | "converted"
+    | "resolved"
+    | "closed";
   priority: "low" | "medium" | "high" | "urgent";
   assignedTo?: { _id: string; firstName: string; lastName: string; avatar?: string; email?: string };
   notes: EnquiryNote[];

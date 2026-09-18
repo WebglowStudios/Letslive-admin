@@ -27,9 +27,29 @@ const STATUS_COLORS: Record<string, string> = {
   assigned: "bg-indigo-100 text-indigo-700",
   "in-progress": "bg-amber-100 text-amber-700",
   "follow-up": "bg-purple-100 text-purple-700",
+  dnp: "bg-rose-100 text-rose-700",
+  busy: "bg-amber-100 text-amber-700",
+  responded: "bg-teal-100 text-teal-700",
+  "whatsapp-sent": "bg-green-100 text-green-700",
+  "callback-scheduled": "bg-purple-100 text-purple-700",
   converted: "bg-emerald-100 text-emerald-700",
   resolved: "bg-green-100 text-green-700",
   closed: "bg-slate-100 text-slate-600",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  new: "New",
+  assigned: "Assigned",
+  "in-progress": "In Progress",
+  "follow-up": "Follow-Up",
+  dnp: "DNP",
+  busy: "Busy",
+  responded: "Responded",
+  "whatsapp-sent": "WhatsApp Sent",
+  "callback-scheduled": "Callback Scheduled",
+  converted: "Converted",
+  resolved: "Resolved",
+  closed: "Closed",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -2152,8 +2172,8 @@ export default function EnquiryDetailPage() {
             </button>
             <span className="text-slate-300">/</span>
             <span className="text-sm text-slate-700 font-medium">{fullName}</span>
-            <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold capitalize ${STATUS_COLORS[enquiry.status] || ""}`}>
-              {enquiry.status.replace("-", " ")}
+            <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${STATUS_COLORS[enquiry.status] || ""}`}>
+              {STATUS_LABELS[enquiry.status] || enquiry.status.replace("-", " ")}
             </span>
           </div>
 
@@ -2952,8 +2972,8 @@ export default function EnquiryDetailPage() {
                   disabled={savingStatus}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
-                  {["new", "assigned", "in-progress", "follow-up", "converted", "resolved", "closed"].map((s) => (
-                    <option key={s} value={s}>{s.replace("-", " ")}</option>
+                  {["new", "assigned", "in-progress", "follow-up", "dnp", "converted", "resolved", "closed"].map((s) => (
+                    <option key={s} value={s}>{STATUS_LABELS[s] || s.replace("-", " ")}</option>
                   ))}
                 </select>
               </div>

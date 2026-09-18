@@ -17,6 +17,7 @@ const COLUMNS = [
   { id: "assigned",    label: "Assigned",    color: "bg-indigo-500",  light: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" },
   { id: "in-progress", label: "In Progress", color: "bg-amber-500",   light: "bg-amber-50",  border: "border-amber-200",  text: "text-amber-700" },
   { id: "follow-up",  label: "Follow-Up",   color: "bg-purple-500",  light: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
+  { id: "dnp",        label: "DNP",         color: "bg-rose-500",    light: "bg-rose-50",   border: "border-rose-200",   text: "text-rose-700" },
   { id: "converted",  label: "Converted",   color: "bg-emerald-500", light: "bg-emerald-50",border: "border-emerald-200",text: "text-emerald-700" },
 ] as const;
 

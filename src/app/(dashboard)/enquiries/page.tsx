@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import {
@@ -18,13 +19,60 @@ import ImportLeadsModal from "@/components/enquiries/ImportLeadsModal";
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
+  begin: "bg-blue-100 text-blue-700",
   assigned: "bg-indigo-100 text-indigo-700",
-  "in-progress": "bg-amber-100 text-amber-700",
+  responded: "bg-teal-100 text-teal-700",
+  dnp: "bg-rose-100 text-rose-700",
+  busy: "bg-amber-100 text-amber-700",
+  "callback-scheduled": "bg-violet-100 text-violet-700",
+  "in-progress": "bg-sky-100 text-sky-700",
   "follow-up": "bg-purple-100 text-purple-700",
-  converted: "bg-emerald-100 text-emerald-700",
+  "whatsapp-sent": "bg-emerald-100 text-emerald-700",
+  converted: "bg-emerald-100 text-emerald-800",
   resolved: "bg-green-100 text-green-700",
   closed: "bg-slate-100 text-slate-600",
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  new: "Begin (New)",
+  begin: "Begin",
+  assigned: "Assigned",
+  responded: "Responded",
+  dnp: "DNP",
+  busy: "Busy",
+  "callback-scheduled": "Callback",
+  "in-progress": "In Progress",
+  "follow-up": "Follow-Up",
+  "whatsapp-sent": "WhatsApp Sent",
+  converted: "Converted",
+  resolved: "Resolved",
+  closed: "Closed",
+};
+
+const FILTER_STATUS_ITEMS = [
+  { id: "all", label: "All" },
+  { id: "new", label: "Begin (New)" },
+  { id: "responded", label: "Responded" },
+  { id: "dnp", label: "DNP" },
+  { id: "callback-scheduled", label: "Callback" },
+  { id: "in-progress", label: "In Progress" },
+  { id: "follow-up", label: "Follow-Up" },
+  { id: "converted", label: "Converted" },
+  { id: "closed", label: "Closed" },
+  { id: "busy", label: "Busy" },
+  { id: "whatsapp-sent", label: "WhatsApp" },
+  { id: "assigned", label: "Assigned" },
+];
+
+const DNP_OPTIONS = [
+  { id: "all", label: "All DNP" },
+  { id: "1", label: "DNP 1" },
+  { id: "2", label: "DNP 2" },
+  { id: "3", label: "DNP 3" },
+  { id: "4", label: "DNP 4" },
+  { id: "5", label: "DNP 5" },
+  { id: "6+", label: "DNP 6+ (Escalate)" },
+];
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: "bg-slate-100 text-slate-600",
@@ -39,7 +87,10 @@ const CHANNEL_ICONS: Record<string, string> = {
   "walk-in": "🚶", repeat: "🔄", other: "📋",
 };
 
-const ALL_STATUSES = ["all", "new", "assigned", "in-progress", "follow-up", "converted", "resolved", "closed"];
+const ALL_STATUSES = [
+  "all", "new", "responded", "dnp", "callback-scheduled",
+  "in-progress", "follow-up", "busy", "whatsapp-sent", "assigned", "converted", "resolved", "closed"
+];
 const ALL_CHANNELS = ["all", "website", "whatsapp", "phone", "walk-in", "instagram", "facebook", "google", "referral"];
 
 // ─── Manual Lead Modal ────────────────────────────────────────────────────────
@@ -246,9 +297,19 @@ function AddLeadModal({ onClose, onSave, staffList }: { onClose: () => void; onS
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EnquiriesPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Loading enquiries...</div>}>
+      <EnquiriesContent />
+    </Suspense>
+  );
+}
+
+function EnquiriesContent() {
+  const searchParams = useSearchParams();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
+  const [dnpFilter, setDnpFilter] = useState(() => searchParams.get("dnp") || "all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -257,12 +318,21 @@ export default function EnquiriesPage() {
   const [destinationFilter, setDestinationFilter] = useState("");
   const [destinationsList, setDestinationsList] = useState<{ _id: string; name: string }[]>([]);
   const [paxFilter, setPaxFilter] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "follow-ups">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "follow-ups">(() => searchParams.get("tab") === "follow-ups" ? "follow-ups" : "all");
   const [showAddLead, setShowAddLead] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [bulkAssignStaff, setBulkAssignStaff] = useState("");
+
+  useEffect(() => {
+    const s = searchParams.get("status");
+    if (s) setStatusFilter(s);
+    const d = searchParams.get("dnp");
+    if (d) setDnpFilter(d);
+    const tab = searchParams.get("tab");
+    if (tab === "follow-ups") setActiveTab("follow-ups");
+  }, [searchParams]);
 
   useEffect(() => {
     api.get("/destinations?limit=100&admin=true").then((res) => {
@@ -271,7 +341,6 @@ export default function EnquiriesPage() {
       setDestinationsList(sorted);
     }).catch(() => {});
   }, []);
-
 
   const canSeeAll = usePermission("enquiries.respond");
   const canBulk = usePermission("bookings.update"); // manager+
@@ -292,6 +361,7 @@ export default function EnquiriesPage() {
         const endpoint = "/enquiries";
         const params = new URLSearchParams({ limit: "100" });
         if (statusFilter !== "all") params.set("status", statusFilter);
+        if (dnpFilter !== "all") params.set("dnp", dnpFilter);
         if (channelFilter !== "all") params.set("channel", channelFilter);
         if (search) params.set("search", search);
         if (dateFrom) params.set("from", dateFrom);
@@ -306,8 +376,7 @@ export default function EnquiriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
-
+  }, [statusFilter, dnpFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
@@ -457,19 +526,53 @@ export default function EnquiriesPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <Filter size={13} className="text-slate-400" />
-              {ALL_STATUSES.map((s) => (
+            {/* Status Filter Buttons */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Filter size={13} className="text-slate-400 shrink-0" />
+              {FILTER_STATUS_ITEMS.map((item) => (
                 <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold capitalize transition-colors ${
-                    statusFilter === s ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  key={item.id}
+                  onClick={() => setStatusFilter(item.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                    statusFilter === item.id
+                      ? item.id === "dnp"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-cyan-600 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {s === "all" ? "All" : s.replace("-", " ")}
+                  {item.label}
                 </button>
               ))}
+            </div>
+
+            {/* DNP Filter Dropdown */}
+            <div className="flex items-center gap-1.5 bg-rose-50/80 border border-rose-200/80 rounded-lg px-2.5 py-1">
+              <Phone size={11} className="text-rose-600 shrink-0" />
+              <span className="text-[11px] font-bold text-rose-800">DNP Filter:</span>
+              <select
+                value={dnpFilter}
+                onChange={(e) => setDnpFilter(e.target.value)}
+                className="bg-white border border-rose-200 text-rose-800 text-[11px] font-semibold rounded-md px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-rose-400 cursor-pointer"
+              >
+                <option value="all">None (All Leads)</option>
+                <option value="any">Any DNP (1+)</option>
+                <option value="1">DNP 1 (1st call)</option>
+                <option value="2">DNP 2 (2nd call)</option>
+                <option value="3">DNP 3 (3rd call)</option>
+                <option value="4">DNP 4 (4th call)</option>
+                <option value="5">DNP 5 (5th call)</option>
+                <option value="6+">DNP 6+ (Escalate/Drop)</option>
+              </select>
+              {dnpFilter !== "all" && (
+                <button
+                  onClick={() => setDnpFilter("all")}
+                  title="Clear DNP filter"
+                  className="text-rose-500 hover:text-rose-700 p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -542,6 +645,46 @@ export default function EnquiriesPage() {
                   <X size={11} /> Clear
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* DNP Segregation Toolbar (visible whenever DNP status or DNP filter is active) */}
+        {activeTab === "all" && (statusFilter === "dnp" || dnpFilter !== "all") && (
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-rose-800 flex items-center gap-1.5 text-xs">
+                <Phone size={13} className="text-rose-600" /> DNP Segregation:
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {DNP_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setDnpFilter(opt.id === "all" && statusFilter !== "dnp" ? "any" : opt.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                      (dnpFilter === opt.id) || (opt.id === "all" && (dnpFilter === "all" || dnpFilter === "any"))
+                        ? "bg-rose-600 text-white shadow-xs font-bold"
+                        : "bg-white border border-rose-200 text-rose-700 hover:bg-rose-100"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-rose-700 font-medium">
+                {enquiries.length} enquiry{enquiries.length === 1 ? "" : "ies"} found
+              </span>
+              <button
+                onClick={() => {
+                  setStatusFilter("all");
+                  setDnpFilter("all");
+                }}
+                className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 bg-white border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1"
+              >
+                <X size={11} /> Reset DNP Filter
+              </button>
             </div>
           </div>
         )}
@@ -672,8 +815,8 @@ export default function EnquiriesPage() {
                     </div>
 
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${STATUS_COLORS[e.status] || ""}`}>
-                        {e.status.replace("-", " ")}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${STATUS_COLORS[e.status] || ""}`}>
+                        {STATUS_LABELS[e.status] || e.status.replace("-", " ")}
                       </span>
                       {e.assignedTo && (
                         <span className="text-[10px] text-slate-400 flex items-center gap-1">
