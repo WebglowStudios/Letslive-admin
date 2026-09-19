@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Search, Filter, Plus, Eye, AlertTriangle, Trash2, X } from "lucide-react";
@@ -46,11 +46,7 @@ export default function OperationsPage() {
   const isManager = user?.role === "admin" || user?.role === "manager" || user?.role === "ops-manager";
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
-  useEffect(() => {
-    fetchOperations();
-  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly]);
-
-  async function fetchOperations() {
+  const fetchOperations = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "50" });
@@ -64,7 +60,11 @@ export default function OperationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly]);
+
+  useEffect(() => {
+    fetchOperations();
+  }, [fetchOperations]);
 
   // Fetch ops staff list for assignment
   useEffect(() => {
