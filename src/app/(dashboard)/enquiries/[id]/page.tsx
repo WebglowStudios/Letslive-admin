@@ -32,6 +32,8 @@ const STATUS_COLORS: Record<string, string> = {
   responded: "bg-teal-100 text-teal-700",
   "whatsapp-sent": "bg-green-100 text-green-700",
   "callback-scheduled": "bg-purple-100 text-purple-700",
+  "callback-requested": "bg-violet-100 text-violet-700",
+  negotiation: "bg-orange-100 text-orange-700",
   converted: "bg-emerald-100 text-emerald-700",
   resolved: "bg-green-100 text-green-700",
   closed: "bg-slate-100 text-slate-600",
@@ -47,6 +49,8 @@ const STATUS_LABELS: Record<string, string> = {
   responded: "Responded",
   "whatsapp-sent": "WhatsApp Sent",
   "callback-scheduled": "Callback Scheduled",
+  "callback-requested": "Callback Requested",
+  negotiation: "Negotiation",
   converted: "Converted",
   resolved: "Resolved",
   closed: "Closed",
@@ -2972,7 +2976,7 @@ export default function EnquiryDetailPage() {
                   disabled={savingStatus}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
-                  {["new", "assigned", "in-progress", "follow-up", "dnp", "converted", "resolved", "closed"].map((s) => (
+                  {["new", "assigned", "in-progress", "follow-up", "whatsapp-sent", "callback-requested", "negotiation", "dnp", "converted", "resolved", "closed"].map((s) => (
                     <option key={s} value={s}>{STATUS_LABELS[s] || s.replace("-", " ")}</option>
                   ))}
                 </select>
