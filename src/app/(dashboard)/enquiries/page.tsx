@@ -6,7 +6,8 @@ import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import {
   Search, Filter, MessageSquare, User, Clock, Phone, Plus,
-  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, Download, Upload, X
+  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, Download, Upload, X,
+  KanbanSquare
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
@@ -316,6 +317,7 @@ function EnquiriesContent() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
   const [dnpFilter, setDnpFilter] = useState(() => searchParams.get("dnp") || "all");
+  const [assignedFilter, setAssignedFilter] = useState(() => searchParams.get("assignedTo") || "all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -336,6 +338,8 @@ function EnquiriesContent() {
     if (s) setStatusFilter(s);
     const d = searchParams.get("dnp");
     if (d) setDnpFilter(d);
+    const a = searchParams.get("assignedTo");
+    if (a) setAssignedFilter(a);
     const tab = searchParams.get("tab");
     if (tab === "follow-ups") setActiveTab("follow-ups");
   }, [searchParams]);
@@ -352,7 +356,7 @@ function EnquiriesContent() {
   const canBulk = usePermission("bookings.update"); // manager+
   const user = useAuthStore((s) => s.user);
   const isStaffOnly = user?.role === "staff" || user?.role === "sales-staff";
-  const isManager = user?.role === "admin" || user?.role === "manager";
+  const isManager = user?.role === "admin" || user?.role === "manager" || user?.role === "sales-manager";
 
   // Staff list for quick-assign dropdown (manager+ only)
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
@@ -368,6 +372,7 @@ function EnquiriesContent() {
         const params = new URLSearchParams({ limit: "100" });
         if (statusFilter !== "all") params.set("status", statusFilter);
         if (dnpFilter !== "all") params.set("dnp", dnpFilter);
+        if (assignedFilter && assignedFilter !== "all") params.set("assignedTo", assignedFilter);
         if (channelFilter !== "all") params.set("channel", channelFilter);
         if (search) params.set("search", search);
         if (dateFrom) params.set("from", dateFrom);
@@ -382,7 +387,7 @@ function EnquiriesContent() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, dnpFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
+  }, [statusFilter, dnpFilter, assignedFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
@@ -486,6 +491,13 @@ function EnquiriesContent() {
                 </a>
               </>
             )}
+            <Link
+              href={assignedFilter !== "all" ? `/enquiries/pipeline?assignedTo=${assignedFilter}` : "/enquiries/pipeline"}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold shadow-xs transition-colors"
+              title="Switch to Pipeline View"
+            >
+              <KanbanSquare size={13} /> Pipeline View
+            </Link>
             <button
               onClick={() => setShowAddLead(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700 shadow-xs transition-colors"
@@ -581,6 +593,40 @@ function EnquiriesContent() {
               )}
             </div>
 
+            {/* Salesperson Filter Dropdown (Manager / Admin / Sales-Manager) */}
+            {isManager && (
+              <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
+                assignedFilter !== "all"
+                  ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-xs"
+                  : "bg-slate-50 border-slate-200 text-slate-700"
+              }`}>
+                <User size={12} className={assignedFilter !== "all" ? "text-indigo-600 shrink-0" : "text-slate-500 shrink-0"} />
+                <span className="text-[11px] font-bold">Salesperson:</span>
+                <select
+                  value={assignedFilter}
+                  onChange={(e) => setAssignedFilter(e.target.value)}
+                  className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer max-w-[150px]"
+                >
+                  <option value="all">All Sales Reps</option>
+                  <option value="unassigned">Unassigned Leads</option>
+                  {staffList.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.firstName} {s.lastName}
+                    </option>
+                  ))}
+                </select>
+                {assignedFilter !== "all" && (
+                  <button
+                    onClick={() => setAssignedFilter("all")}
+                    title="Clear salesperson filter"
+                    className="text-indigo-500 hover:text-indigo-700 p-0.5"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5">
               {ALL_CHANNELS.slice(1).map((c) => (
                 <button
@@ -651,6 +697,40 @@ function EnquiriesContent() {
                   <X size={11} /> Clear
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Active Salesperson Filter Banner */}
+        {assignedFilter !== "all" && (
+          <div className="flex items-center justify-between gap-2 px-3.5 py-2 bg-indigo-50/90 border border-indigo-200 rounded-xl text-xs text-indigo-900">
+            <div className="flex items-center gap-2">
+              <User size={13} className="text-indigo-600 shrink-0" />
+              <span>
+                Filtered by salesperson:{" "}
+                <strong className="text-indigo-950 font-bold">
+                  {assignedFilter === "unassigned"
+                    ? "Unassigned Leads"
+                    : staffList.find((s) => s._id === assignedFilter)
+                    ? `${staffList.find((s) => s._id === assignedFilter)?.firstName} ${staffList.find((s) => s._id === assignedFilter)?.lastName}`
+                    : assignedFilter}
+                </strong>{" "}
+                ({enquiries.length} lead{enquiries.length !== 1 ? "s" : ""})
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/enquiries/pipeline?assignedTo=${assignedFilter}`}
+                className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-1"
+              >
+                Open in Pipeline View <KanbanSquare size={11} />
+              </Link>
+              <button
+                onClick={() => setAssignedFilter("all")}
+                className="text-[11px] font-semibold text-red-600 hover:text-red-800"
+              >
+                Clear Filter
+              </button>
             </div>
           </div>
         )}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Search, Filter, Plus, Eye, AlertTriangle, Trash2, X } from "lucide-react";
+import { Search, Filter, Plus, Eye, AlertTriangle, Trash2, X, User } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { useAuthStore } from "@/stores/authStore";
@@ -34,6 +34,7 @@ export default function OperationsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [pendingIncentivesOnly, setPendingIncentivesOnly] = useState(false);
+  const [assignedFilter, setAssignedFilter] = useState("all");
   const [search, setSearch] = useState("");
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -53,6 +54,7 @@ export default function OperationsPage() {
       if (statusFilter !== "all" && !pendingIncentivesOnly) params.set("status", statusFilter);
       if (hasPendingPayment) params.set("hasPendingPayment", "true");
       if (pendingIncentivesOnly) params.set("incentiveStatus", "pending");
+      if (assignedFilter && assignedFilter !== "all") params.set("assignedTo", assignedFilter);
       const res = await api.get(`/operations?${params}`);
       setOperations(res?.data || []);
     } catch {
@@ -60,16 +62,16 @@ export default function OperationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly]);
+  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly, assignedFilter]);
 
   useEffect(() => {
     fetchOperations();
   }, [fetchOperations]);
 
-  // Fetch ops staff list for assignment
+  // Fetch staff list for assignment & filtering
   useEffect(() => {
     if (!isManager) return;
-    api.get("/users/staff?department=ops").then((res) => {
+    api.get("/users/staff").then((res) => {
       const list = res?.data || res || [];
       setStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});
@@ -220,6 +222,36 @@ export default function OperationsPage() {
               </button>
             )}
             <div className="w-px h-6 bg-slate-200 mx-1"></div>
+
+            {/* Assigned Staff Filter */}
+            {isManager && staffList.length > 0 && (
+              <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
+                assignedFilter !== "all"
+                  ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs"
+                  : "bg-white border-slate-200 text-slate-700"
+              }`}>
+                <User size={13} className={assignedFilter !== "all" ? "text-indigo-600" : "text-slate-400"} />
+                <span className="text-xs font-semibold">Assigned:</span>
+                <select
+                  value={assignedFilter}
+                  onChange={(e) => setAssignedFilter(e.target.value)}
+                  className="bg-transparent border-none text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All Staff</option>
+                  {staffList.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.firstName} {s.lastName}
+                    </option>
+                  ))}
+                </select>
+                {assignedFilter !== "all" && (
+                  <button onClick={() => setAssignedFilter("all")} className="text-slate-400 hover:text-slate-600">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+
             <Filter size={14} className="text-slate-400" />
             {["all", "planning", "booked", "vendor-confirmed", "in-progress", "completed"].map((s) => (
               <button key={s} onClick={() => { setStatusFilter(s); setPendingIncentivesOnly(false); }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors ${statusFilter === s && !pendingIncentivesOnly ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
