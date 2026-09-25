@@ -105,6 +105,9 @@ interface PackageData {
   visaIncluded?: boolean;
   flightsIncluded?: boolean;
   trainsIncluded?: boolean;
+  hideTrainInfo?: boolean;
+  flightPrice?: number;
+  landCost?: number;
   destination?: { name: string; slug?: string; country?: string };
   description?: string; shortDescription?: string;
   duration: { nights: number; days: number };
@@ -984,7 +987,7 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
               </Text>
             </View>
           )}
-          {pkg.trainsIncluded !== undefined && (
+          {!pkg.hideTrainInfo && pkg.trainsIncluded !== undefined && (!pkg.isInternational || pkg.trainsIncluded) && (
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
                 <Path d={ICONS.train} fill={pkg.trainsIncluded ? C.gn3 : C.cu} />
@@ -995,14 +998,21 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
             </View>
           )}
           {/* Price */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-            <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.cu, justifyContent: "center", alignItems: "center", marginRight: 8 }}>
-              <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink }}>R</Text>
+          <View style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.cu, justifyContent: "center", alignItems: "center", marginRight: 8 }}>
+                <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink }}>R</Text>
+              </View>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.cu }}>
+                INR {pkg.price.toLocaleString("en-IN")}
+                <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}> / {pkg.priceUnit || "person"}</Text>
+              </Text>
             </View>
-            <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.cu }}>
-              INR {pkg.price.toLocaleString("en-IN")}
-              <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}> / {pkg.priceUnit || "person"}</Text>
-            </Text>
+            {pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost) ? (
+              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", marginLeft: 22, marginTop: 2 }}>
+                Flight: INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}  |  Land: INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}  |  Total: INR {pkg.price.toLocaleString("en-IN")}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -1094,6 +1104,10 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
   const priceVal = pkg.price || 0;
   const formattedPrice = priceVal > 0 ? priceVal.toLocaleString("en-IN") : "—";
+  const flightPriceVal = pkg.flightPrice || 0;
+  const landCostVal = (pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, priceVal - flightPriceVal);
+  const hasFlightCostBreakdown = Boolean(pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost));
+  const showTrains = !pkg.hideTrainInfo && Boolean(pkg.trainsIncluded);
 
   return (
     <Page size="A4" style={[s.page, { position: "relative" }]}>
@@ -1118,7 +1132,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           TRIP OVERVIEW
         </Text>
         <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#0a2936", letterSpacing: 0.2 }}>
-          Package Snapshot & {pkg.flightsIncluded && pkg.trainsIncluded ? "Flight / Train Information" : pkg.trainsIncluded ? "Train Information" : pkg.flightsIncluded ? "Flight Information" : "Travel Information"}
+          Package Snapshot & {pkg.flightsIncluded && showTrains ? "Flight / Train Information" : showTrains ? "Train Information" : pkg.flightsIncluded ? "Flight Information" : "Travel Information"}
         </Text>
         <View style={{ width: 46, height: 3.5, backgroundColor: "#F5A623", borderRadius: 2, marginTop: 6 }} />
       </View>
@@ -1202,12 +1216,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         }}
       >
         <Text style={{ fontSize: 9.5, color: "#1a3a42", lineHeight: 1.55 }}>
-          {pkg.flightsIncluded && pkg.trainsIncluded ? (
+          {pkg.flightsIncluded && showTrains ? (
             <>
               <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Flight & Train arrangements: </Text>
               Flight and train arrangements will be planned according to your departure city. Final schedule details will be shared during booking.
             </>
-          ) : pkg.trainsIncluded ? (
+          ) : showTrains ? (
             <>
               <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Train arrangements: </Text>
               Trains will be planned according to your departure city. Final railway and schedule details will be shared during booking.
@@ -1273,41 +1287,114 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         style={{
           backgroundColor: "#005570",
           borderRadius: 10,
-          paddingVertical: 14,
-          paddingHorizontal: 20,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: 16,
         }}
       >
-        <View>
-          <Text
-            style={{
-              fontSize: 8.5,
-              fontFamily: "Helvetica-Bold",
-              color: "rgba(255,255,255,0.75)",
-              letterSpacing: 1,
-              marginBottom: 4,
-              textTransform: "uppercase",
-            }}
-          >
-            TOTAL COST PER {pkg.priceUnit?.toUpperCase() || "PERSON"}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Svg width={15} height={19} viewBox="0 0 24 24" style={{ marginRight: 3 }}>
-              <Path
-                d="M13.66 7C13.1 5.82 11.9 5 10.5 5L6 5V3H18V5H14.74C15.22 5.58 15.58 6.26 15.79 7H18V9H16C15.73 11.8 13.37 14 10.5 14H9.61L15.89 21H13.21L7 14V12H10.5C12.16 12 13.5 10.66 13.5 9H6V7H13.66Z"
-                fill="#ffffff"
-              />
-            </Svg>
-            <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
-              {formattedPrice}/-
-            </Text>
-          </View>
-        </View>
+        {hasFlightCostBreakdown ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, paddingRight: 10 }}>
+            {/* 1. Flight Price */}
+            <View>
+              <Text
+                style={{
+                  fontSize: 7.5,
+                  fontFamily: "Helvetica-Bold",
+                  color: "rgba(255,255,255,0.75)",
+                  letterSpacing: 0.8,
+                  marginBottom: 3,
+                  textTransform: "uppercase",
+                }}
+              >
+                FLIGHT PRICE
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "#67e8f9" }}>
+                INR {flightPriceVal.toLocaleString("en-IN")}
+              </Text>
+            </View>
 
-        <View style={{ alignItems: "flex-end" }}>
+            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.4)" }}>+</Text>
+
+            {/* 2. Land Cost */}
+            <View>
+              <Text
+                style={{
+                  fontSize: 7.5,
+                  fontFamily: "Helvetica-Bold",
+                  color: "rgba(255,255,255,0.75)",
+                  letterSpacing: 0.8,
+                  marginBottom: 3,
+                  textTransform: "uppercase",
+                }}
+              >
+                LAND COST
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "#a5f3fc" }}>
+                INR {landCostVal.toLocaleString("en-IN")}
+              </Text>
+            </View>
+
+            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.4)" }}>=</Text>
+
+            {/* 3. Total Cost */}
+            <View>
+              <Text
+                style={{
+                  fontSize: 7.5,
+                  fontFamily: "Helvetica-Bold",
+                  color: "rgba(255,255,255,0.75)",
+                  letterSpacing: 0.8,
+                  marginBottom: 3,
+                  textTransform: "uppercase",
+                }}
+              >
+                TOTAL COST PER {pkg.priceUnit?.toUpperCase() || "PERSON"}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Svg width={12} height={15} viewBox="0 0 24 24" style={{ marginRight: 2 }}>
+                  <Path
+                    d="M13.66 7C13.1 5.82 11.9 5 10.5 5L6 5V3H18V5H14.74C15.22 5.58 15.58 6.26 15.79 7H18V9H16C15.73 11.8 13.37 14 10.5 14H9.61L15.89 21H13.21L7 14V12H10.5C12.16 12 13.5 10.66 13.5 9H6V7H13.66Z"
+                    fill="#ffffff"
+                  />
+                </Svg>
+                <Text style={{ fontSize: 17, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+                  {formattedPrice}/-
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View>
+            <Text
+              style={{
+                fontSize: 8.5,
+                fontFamily: "Helvetica-Bold",
+                color: "rgba(255,255,255,0.75)",
+                letterSpacing: 1,
+                marginBottom: 4,
+                textTransform: "uppercase",
+              }}
+            >
+              TOTAL COST PER {pkg.priceUnit?.toUpperCase() || "PERSON"}
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Svg width={15} height={19} viewBox="0 0 24 24" style={{ marginRight: 3 }}>
+                <Path
+                  d="M13.66 7C13.1 5.82 11.9 5 10.5 5L6 5V3H18V5H14.74C15.22 5.58 15.58 6.26 15.79 7H18V9H16C15.73 11.8 13.37 14 10.5 14H9.61L15.89 21H13.21L7 14V12H10.5C12.16 12 13.5 10.66 13.5 9H6V7H13.66Z"
+                  fill="#ffffff"
+                />
+              </Svg>
+              <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+                {formattedPrice}/-
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <View style={{ alignItems: "flex-end", borderLeftWidth: hasFlightCostBreakdown ? 1 : 0, borderLeftColor: "rgba(255,255,255,0.2)", paddingLeft: hasFlightCostBreakdown ? 12 : 0 }}>
           <Text
             style={{
               fontSize: 8.5,
@@ -1344,22 +1431,28 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           }}
         >
           <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
-            {pkg.flightsIncluded && pkg.trainsIncluded
+            {pkg.flightsIncluded && showTrains
               ? "Flight & Train Tickets"
-              : pkg.trainsIncluded
+              : showTrains
               ? "Train Tickets"
               : pkg.flightsIncluded
               ? "Flight Tickets"
               : "Transit / Tickets"}
           </Text>
           <Text style={{ fontSize: 9.5, color: "#4a7a85", lineHeight: 1.55 }}>
-            {pkg.flightsIncluded && pkg.trainsIncluded
-              ? "Flight and train tickets are included in the package as stated in the inclusions."
-              : pkg.trainsIncluded
+            {pkg.flightsIncluded && showTrains
+              ? (flightPriceVal > 0
+                  ? `Flight tickets (Airfare: INR ${flightPriceVal.toLocaleString("en-IN")}) and train tickets are included in the package as stated in the inclusions.`
+                  : "Flight and train tickets are included in the package as stated in the inclusions.")
+              : showTrains
               ? "Train tickets are included in the package as stated in the inclusions."
               : pkg.flightsIncluded
-              ? "Flight tickets are included in the package as stated in the inclusions."
-              : "Flight or train arrangements will be planned according to your departure city as per availability."}
+              ? (flightPriceVal > 0
+                  ? `Flight tickets are included in the package (Airfare: INR ${flightPriceVal.toLocaleString("en-IN")}) as stated in the inclusions.`
+                  : "Flight tickets are included in the package as stated in the inclusions.")
+              : showTrains
+              ? "Flight or train arrangements will be planned according to your departure city as per availability."
+              : "Flight arrangements will be planned according to your departure city as per airline availability."}
           </Text>
         </View>
 
@@ -1376,12 +1469,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           }}
         >
           <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
-            {pkg.trainsIncluded && !pkg.flightsIncluded ? "Station Transfers" : "Airport / Local Transfers"}
+            {showTrains && !pkg.flightsIncluded ? "Station Transfers" : "Airport / Local Transfers"}
           </Text>
           <Text style={{ fontSize: 9.5, color: "#4a7a85", lineHeight: 1.55 }}>
             {pkg.transferSummary
               ? pkg.transferSummary
-              : pkg.trainsIncluded && !pkg.flightsIncluded
+              : showTrains && !pkg.flightsIncluded
               ? "Station-to-hotel transfers and sightseeing transportation are coordinated as part of the package."
               : "Two-way airport-to-hotel transfers and sightseeing transportation are included as part of the package."}
           </Text>
@@ -1735,7 +1828,7 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.flights || pkg.flights.length === 0) return null;
 
   const flightEntries = pkg.flights.filter(f => (f.type ?? "flight") === "flight");
-  const trainEntries = pkg.flights.filter(f => f.type === "train");
+  const trainEntries = pkg.hideTrainInfo ? [] : pkg.flights.filter(f => f.type === "train");
 
   const renderTable = (entries: Flight[], label: string, colLabels: { airline: string; number: string }) => {
     if (entries.length === 0) return null;
@@ -2041,6 +2134,21 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
             ) : null}
             <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
             <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"}</Text>
+            {pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost) ? (
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.06)" }}>
+                <Text style={{ fontSize: 9, color: C.ink3 }}>
+                  Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.ink }}>INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}</Text>
+                </Text>
+                <Text style={{ fontSize: 9, color: C.ink3 }}>•</Text>
+                <Text style={{ fontSize: 9, color: C.ink3 }}>
+                  Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.ink }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}</Text>
+                </Text>
+                <Text style={{ fontSize: 9, color: C.ink3 }}>•</Text>
+                <Text style={{ fontSize: 9, color: C.ink3 }}>
+                  Total: <Text style={{ fontFamily: "Helvetica-Bold", color: C.ink }}>INR {pkg.price.toLocaleString("en-IN")}</Text>
+                </Text>
+              </View>
+            ) : null}
           </View>
           {pkg.discount && pkg.discount > 0 ? (
             <View style={s.priceCardBottom}>

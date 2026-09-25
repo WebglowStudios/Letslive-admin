@@ -102,6 +102,8 @@ export default function NewPackagePage() {
     if (p.hotelRating) setHotelRating(p.hotelRating);
     if (p.category) setCategory(p.category);
     if (p.price) setPrice(p.price.toString());
+    if (p.flightPrice) setFlightPrice(p.flightPrice.toString());
+    if (p.landCost) setLandCost(p.landCost.toString());
     if (p.originalPrice) setOriginalPrice(p.originalPrice.toString());
     if (p.discount) setDiscount(p.discount.toString());
     if (p.discountType) setDiscountType(p.discountType);
@@ -236,7 +238,32 @@ export default function NewPackagePage() {
   };
 
   const [price, setPrice] = useState("");
+  const [flightPrice, setFlightPrice] = useState("");
+  const [landCost, setLandCost] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
+
+  const handleLandCostChange = (val: string) => {
+    setLandCost(val);
+    const lc = parseFloat(val) || 0;
+    const fp = parseFloat(flightPrice) || 0;
+    if (!isGroupTour && (lc > 0 || fp > 0)) {
+      handlePriceChange(String(lc + fp));
+    }
+  };
+
+  const handleFlightPriceChange = (val: string) => {
+    setFlightPrice(val);
+    const fp = parseFloat(val) || 0;
+    const lc = parseFloat(landCost) || 0;
+    if (!isGroupTour) {
+      if (lc > 0) {
+        handlePriceChange(String(lc + fp));
+      } else if (price && parseFloat(price) > 0) {
+        const remaining = Math.max(0, parseFloat(price) - fp);
+        setLandCost(String(remaining));
+      }
+    }
+  };
   const [discount, setDiscount] = useState("");
   const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
   const [badge, setBadge] = useState("");
@@ -244,6 +271,7 @@ export default function NewPackagePage() {
   const [isActive, setIsActive] = useState(true);
   const [flightsIncluded, setFlightsIncluded] = useState(false);
   const [trainsIncluded, setTrainsIncluded] = useState(false);
+  const [hideTrainInfo, setHideTrainInfo] = useState(false);
   const [travellerCount, setTravellerCount] = useState("");
   const [adultCount, setAdultCount] = useState("");
   const [childCount, setChildCount] = useState("");
@@ -527,6 +555,8 @@ export default function NewPackagePage() {
         hotelRating: hotelRating || undefined,
         category: category === "custom" ? (customCategory || undefined) : (category || undefined),
         price: Number(price) || 0,
+        flightPrice: flightPrice ? Number(flightPrice) : undefined,
+        landCost: landCost ? Number(landCost) : undefined,
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
         discountType,
@@ -543,6 +573,7 @@ export default function NewPackagePage() {
         })) : undefined,
         flightsIncluded,
         trainsIncluded,
+        hideTrainInfo,
         travellerCount: travellerCount || undefined,
         adultCount: adultCount ? Number(adultCount) : undefined,
         childCount: childCount ? Number(childCount) : undefined,
@@ -739,6 +770,7 @@ export default function NewPackagePage() {
                   <input type="checkbox" checked={isInternational} onChange={(e) => {
                     setIsInternational(e.target.checked);
                     if (!e.target.checked) setVisaIncluded(false);
+                    if (e.target.checked) setHideTrainInfo(true);
                   }} className="sr-only peer" />
                   <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
                 </label>
@@ -841,7 +873,70 @@ export default function NewPackagePage() {
                   <input type="checkbox" checked={trainsIncluded} onChange={(e) => setTrainsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Trains Included</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={hideTrainInfo} onChange={(e) => setHideTrainInfo(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <span className="text-sm text-slate-700">Hide Train Info in PDF</span>
+                  {hideTrainInfo && <span className="text-xs text-amber-700 font-semibold ml-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Trains excluded from PDF</span>}
+                </label>
               </div>
+
+              {flightsIncluded && (
+                <div className="p-4 bg-sky-50 border border-sky-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sky-800 font-bold text-sm">✈ Flight Included Price Breakdown</span>
+                      <span className="text-xs text-sky-700 bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full font-medium">Included in PDF Summary</span>
+                    </div>
+                    <span className="text-xs text-slate-500">Unit: Per {priceUnit}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Land Cost (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={landCost}
+                        onChange={(e) => handleLandCostChange(e.target.value)}
+                        placeholder="e.g. 60000"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">Hotels, transfers & sightseeing</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Flight Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={flightPrice}
+                        onChange={(e) => handleFlightPriceChange(e.target.value)}
+                        placeholder="e.g. 25000"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">Airfare per {priceUnit}</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Total Package Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={isGroupTour ? "" : price}
+                        onChange={(e) => handlePriceChange(e.target.value)}
+                        disabled={isGroupTour}
+                        placeholder={isGroupTour ? "Locked (Uses Slot Price)" : "85000"}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <p className="text-[11px] text-sky-700 font-medium mt-1">
+                        {Number(landCost) > 0 || Number(flightPrice) > 0
+                          ? `₹${Number(landCost || 0).toLocaleString("en-IN")} (Land) + ₹${Number(flightPrice || 0).toLocaleString("en-IN")} (Flight) = ₹${(Number(landCost || 0) + Number(flightPrice || 0)).toLocaleString("en-IN")}`
+                          : `Total package price`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Overall Traveller Count</label>

@@ -73,6 +73,7 @@ export interface VoucherData {
   visaIncluded?: boolean;
   flightsIncluded?: boolean;
   trainsIncluded?: boolean;
+  hideTrainInfo?: boolean;
   flights: any[];   // flight-type entries only
   trains?: any[];   // train-type entries only (optional for backward compat)
   accommodations: any[];
@@ -344,7 +345,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, trainsIncluded, flights, trains, accommodations, transports, itinerary, activities, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, trainsIncluded, hideTrainInfo, flights, trains, accommodations, transports, itinerary, activities, transferSummary } = data;
 
   const transfersByDay: Record<number | string, any[]> = {};
   
@@ -455,7 +456,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                       </Text>
                     </View>
                   )}
-                  {trainsIncluded !== undefined && (
+                  {!hideTrainInfo && trainsIncluded !== undefined && (!isInternational || trainsIncluded) && (
                     <View style={{ backgroundColor: trainsIncluded ? C.iv2 : "rgba(245,166,35,.1)", paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 }}>
                       <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: trainsIncluded ? C.gn : C.cu }}>
                         {trainsIncluded ? "🚆 TRAINS INCLUDED" : "⚠ TRAINS NOT INCLUDED"}
@@ -542,7 +543,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         )}
 
         {/* TRAIN SCHEDULE */}
-        {trains && trains.length > 0 && (
+        {!hideTrainInfo && trains && trains.length > 0 && (
           <View style={s.sectionWrapper} wrap={false}>
             <View style={s.sectionHeader}>
               <Icon d={ICONS.flight} color={C.cu} size={14} />
