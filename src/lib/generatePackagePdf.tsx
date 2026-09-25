@@ -72,6 +72,7 @@ interface ItineraryDay {
   recommendations?: (string | { title: string; image?: string; images?: string[] })[];
   meals: string[];
   accommodation: string;
+  images?: string[];
 }
 interface Stay {
   name: string; rating: string; nights: number; roomType: string; amenities: string[];
@@ -144,6 +145,136 @@ function getVehicleIcon(type?: string): string {
   if (t.includes("boat") || t.includes("ferry") || t.includes("ship") || t.includes("cruise") || t.includes("speed boat") || t.includes("speed-boat")) return ICONS.boat;
   if (t.includes("bus") || t.includes("coach")) return ICONS.bus;
   return ICONS.car; // default
+}
+
+// ─── Helper: Resolve At Least 3 Activity Images per Day ───────────────────────
+const FALLBACK_ACTIVITY_IMAGES = [
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1528181304800-259b08848526?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format&fit=crop&q=80",
+  "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=600&auto=format&fit=crop&q=80",
+];
+
+interface DayImageDisplay {
+  url: string;
+  caption: string;
+}
+
+function resolveDayImages(day: ItineraryDay, pkg: PackageData, minCount = 3): DayImageDisplay[] {
+  const images: DayImageDisplay[] = [];
+  const seenUrls = new Set<string>();
+
+  const addImg = (url?: string, caption?: string) => {
+    if (!url || typeof url !== "string") return;
+    const trimmed = url.trim();
+    if (!trimmed || seenUrls.has(trimmed)) return;
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("data:image/")) return;
+    seenUrls.add(trimmed);
+    images.push({ url: trimmed, caption: caption ? caption.trim() : "" });
+  };
+
+  // 1. Check activities in this day
+  if (day.activities && Array.isArray(day.activities)) {
+    day.activities.forEach((act) => {
+      if (typeof act === "object" && act !== null) {
+        if (act.image) addImg(act.image, act.title);
+        if (Array.isArray(act.images)) {
+          act.images.forEach((img) => addImg(img, act.title));
+        }
+      }
+    });
+  }
+
+  // 2. Check day.images (direct day images array)
+  if (day.images && Array.isArray(day.images)) {
+    day.images.forEach((img, idx) => {
+      const fallbackTitle = typeof day.activities?.[idx] === "string"
+        ? (day.activities[idx] as string)
+        : typeof day.activities?.[idx] === "object"
+        ? (day.activities[idx] as any)?.title
+        : "";
+      addImg(img, fallbackTitle);
+    });
+  }
+
+  // 3. Check recommendations in this day
+  if (day.recommendations && Array.isArray(day.recommendations)) {
+    day.recommendations.forEach((rec) => {
+      if (typeof rec === "object" && rec !== null) {
+        if (rec.image) addImg(rec.image, rec.title);
+        if (Array.isArray(rec.images)) {
+          rec.images.forEach((img) => addImg(img, rec.title));
+        }
+      }
+    });
+  }
+
+  // Extract available activity/sight titles for captions
+  const availableTitles: string[] = [];
+  if (day.activities && Array.isArray(day.activities)) {
+    day.activities.forEach((a) => {
+      const t = typeof a === "string" ? a : a?.title;
+      if (t && typeof t === "string" && t.trim().length > 0) availableTitles.push(t.trim());
+    });
+  }
+  if (day.recommendations && Array.isArray(day.recommendations)) {
+    day.recommendations.forEach((r) => {
+      const t = typeof r === "string" ? r : r?.title;
+      if (t && typeof t === "string" && t.trim().length > 0) availableTitles.push(t.trim());
+    });
+  }
+  if (availableTitles.length === 0 && day.title) {
+    availableTitles.push(day.title);
+  }
+
+  // 4. If fewer than minCount images, supplement from package image pools
+  if (images.length < minCount) {
+    const pkgPool: string[] = [
+      ...(pkg.activityImages || []),
+      ...(pkg.destinationImages || []),
+      ...(pkg.images || []),
+      ...(pkg.stayImages || []),
+      ...(pkg.heroImage ? [pkg.heroImage] : []),
+    ].filter((u): u is string => typeof u === "string" && u.trim().length > 0 && !seenUrls.has(u.trim()));
+
+    const dayOffset = (Math.max(1, day.day) - 1) * 3;
+    let poolIdx = 0;
+
+    while (images.length < minCount && poolIdx < pkgPool.length) {
+      const picked = pkgPool[(dayOffset + poolIdx) % pkgPool.length];
+      if (picked && !seenUrls.has(picked)) {
+        const titleForSlot = availableTitles[images.length % availableTitles.length] || `Highlight ${images.length + 1}`;
+        addImg(picked, titleForSlot);
+      }
+      poolIdx++;
+    }
+
+    // 5. If still below minCount, supplement from curated fallback photos
+    let fallbackIdx = 0;
+    while (images.length < minCount && fallbackIdx < FALLBACK_ACTIVITY_IMAGES.length) {
+      const fallbackUrl = FALLBACK_ACTIVITY_IMAGES[(dayOffset + fallbackIdx) % FALLBACK_ACTIVITY_IMAGES.length];
+      const titleForSlot = availableTitles[images.length % availableTitles.length] || `Activity ${images.length + 1}`;
+      addImg(fallbackUrl, titleForSlot);
+      fallbackIdx++;
+    }
+  }
+
+  // Ensure each image has a meaningful caption
+  images.forEach((item, idx) => {
+    if (!item.caption || !item.caption.trim()) {
+      item.caption = availableTitles[idx % (availableTitles.length || 1)] || `Activity ${idx + 1}`;
+    }
+  });
+
+  return images.slice(0, Math.max(minCount, 3));
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -250,10 +381,10 @@ const s = StyleSheet.create({
     borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12,
   },
   coverPillGoldText: {
-    fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink,
+    fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.ink,
   },
   coverPillOutlineText: {
-    fontSize: 8, fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.85)",
+    fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.85)",
   },
   coverClientCard: {
     backgroundColor: "rgba(255,255,255,0.07)",
@@ -262,14 +393,14 @@ const s = StyleSheet.create({
     borderLeftWidth: 3, borderLeftColor: C.gn3,
   },
   coverClientLabel: {
-    fontSize: 7, fontFamily: "Helvetica-Bold",
+    fontSize: 8, fontFamily: "Helvetica-Bold",
     color: C.gn3, letterSpacing: 2, marginBottom: 5,
   },
   coverClientName: {
     fontSize: 14, fontFamily: "Helvetica-Bold", color: C.white,
   },
   coverClientDetail: {
-    fontSize: 8, color: "rgba(255,255,255,0.6)", marginTop: 3,
+    fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 3,
   },
   coverPriceBox: {
     flexDirection: "row",
@@ -280,7 +411,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: "rgba(245,166,35,0.5)",
   },
   coverPriceLabel: {
-    fontSize: 7, fontFamily: "Helvetica-Bold",
+    fontSize: 8, fontFamily: "Helvetica-Bold",
     color: C.ink4, letterSpacing: 2, marginBottom: 4,
   },
   coverPriceOriginal: {
@@ -290,7 +421,7 @@ const s = StyleSheet.create({
     fontSize: 30, fontFamily: "Helvetica-Bold", color: C.cu, lineHeight: 1,
   },
   coverPriceUnit: {
-    fontSize: 9, color: "rgba(255,255,255,0.5)", marginTop: 4,
+    fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 4,
   },
   coverDiscountBadge: {
     backgroundColor: C.cu,
@@ -315,11 +446,11 @@ const s = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
   headerBrand: {
-    fontSize: 7.5, fontFamily: "Helvetica-Bold",
+    fontSize: 8, fontFamily: "Helvetica-Bold",
     color: C.gn2, letterSpacing: 3,
   },
   headerSection: {
-    fontSize: 7, color: C.ink4, letterSpacing: 1,
+    fontSize: 7.5, color: C.ink4, letterSpacing: 1,
   },
   pageFooter: {
     position: "absolute", bottom: 0, left: 0, right: 0,
@@ -332,20 +463,20 @@ const s = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
   footerText: {
-    fontSize: 7, color: C.ink4,
+    fontSize: 7.5, color: C.ink4,
   },
   footerPage: {
-    fontSize: 7, fontFamily: "Helvetica-Bold", color: C.ink3,
+    fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.ink3,
   },
 
   // ── Section heading ────────────────────────────────────────────────────────
   sectionBlock: { marginBottom: 18 },
   sectionBar: {
-    width: 32, height: 3, backgroundColor: C.cu,
-    borderRadius: 2, marginBottom: 7,
+    width: 34, height: 3.5, backgroundColor: C.cu,
+    borderRadius: 2, marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 15, fontFamily: "Helvetica-Bold",
+    fontSize: 16.5, fontFamily: "Helvetica-Bold",
     color: C.gn, letterSpacing: 0.3,
   },
 
@@ -359,19 +490,19 @@ const s = StyleSheet.create({
     borderLeftWidth: 3, borderLeftColor: C.gn3,
   },
   glanceLabel: {
-    fontSize: 7, fontFamily: "Helvetica-Bold",
+    fontSize: 8, fontFamily: "Helvetica-Bold",
     color: C.ink3, letterSpacing: 1.5, marginBottom: 5, textTransform: "uppercase",
   },
   glanceValue: {
-    fontSize: 13, fontFamily: "Helvetica-Bold", color: C.gn,
+    fontSize: 14, fontFamily: "Helvetica-Bold", color: C.gn,
   },
   glanceValueGold: {
-    fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu,
+    fontSize: 14, fontFamily: "Helvetica-Bold", color: C.cu,
   },
 
   // ── Description ───────────────────────────────────────────────────────────
   descText: {
-    fontSize: 9.5, color: C.ink2, lineHeight: 1.65, marginBottom: 16,
+    fontSize: 10.5, color: C.ink2, lineHeight: 1.6, marginBottom: 16,
   },
 
   // ── Highlight / bullet list ────────────────────────────────────────────────
@@ -380,14 +511,14 @@ const s = StyleSheet.create({
   },
   bulletDot: {
     width: 5, height: 5, borderRadius: 3,
-    backgroundColor: C.cu, marginRight: 8, marginTop: 3.5, flexShrink: 0,
+    backgroundColor: C.cu, marginRight: 8, marginTop: 4, flexShrink: 0,
   },
   bulletTealDot: {
     width: 5, height: 5, borderRadius: 3,
-    backgroundColor: C.gn3, marginRight: 8, marginTop: 3.5, flexShrink: 0,
+    backgroundColor: C.gn3, marginRight: 8, marginTop: 4, flexShrink: 0,
   },
   bulletText: {
-    fontSize: 9, color: C.ink2, flex: 1, lineHeight: 1.5,
+    fontSize: 10, color: C.ink2, flex: 1, lineHeight: 1.5,
   },
 
   // ── Gallery ───────────────────────────────────────────────────────────────
@@ -405,36 +536,36 @@ const s = StyleSheet.create({
 
   // ── Itinerary day card ─────────────────────────────────────────────────────
   dayCard: {
-    marginBottom: 10, borderRadius: 8, overflow: "hidden",
+    marginBottom: 11, borderRadius: 8, overflow: "hidden",
     borderWidth: 1, borderColor: C.line,
   },
   dayHeader: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: C.iv2,
-    paddingVertical: 7, paddingHorizontal: 12,
+    paddingVertical: 8, paddingHorizontal: 12,
     borderBottomWidth: 1, borderBottomColor: C.line,
   },
   dayBadge: {
     backgroundColor: C.gn,
-    borderRadius: 5, paddingVertical: 2.5, paddingHorizontal: 8,
+    borderRadius: 5, paddingVertical: 3, paddingHorizontal: 9,
     marginRight: 10,
   },
   dayBadgeText: {
-    fontSize: 8, fontFamily: "Helvetica-Bold", color: C.white,
+    fontSize: 9, fontFamily: "Helvetica-Bold", color: C.white,
   },
   dayTitle: {
-    fontSize: 10, fontFamily: "Helvetica-Bold",
+    fontSize: 11.5, fontFamily: "Helvetica-Bold",
     color: C.gn, flex: 1,
   },
   dayBody: {
     backgroundColor: C.white,
-    paddingVertical: 8, paddingHorizontal: 12,
+    paddingVertical: 9, paddingHorizontal: 12,
   },
   dayDescription: {
-    fontSize: 8.5, color: C.ink2, lineHeight: 1.5, marginBottom: 8,
+    fontSize: 10, color: C.ink2, lineHeight: 1.55, marginBottom: 8,
   },
   dayActivitiesLabel: {
-    fontSize: 7, fontFamily: "Helvetica-Bold",
+    fontSize: 8, fontFamily: "Helvetica-Bold",
     color: C.gn2, letterSpacing: 1, marginBottom: 4,
   },
   dayActivitiesRow: {
@@ -443,11 +574,50 @@ const s = StyleSheet.create({
   dayActivityChip: {
     backgroundColor: C.iv,
     borderWidth: 1, borderColor: C.line,
-    borderRadius: 4, paddingVertical: 2.5, paddingHorizontal: 7,
+    borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8,
   },
   dayActivityChipText: {
-    fontSize: 7.5, color: C.ink2,
+    fontSize: 8.5, color: C.ink2,
   },
+
+  // ── At least 3 Activity Images per Day Grid ────────────────────────────────
+  dayImgGrid: {
+    flexDirection: "row",
+    gap: 7,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  dayImgCell: {
+    flex: 1,
+    height: 74,
+    borderRadius: 6,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: C.iv2,
+    borderWidth: 1,
+    borderColor: C.line,
+  },
+  dayImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  dayImgCaption: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 30, 40, 0.72)",
+    paddingVertical: 3,
+    paddingHorizontal: 5,
+  },
+  dayImgCaptionText: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+    textAlign: "center",
+  },
+
   dayMeta: {
     flexDirection: "row", flexWrap: "wrap", gap: 16,
     borderTopWidth: 1, borderTopColor: C.line,
@@ -455,10 +625,10 @@ const s = StyleSheet.create({
   },
   dayMetaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   dayMetaLabel: {
-    fontSize: 7, fontFamily: "Helvetica-Bold",
+    fontSize: 8, fontFamily: "Helvetica-Bold",
     color: C.ink3, letterSpacing: 0.5,
   },
-  dayMetaValue: { fontSize: 8, color: C.ink2 },
+  dayMetaValue: { fontSize: 9, color: C.ink2 },
 
   // ── Stay table ─────────────────────────────────────────────────────────────
   tableWrap: {
@@ -467,19 +637,19 @@ const s = StyleSheet.create({
   tableHead: {
     flexDirection: "row",
     backgroundColor: C.gn,
-    paddingVertical: 9, paddingHorizontal: 12,
+    paddingVertical: 9, paddingHorizontal: 10,
   },
   tableHeadCell: {
-    fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.white,
+    fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.white,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 8, paddingHorizontal: 12,
+    paddingVertical: 8, paddingHorizontal: 10,
     borderTopWidth: 1, borderTopColor: C.line,
     backgroundColor: C.white,
   },
   tableRowAlt: { backgroundColor: C.iv },
-  tableCell: { fontSize: 8, color: C.ink2 },
+  tableCell: { fontSize: 9, color: C.ink2 },
 
   // ── Activity card ──────────────────────────────────────────────────────────
   actCard: {
@@ -489,13 +659,13 @@ const s = StyleSheet.create({
     borderLeftWidth: 3, borderLeftColor: C.gn3,
   },
   actTitle: {
-    fontSize: 10, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 3,
+    fontSize: 11, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 3,
   },
   actDuration: {
-    fontSize: 8, color: C.cu, fontFamily: "Helvetica-Bold", marginBottom: 5,
+    fontSize: 9, color: C.cu, fontFamily: "Helvetica-Bold", marginBottom: 5,
   },
-  actDesc: { fontSize: 8.5, color: C.ink2, lineHeight: 1.5, marginBottom: 6 },
-  actBullet: { fontSize: 8, color: C.ink3, marginBottom: 2, paddingLeft: 8 },
+  actDesc: { fontSize: 9.5, color: C.ink2, lineHeight: 1.5, marginBottom: 6 },
+  actBullet: { fontSize: 9, color: C.ink3, marginBottom: 2, paddingLeft: 8 },
 
   // ── Transfer card ──────────────────────────────────────────────────────────
   transCard: {
@@ -505,7 +675,7 @@ const s = StyleSheet.create({
     borderLeftWidth: 3, borderLeftColor: C.cu,
   },
   transTitle: {
-    fontSize: 10, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 3,
+    fontSize: 11, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 3,
   },
   transRoute: {
     flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4,
@@ -516,11 +686,11 @@ const s = StyleSheet.create({
     borderRadius: 5, padding: 7, flex: 1,
   },
   transLocLabel: {
-    fontSize: 6.5, fontFamily: "Helvetica-Bold",
+    fontSize: 7.5, fontFamily: "Helvetica-Bold",
     color: C.cu, letterSpacing: 1.5, marginBottom: 2,
   },
-  transLocText: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn },
-  transArrow: { fontSize: 11, color: C.ink4 },
+  transLocText: { fontSize: 9.5, fontFamily: "Helvetica-Bold", color: C.gn },
+  transArrow: { fontSize: 12, color: C.ink4 },
 
   // ── Inclusions / Exclusions ────────────────────────────────────────────────
   incExcRow: { flexDirection: "row", gap: 12 },
@@ -537,22 +707,22 @@ const s = StyleSheet.create({
     borderTopWidth: 3, borderTopColor: C.cu,
   },
   incExcHeader: {
-    fontSize: 9, fontFamily: "Helvetica-Bold", marginBottom: 10,
+    fontSize: 10.5, fontFamily: "Helvetica-Bold", marginBottom: 10,
   },
-  incItem: { fontSize: 8, color: C.ink2, marginBottom: 5, lineHeight: 1.4 },
-  excItem: { fontSize: 8, color: C.ink2, marginBottom: 5, lineHeight: 1.4 },
+  incItem: { fontSize: 9.5, color: C.ink2, marginBottom: 5, lineHeight: 1.45 },
+  excItem: { fontSize: 9.5, color: C.ink2, marginBottom: 5, lineHeight: 1.45 },
 
   // ── Know before you go ─────────────────────────────────────────────────────
   kbygRow: {
     flexDirection: "row", alignItems: "flex-start", marginBottom: 10,
   },
   kbygNumBadge: {
-    width: 20, height: 20, borderRadius: 10,
+    width: 22, height: 22, borderRadius: 11,
     backgroundColor: C.gn, justifyContent: "center",
     alignItems: "center", marginRight: 10, flexShrink: 0,
   },
-  kbygNumText: { fontSize: 8, fontFamily: "Helvetica-Bold", color: C.white },
-  kbygText: { fontSize: 9, color: C.ink2, flex: 1, lineHeight: 1.5 },
+  kbygNumText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: C.white },
+  kbygText: { fontSize: 10, color: C.ink2, flex: 1, lineHeight: 1.5 },
 
   // ── Things to carry ────────────────────────────────────────────────────────
   carryGrid: { flexDirection: "row", flexWrap: "wrap" },
@@ -562,9 +732,9 @@ const s = StyleSheet.create({
   },
   carryDot: {
     width: 5, height: 5, borderRadius: 3,
-    backgroundColor: C.gn3, marginRight: 8, marginTop: 3, flexShrink: 0,
+    backgroundColor: C.gn3, marginRight: 8, marginTop: 4, flexShrink: 0,
   },
-  carryText: { fontSize: 8.5, color: C.ink2, flex: 1, lineHeight: 1.4 },
+  carryText: { fontSize: 9.5, color: C.ink2, flex: 1, lineHeight: 1.45 },
 
   // ── Pricing card ───────────────────────────────────────────────────────────
   priceCard: {
@@ -576,7 +746,7 @@ const s = StyleSheet.create({
     padding: 24, alignItems: "center",
   },
   priceCardLabel: {
-    fontSize: 8, fontFamily: "Helvetica-Bold",
+    fontSize: 8.5, fontFamily: "Helvetica-Bold",
     color: "rgba(255,255,255,0.6)", letterSpacing: 2, marginBottom: 6,
   },
   priceCardAmount: {
@@ -587,7 +757,7 @@ const s = StyleSheet.create({
     textDecoration: "line-through", marginTop: 4,
   },
   priceCardUnit: {
-    fontSize: 9, color: "rgba(255,255,255,0.55)", marginTop: 5,
+    fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 5,
   },
   priceCardBottom: {
     backgroundColor: C.iv,
@@ -599,7 +769,7 @@ const s = StyleSheet.create({
     borderRadius: 20, paddingVertical: 5, paddingHorizontal: 14,
   },
   priceCardSavingsText: {
-    fontSize: 9, fontFamily: "Helvetica-Bold", color: C.ink2,
+    fontSize: 10, fontFamily: "Helvetica-Bold", color: C.ink2,
   },
 
   // ── Contact CTA ────────────────────────────────────────────────────────────
@@ -610,13 +780,13 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   ctaTitle: {
-    fontSize: 12, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 5,
+    fontSize: 13.5, fontFamily: "Helvetica-Bold", color: C.gn, marginBottom: 5,
   },
   ctaSubtitle: {
-    fontSize: 8.5, color: C.ink3, marginBottom: 10, textAlign: "center",
+    fontSize: 9.5, color: C.ink3, marginBottom: 10, textAlign: "center",
   },
   ctaContact: {
-    fontSize: 10, fontFamily: "Helvetica-Bold", color: C.cu,
+    fontSize: 11, fontFamily: "Helvetica-Bold", color: C.cu,
   },
 });
 
@@ -964,14 +1134,14 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             borderWidth: 1,
             borderColor: "#d4ecf0",
             padding: 12,
-            minHeight: 56,
+            minHeight: 58,
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
+          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
             TRAVEL DATE
           </Text>
-          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
+          <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
             {dateText}
           </Text>
         </View>
@@ -985,14 +1155,14 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             borderWidth: 1,
             borderColor: "#d4ecf0",
             padding: 12,
-            minHeight: 56,
+            minHeight: 58,
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
+          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
             DURATION
           </Text>
-          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
+          <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
             {durationText}
           </Text>
         </View>
@@ -1006,14 +1176,14 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             borderWidth: 1,
             borderColor: "#d4ecf0",
             padding: 12,
-            minHeight: 56,
+            minHeight: 58,
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
+          <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: "#7a9da6", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 3 }}>
             TRAVELLERS
           </Text>
-          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
+          <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#0a2936" }}>
             {travellersText}
           </Text>
         </View>
@@ -1031,7 +1201,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           marginBottom: 16,
         }}
       >
-        <Text style={{ fontSize: 8.5, color: "#1a3a42", lineHeight: 1.5 }}>
+        <Text style={{ fontSize: 9.5, color: "#1a3a42", lineHeight: 1.55 }}>
           {pkg.flightsIncluded && pkg.trainsIncluded ? (
             <>
               <Text style={{ fontFamily: "Helvetica-Bold", color: "#00556b" }}>Flight & Train arrangements: </Text>
@@ -1073,10 +1243,10 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                 justifyContent: "center",
               }}
             >
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center", marginBottom: 3 }}>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center", marginBottom: 3 }}>
                 {stop.city}
               </Text>
-              <Text style={{ fontSize: 8, color: "#6a909b", textAlign: "center" }}>
+              <Text style={{ fontSize: 9, color: "#6a909b", textAlign: "center" }}>
                 {stop.nights} {stop.nights === 1 ? "night" : "nights"}
               </Text>
             </View>
@@ -1114,7 +1284,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         <View>
           <Text
             style={{
-              fontSize: 7.5,
+              fontSize: 8.5,
               fontFamily: "Helvetica-Bold",
               color: "rgba(255,255,255,0.75)",
               letterSpacing: 1,
@@ -1125,13 +1295,13 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             TOTAL COST PER {pkg.priceUnit?.toUpperCase() || "PERSON"}
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Svg width={14} height={18} viewBox="0 0 24 24" style={{ marginRight: 3 }}>
+            <Svg width={15} height={19} viewBox="0 0 24 24" style={{ marginRight: 3 }}>
               <Path
                 d="M13.66 7C13.1 5.82 11.9 5 10.5 5L6 5V3H18V5H14.74C15.22 5.58 15.58 6.26 15.79 7H18V9H16C15.73 11.8 13.37 14 10.5 14H9.61L15.89 21H13.21L7 14V12H10.5C12.16 12 13.5 10.66 13.5 9H6V7H13.66Z"
                 fill="#ffffff"
               />
             </Svg>
-            <Text style={{ fontSize: 20, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+            <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
               {formattedPrice}/-
             </Text>
           </View>
@@ -1140,7 +1310,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ alignItems: "flex-end" }}>
           <Text
             style={{
-              fontSize: 7.5,
+              fontSize: 8.5,
               fontFamily: "Helvetica-Bold",
               color: "rgba(255,255,255,0.75)",
               letterSpacing: 1,
@@ -1150,10 +1320,10 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           >
             TAX POSITION
           </Text>
-          <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
             5% GST Included
           </Text>
-          <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
+          <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
             5% TCS Excluded
           </Text>
         </View>
@@ -1173,7 +1343,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             minHeight: 75,
           }}
         >
-          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
+          <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
             {pkg.flightsIncluded && pkg.trainsIncluded
               ? "Flight & Train Tickets"
               : pkg.trainsIncluded
@@ -1182,7 +1352,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
               ? "Flight Tickets"
               : "Transit / Tickets"}
           </Text>
-          <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
+          <Text style={{ fontSize: 9.5, color: "#4a7a85", lineHeight: 1.55 }}>
             {pkg.flightsIncluded && pkg.trainsIncluded
               ? "Flight and train tickets are included in the package as stated in the inclusions."
               : pkg.trainsIncluded
@@ -1205,10 +1375,10 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             minHeight: 75,
           }}
         >
-          <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
+          <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: "#004d5e", marginBottom: 6 }}>
             {pkg.trainsIncluded && !pkg.flightsIncluded ? "Station Transfers" : "Airport / Local Transfers"}
           </Text>
-          <Text style={{ fontSize: 8, color: "#4a7a85", lineHeight: 1.55 }}>
+          <Text style={{ fontSize: 9.5, color: "#4a7a85", lineHeight: 1.55 }}>
             {pkg.transferSummary
               ? pkg.transferSummary
               : pkg.trainsIncluded && !pkg.flightsIncluded
@@ -1349,9 +1519,9 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
 
               {/* Activities from itinerary data */}
               {day.activities && day.activities.length > 0 && (
-                <View style={{ marginBottom: 8 }}>
+                <View style={{ marginBottom: 6 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
-                    <Icon d={ICONS.activity} color={C.gn3} size={10} />
+                    <Icon d={ICONS.activity} color={C.gn3} size={11} />
                     <Text style={s.dayActivitiesLabel}>ACTIVITIES</Text>
                   </View>
                   <View style={s.dayActivitiesRow}>
@@ -1365,38 +1535,61 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                   </View>
                 </View>
               )}
+
+              {/* At least 3 Activity Images per Day Grid */}
+              {(() => {
+                const dayImgs = resolveDayImages(day, pkg, 3);
+                if (dayImgs.length === 0) return null;
+                return (
+                  <View style={s.dayImgGrid}>
+                    {dayImgs.map((imgItem, imgIdx) => (
+                      <View key={imgIdx} style={s.dayImgCell}>
+                        <Image src={imgItem.url} style={s.dayImg} />
+                        {imgItem.caption ? (
+                          <View style={s.dayImgCaption}>
+                            <Text style={s.dayImgCaptionText}>
+                              {imgItem.caption.length > 26 ? `${imgItem.caption.substring(0, 24)}...` : imgItem.caption}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
+
               {/* Transfers for this day */}
               {dayTransfers.length > 0 && (
                 <View style={{ marginTop: 2, marginBottom: 8 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
-                    <Icon d={ICONS.bus} color={C.cu} size={10} />
-                    <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: C.ink3, letterSpacing: 1 }}>TRANSFERS</Text>
+                    <Icon d={ICONS.bus} color={C.cu} size={11} />
+                    <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink3, letterSpacing: 1 }}>TRANSFERS</Text>
                   </View>
                   {dayTransfers.map((t, i) => {
                     const iconData = getVehicleIcon(t.transferType || t.vehicleType);
                     return (
                       <View key={i} style={{ marginBottom: 6, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
-                          <Icon d={iconData} color={C.cu} size={9} />
-                          <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
+                          <Icon d={iconData} color={C.cu} size={10} />
+                          <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
                         </View>
                         {/* Multi-leg or legacy from/to */}
                         {t.legs && t.legs.length > 0 ? (
                           t.legs.filter(l => l.from || l.to).map((leg, li) => (
                             <View key={li} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3, marginTop: 2 }}>
-                              {leg.transferType ? <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.ink4, marginRight: 2 }}>[{leg.transferType}{leg.vehicleType ? ` · ${leg.vehicleType}` : ""}]</Text> : null}
+                              {leg.transferType ? <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.ink4, marginRight: 2 }}>[{leg.transferType}{leg.vehicleType ? ` · ${leg.vehicleType}` : ""}]</Text> : null}
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1 }}>
                                 {leg.from ? (
-                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.iv, borderRadius: 3, padding: 3, borderWidth: 1, borderColor: C.line }}>
-                                    <Icon d={ICONS.location} color={C.gn3} size={8} />
-                                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.from}</Text>
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.iv, borderRadius: 3, padding: 4, borderWidth: 1, borderColor: C.line }}>
+                                    <Icon d={ICONS.location} color={C.gn3} size={9} />
+                                    <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.from}</Text>
                                   </View>
                                 ) : null}
-                                {leg.from && leg.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={9} /> : null}
+                                {leg.from && leg.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={10} /> : null}
                                 {leg.to ? (
-                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.cuLight, borderRadius: 3, padding: 3, borderWidth: 1, borderColor: "#f5e3c8" }}>
-                                    <Icon d={ICONS.location} color={C.cu} size={8} />
-                                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.to}</Text>
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flex: 1, backgroundColor: C.cuLight, borderRadius: 3, padding: 4, borderWidth: 1, borderColor: "#f5e3c8" }}>
+                                    <Icon d={ICONS.location} color={C.cu} size={9} />
+                                    <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{leg.to}</Text>
                                   </View>
                                 ) : null}
                               </View>
@@ -1406,26 +1599,26 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
                             {t.from ? (
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 5, borderWidth: 1, borderColor: C.line }}>
-                                <Icon d={ICONS.location} color={C.gn3} size={9} />
+                                <Icon d={ICONS.location} color={C.gn3} size={10} />
                                 <View>
-                                  <Text style={{ fontSize: 5.5, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
-                                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                                  <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                                  <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
                                 </View>
                               </View>
                             ) : null}
-                            {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={10} /> : null}
+                            {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={11} /> : null}
                             {t.to ? (
                               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 5, borderWidth: 1, borderColor: "#f5e3c8" }}>
-                                <Icon d={ICONS.location} color={C.cu} size={9} />
+                                <Icon d={ICONS.location} color={C.cu} size={10} />
                                 <View>
-                                  <Text style={{ fontSize: 5.5, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
-                                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                                  <Text style={{ fontSize: 6.5, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                                  <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
                                 </View>
                               </View>
                             ) : null}
                           </View>
                         ) : null}
-                        {t.description ? <Text style={{ fontSize: 7.5, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
+                        {t.description ? <Text style={{ fontSize: 8.5, color: C.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.description}</Text> : null}
                       </View>
                     );
                   })}
@@ -1437,14 +1630,14 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                 <View style={s.dayMeta}>
                   {day.meals && day.meals.length > 0 && (
                     <View style={s.dayMetaItem}>
-                      <Icon d={ICONS.restaurant} color={C.cu} size={9} />
+                      <Icon d={ICONS.restaurant} color={C.cu} size={10} />
                       <Text style={s.dayMetaLabel}>MEALS:</Text>
                       <Text style={s.dayMetaValue}>{day.meals.join(", ")}</Text>
                     </View>
                   )}
                   {day.accommodation ? (
                     <View style={s.dayMetaItem}>
-                      <Icon d={ICONS.hotel} color={C.gn3} size={9} />
+                      <Icon d={ICONS.hotel} color={C.gn3} size={10} />
                       <Text style={s.dayMetaLabel}>STAY:</Text>
                       <Text style={s.dayMetaValue}>{day.accommodation}</Text>
                     </View>
@@ -1461,34 +1654,34 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ marginTop: 14 }}>
           <View wrap={false} minPresenceAhead={80}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
-              <Icon d={ICONS.bus} color={C.cu} size={11} />
-              <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>General Transfers</Text>
+              <Icon d={ICONS.bus} color={C.cu} size={12} />
+              <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: C.gn }}>General Transfers</Text>
             </View>
           </View>
           {unassignedTransfers.map((t, i) => (
             <View key={i} style={s.transCard} wrap={false}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                <Icon d={ICONS.bus} color={C.cu} size={10} />
+                <Icon d={ICONS.bus} color={C.cu} size={11} />
                 <Text style={s.transTitle}>{t.title}</Text>
               </View>
               {(t.from || t.to) && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4, marginTop: 2 }}>
                   {t.from ? (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.iv, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: C.line }}>
-                      <Icon d={ICONS.location} color={C.gn3} size={10} />
+                      <Icon d={ICONS.location} color={C.gn3} size={11} />
                       <View>
-                        <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
-                        <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
+                        <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>FROM</Text>
+                        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.from}</Text>
                       </View>
                     </View>
                   ) : null}
                   {t.from && t.to ? <Icon d={ICONS.arrowForward} color={C.cu} size={12} /> : null}
                   {t.to ? (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1, backgroundColor: C.cuLight, borderRadius: 4, padding: 6, borderWidth: 1, borderColor: "#f5e3c8" }}>
-                      <Icon d={ICONS.location} color={C.cu} size={10} />
+                      <Icon d={ICONS.location} color={C.cu} size={11} />
                       <View>
-                        <Text style={{ fontSize: 6, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
-                        <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
+                        <Text style={{ fontSize: 7, fontFamily: "Helvetica-Bold", color: C.ink4, letterSpacing: 1 }}>TO</Text>
+                        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.to}</Text>
                       </View>
                     </View>
                   ) : null}
@@ -1526,11 +1719,11 @@ const TransferSummarySection = ({ pkg }: { pkg: PackageData }) => {
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
           <Icon d={ICONS.bus} color={C.cu} size={12} />
-          <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: C.gn, letterSpacing: 0.3 }}>
+          <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: C.gn, letterSpacing: 0.3 }}>
             Overall Transfer Arrangements
           </Text>
         </View>
-        <Text style={{ fontSize: 9, color: C.ink2, lineHeight: 1.7 }}>
+        <Text style={{ fontSize: 10, color: C.ink2, lineHeight: 1.65 }}>
           {pkg.transferSummary}
         </Text>
       </View>
@@ -1576,7 +1769,7 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
           <View style={{ marginTop: 8 }}>
             {entries.filter(f => f.pnr || f.class || f.notes).map((f, i) => (
               <View key={i} style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
-                <Text style={{ fontSize: 7.5, color: C.ink3 }}>
+                <Text style={{ fontSize: 8.5, color: C.ink3 }}>
                   {f.airline} {f.flightNumber}:
                   {f.class ? ` ${f.class}` : ""}
                   {f.pnr ? ` \u00b7 PNR: ${f.pnr}` : ""}
@@ -1632,7 +1825,7 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ marginTop: 8 }}>
           {pkg.stays.filter(s => s.confirmationNo).map((stay, i) => (
             <View key={i} style={{ marginBottom: 4 }}>
-              <Text style={{ fontSize: 7.5, color: C.ink3 }}>
+              <Text style={{ fontSize: 8.5, color: C.ink3 }}>
                 {stay.name}: Booking Ref: {stay.confirmationNo}
               </Text>
             </View>
@@ -1647,10 +1840,10 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
           <View style={{ marginTop: 6, padding: 6, backgroundColor: C.iv, borderRadius: 4, borderWidth: 1, borderColor: C.line }}>
             {remarkStays.map((stay, i) => (
               <View key={i} style={{ marginBottom: i < remarkStays.length - 1 ? 3 : 0, flexDirection: "row", alignItems: "flex-start", gap: 4 }}>
-                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.gn }}>
+                <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.gn }}>
                   {stay.name} Remark:
                 </Text>
-                <Text style={{ fontSize: 7.5, color: C.ink2, flex: 1 }}>
+                <Text style={{ fontSize: 8.5, color: C.ink2, flex: 1 }}>
                   {stay.remark}
                 </Text>
               </View>
@@ -1868,7 +2061,7 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
         Contact us to customise dates, group size, and confirm your trip.
       </Text>
       {pkg.slug && (
-        <Text style={{ fontSize: 9, color: C.gn3, marginTop: 4, marginBottom: 8, textAlign: "center" }}>
+        <Text style={{ fontSize: 10, color: C.gn3, marginTop: 4, marginBottom: 8, textAlign: "center" }}>
           <Link src={`https://letslivetours.com/packages/${pkg.slug}`} style={{ color: C.gn3, textDecoration: "underline" }}>
             View Full Itinerary Online
           </Link>
@@ -1958,7 +2151,7 @@ const PartnersPage = ({ pkg }: { pkg?: PackageData }) => {
           Our Partners
         </Text>
         <View style={{ width: 48, height: 3.5, backgroundColor: "#F5A623", borderRadius: 2, marginTop: 6, marginBottom: 12 }} />
-        <Text style={{ fontSize: 8.5, color: "#4a7a85", lineHeight: 1.4 }}>
+        <Text style={{ fontSize: 9.5, color: "#4a7a85", lineHeight: 1.4 }}>
           Our trusted network of verified global airlines, hospitality, and ground partners.
         </Text>
       </View>
@@ -2009,7 +2202,7 @@ const PartnersPage = ({ pkg }: { pkg?: PackageData }) => {
                     }}
                   />
                 ) : (
-                  <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>
+                  <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>
                     {item.name}
                   </Text>
                 )}
