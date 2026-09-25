@@ -831,6 +831,7 @@ export default function NewPackagePage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Group Tour</span>
+                  {isGroupTour && <span className="text-xs text-cyan-600 font-semibold ml-1.5 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">Departures &amp; Slots active below &darr;</span>}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />

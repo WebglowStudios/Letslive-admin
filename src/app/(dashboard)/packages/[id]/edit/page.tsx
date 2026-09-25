@@ -784,74 +784,6 @@ export default function EditPackagePage() {
                 </div>
               </div>
               )}
-              {isGroupTour && (
-                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">Group Tour Departures</p>
-                      <p className="text-xs text-slate-400">Manage available slots and dates for this group tour.</p>
-                    </div>
-                    <button type="button" onClick={() => setDepartures([...departures, { startDate: "", endDate: "", totalSlots: 0, status: "available", price: 0 }])} className="text-xs bg-cyan-100 text-cyan-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-cyan-200">
-                      + Add Departure
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {departures.map((dep, i) => (
-                      <div key={i} className="flex gap-3 items-start bg-white p-3 rounded-lg border border-slate-200">
-                        <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-3">
-                          <div>
-                            <label className="text-xs text-slate-500 block mb-1">Start Date</label>
-                            <input type="date" value={dep.startDate} onChange={(e) => {
-                              const arr = [...departures];
-                              arr[i].startDate = e.target.value;
-                              if (e.target.value && durationDays) arr[i].endDate = computeEndDate(e.target.value, durationDays);
-                              setDepartures(arr);
-                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-500 block mb-1">End Date</label>
-                            <input type="date" value={dep.endDate} onChange={(e) => {
-                              const arr = [...departures]; arr[i].endDate = e.target.value; setDepartures(arr);
-                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-500 block mb-1">Total Slots</label>
-                            <input type="number" value={dep.totalSlots} onChange={(e) => {
-                              const arr = [...departures]; arr[i].totalSlots = Number(e.target.value); setDepartures(arr);
-                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 20" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-500 block mb-1">Price</label>
-                            <input type="number" value={dep.price} onChange={(e) => {
-                              const arr = [...departures]; arr[i].price = Number(e.target.value); setDepartures(arr);
-                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 5000" />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-500 block mb-1">Status</label>
-                            <select value={dep.status} onChange={(e) => {
-                              const arr = [...departures]; arr[i].status = e.target.value; setDepartures(arr);
-                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm">
-                              <option value="available">Available</option>
-                              <option value="sold-out">Sold Out</option>
-                              <option value="cancelled">Cancelled</option>
-                              <option value="completed">Completed</option>
-                            </select>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end justify-between h-full pt-1 gap-2">
-                          <button type="button" onClick={() => setDepartures(departures.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
-                            <Trash2 size={16} />
-                          </button>
-                          <div className="text-xs text-slate-400 text-right">
-                            Booked:<br/><strong className="text-slate-700">{dep.bookedSlots || 0}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {departures.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No departures added.</p>}
-                  </div>
-                </div>
-              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Hotel Rating</label>
@@ -926,6 +858,7 @@ export default function EditPackagePage() {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Is Group Tour</span>
+                  {isGroupTour && <span className="text-xs text-cyan-600 font-semibold ml-1.5 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">Departures &amp; Slots active below &darr;</span>}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
@@ -1054,6 +987,75 @@ export default function EditPackagePage() {
                   </>
                 )}
               </div>
+
+              {isGroupTour && (
+                <div id="group-tour-departures" className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">Group Tour Departures</p>
+                      <p className="text-xs text-slate-400">Manage available slots and dates for this group tour.</p>
+                    </div>
+                    <button type="button" onClick={() => setDepartures([...departures, { startDate: "", endDate: "", totalSlots: 0, status: "available", price: 0 }])} className="text-xs bg-cyan-100 text-cyan-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-cyan-200">
+                      + Add Departure
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {departures.map((dep, i) => (
+                      <div key={i} className="flex gap-3 items-start bg-white p-3 rounded-lg border border-slate-200">
+                        <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-3">
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Start Date</label>
+                            <input type="date" value={dep.startDate} onChange={(e) => {
+                              const arr = [...departures];
+                              arr[i].startDate = e.target.value;
+                              if (e.target.value && durationDays) arr[i].endDate = computeEndDate(e.target.value, durationDays);
+                              setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">End Date</label>
+                            <input type="date" value={dep.endDate} onChange={(e) => {
+                              const arr = [...departures]; arr[i].endDate = e.target.value; setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Total Slots</label>
+                            <input type="number" value={dep.totalSlots || ""} onChange={(e) => {
+                              const arr = [...departures]; arr[i].totalSlots = Number(e.target.value); setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 20" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Price</label>
+                            <input type="number" value={dep.price || ""} onChange={(e) => {
+                              const arr = [...departures]; arr[i].price = Number(e.target.value); setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm" placeholder="e.g. 5000" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 block mb-1">Status</label>
+                            <select value={dep.status || "available"} onChange={(e) => {
+                              const arr = [...departures]; arr[i].status = e.target.value; setDepartures(arr);
+                            }} className="w-full px-2 py-1.5 border border-slate-200 rounded text-sm">
+                              <option value="available">Available</option>
+                              <option value="sold-out">Sold Out</option>
+                              <option value="cancelled">Cancelled</option>
+                              <option value="completed">Completed</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end justify-between h-full pt-1 gap-2">
+                          <button type="button" onClick={() => setDepartures(departures.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 p-1">
+                            <Trash2 size={16} />
+                          </button>
+                          <div className="text-xs text-slate-400 text-right">
+                            Booked:<br/><strong className="text-slate-700">{dep.bookedSlots || 0}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {departures.length === 0 && <p className="text-xs text-slate-400 text-center py-2">No departures added.</p>}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
