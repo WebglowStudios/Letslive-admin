@@ -24,6 +24,7 @@ import DestinationSelect from "@/components/ui/DestinationSelect";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
+  ytc: "bg-amber-100 text-amber-800 border-amber-200",
   assigned: "bg-indigo-100 text-indigo-700",
   "in-progress": "bg-amber-100 text-amber-700",
   "follow-up": "bg-purple-100 text-purple-700",
@@ -41,6 +42,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   new: "New",
+  ytc: "YTC (Yet to Connect)",
   assigned: "Assigned",
   "in-progress": "In Progress",
   "follow-up": "Follow-Up",
@@ -120,7 +122,7 @@ function CallDots({ callLog, dnpCount }: { callLog: { outcome: string }[]; dnpCo
   }
 
   const lastOutcome = callLog.length > 0 ? callLog[callLog.length - 1].outcome : null;
-  const labelColor = dnpCount >= 6 ? 'text-red-600' : dnpCount >= 3 ? 'text-orange-600' : total > 0 ? 'text-emerald-600' : 'text-slate-400';
+  const labelColor = lastOutcome === 'answered' ? 'text-emerald-600' : dnpCount >= 6 ? 'text-red-600' : dnpCount >= 3 ? 'text-orange-600' : total > 0 ? 'text-emerald-600' : 'text-slate-400';
 
   return (
     <div className="space-y-2">
@@ -147,7 +149,7 @@ function CallDots({ callLog, dnpCount }: { callLog: { outcome: string }[]; dnpCo
         ) : (
           <>
             <span className={`text-xs font-semibold ${labelColor}`}>{total} call{total !== 1 ? 's' : ''} logged</span>
-            {dnpCount > 0 && <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-bold">{dnpCount} DNP</span>}
+            {dnpCount > 0 && lastOutcome !== 'answered' && <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-bold">{dnpCount} DNP</span>}
             {lastOutcome === 'answered' && <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">Last: Answered ✓</span>}
           </>
         )}
@@ -1588,10 +1590,9 @@ export default function EnquiryDetailPage() {
   }
 
   async function reassignTo(staffId: string) {
-    if (!staffId) return;
     setReassigning(true);
     try {
-      await api.put(`/enquiries/${id}`, { assignedTo: staffId });
+      await api.put(`/enquiries/${id}`, { assignedTo: staffId || null });
       fetchEnquiry();
     } catch { alert("Failed to reassign"); }
     finally { setReassigning(false); }
@@ -2976,7 +2977,7 @@ export default function EnquiryDetailPage() {
                   disabled={savingStatus}
                   className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
-                  {["new", "assigned", "in-progress", "follow-up", "whatsapp-sent", "callback-requested", "negotiation", "dnp", "converted", "resolved", "closed"].map((s) => (
+                  {["new", "ytc", "assigned", "in-progress", "follow-up", "whatsapp-sent", "callback-scheduled", "callback-requested", "negotiation", "dnp", "converted", "resolved", "closed"].map((s) => (
                     <option key={s} value={s}>{STATUS_LABELS[s] || s.replace("-", " ")}</option>
                   ))}
                 </select>

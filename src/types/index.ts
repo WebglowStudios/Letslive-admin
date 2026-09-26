@@ -144,14 +144,17 @@ export interface Enquiry {
   status:
     | "new"
     | "begin"
+    | "ytc"
     | "assigned"
     | "responded"
     | "dnp"
     | "busy"
     | "callback-scheduled"
+    | "callback-requested"
     | "in-progress"
     | "follow-up"
     | "whatsapp-sent"
+    | "negotiation"
     | "converted"
     | "resolved"
     | "closed";

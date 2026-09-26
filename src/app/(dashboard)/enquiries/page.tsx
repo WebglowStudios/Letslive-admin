@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import {
   Search, Filter, MessageSquare, User, Clock, Phone, Plus,
-  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, Download, Upload, X,
+  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, ChevronUp, Download, Upload, X,
   KanbanSquare
 } from "lucide-react";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import ImportLeadsModal from "@/components/enquiries/ImportLeadsModal";
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
   begin: "bg-blue-100 text-blue-700",
+  ytc: "bg-amber-100 text-amber-800",
   assigned: "bg-indigo-100 text-indigo-700",
   responded: "bg-teal-100 text-teal-700",
   dnp: "bg-rose-100 text-rose-700",
@@ -39,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   new: "Begin (New)",
   begin: "Begin",
+  ytc: "YTC (Yet to Connect)",
   assigned: "Assigned",
   responded: "Responded",
   dnp: "DNP",
@@ -57,6 +59,7 @@ const STATUS_LABELS: Record<string, string> = {
 const FILTER_STATUS_ITEMS = [
   { id: "all", label: "All" },
   { id: "new", label: "Begin (New)" },
+  { id: "ytc", label: "YTC (Yet to Connect)" },
   { id: "responded", label: "Responded" },
   { id: "dnp", label: "DNP" },
   { id: "callback-scheduled", label: "Callback" },
@@ -79,6 +82,15 @@ const DNP_OPTIONS = [
   { id: "4", label: "DNP 4" },
   { id: "5", label: "DNP 5" },
   { id: "6+", label: "DNP 6+ (Escalate)" },
+];
+
+const LEAD_AGE_OPTIONS = [
+  { id: "all", label: "All Ages" },
+  { id: "today", label: "⚡ Today (< 24h)" },
+  { id: "3days", label: "🌱 New (< 3d)" },
+  { id: "7days", label: "📅 Past 7 Days" },
+  { id: "older7days", label: "⏳ Older (> 7d)" },
+  { id: "older14days", label: "⚠️ Stale (> 14d)" },
 ];
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -318,6 +330,7 @@ function EnquiriesContent() {
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
   const [dnpFilter, setDnpFilter] = useState(() => searchParams.get("dnp") || "all");
   const [assignedFilter, setAssignedFilter] = useState(() => searchParams.get("assignedTo") || "all");
+  const [leadAgeFilter, setLeadAgeFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -326,9 +339,14 @@ function EnquiriesContent() {
   const [destinationFilter, setDestinationFilter] = useState("");
   const [destinationsList, setDestinationsList] = useState<{ _id: string; name: string }[]>([]);
   const [paxFilter, setPaxFilter] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "follow-ups">(() => searchParams.get("tab") === "follow-ups" ? "follow-ups" : "all");
+  const [activeTab, setActiveTab] = useState<"all" | "unassigned" | "follow-ups">(() => {
+    if (searchParams.get("tab") === "follow-ups") return "follow-ups";
+    if (searchParams.get("assignedTo") === "unassigned") return "unassigned";
+    return "all";
+  });
   const [showAddLead, setShowAddLead] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
+  const [showStatusChips, setShowStatusChips] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [bulkAssignStaff, setBulkAssignStaff] = useState("");
@@ -339,7 +357,10 @@ function EnquiriesContent() {
     const d = searchParams.get("dnp");
     if (d) setDnpFilter(d);
     const a = searchParams.get("assignedTo");
-    if (a) setAssignedFilter(a);
+    if (a) {
+      setAssignedFilter(a);
+      if (a === "unassigned") setActiveTab("unassigned");
+    }
     const tab = searchParams.get("tab");
     if (tab === "follow-ups") setActiveTab("follow-ups");
   }, [searchParams]);
@@ -358,8 +379,29 @@ function EnquiriesContent() {
   const isStaffOnly = user?.role === "staff" || user?.role === "sales-staff";
   const isManager = user?.role === "admin" || user?.role === "manager" || user?.role === "sales-manager";
 
-  // Staff list for quick-assign dropdown (manager+ only)
-  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
+  // Staff list with active workload counts (manager+ only)
+  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string; email?: string; role?: string; activeLeadsCount?: number }[]>([]);
+  const [unassignedCount, setUnassignedCount] = useState<number>(0);
+
+  const loadStaffList = useCallback(() => {
+    if (!isManager) return;
+    api.get("/users/staff?department=sales").then((res) => {
+      const list = res?.data || res || [];
+      setStaffList(Array.isArray(list) ? list : []);
+      if (res?.meta?.unassignedActiveLeads !== undefined) {
+        setUnassignedCount(res.meta.unassignedActiveLeads);
+      }
+    }).catch(() => {});
+  }, [isManager]);
+
+  useEffect(() => {
+    loadStaffList();
+  }, [loadStaffList]);
+
+  // Recommended staff member for new lead assignment (lowest active workload)
+  const recommendedStaff = staffList
+    .filter((s) => ["sales-staff", "staff", "sales-manager"].includes(s.role || ""))
+    .sort((a, b) => (a.activeLeadsCount || 0) - (b.activeLeadsCount || 0))[0] || staffList[0];
 
   const fetchEnquiries = useCallback(async () => {
     setLoading(true);
@@ -372,7 +414,12 @@ function EnquiriesContent() {
         const params = new URLSearchParams({ limit: "100" });
         if (statusFilter !== "all") params.set("status", statusFilter);
         if (dnpFilter !== "all") params.set("dnp", dnpFilter);
-        if (assignedFilter && assignedFilter !== "all") params.set("assignedTo", assignedFilter);
+        if (activeTab === "unassigned") {
+          params.set("assignedTo", "unassigned");
+        } else if (assignedFilter && assignedFilter !== "all") {
+          params.set("assignedTo", assignedFilter);
+        }
+        if (leadAgeFilter && leadAgeFilter !== "all") params.set("leadAge", leadAgeFilter);
         if (channelFilter !== "all") params.set("channel", channelFilter);
         if (search) params.set("search", search);
         if (dateFrom) params.set("from", dateFrom);
@@ -387,18 +434,9 @@ function EnquiriesContent() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, dnpFilter, assignedFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
+  }, [statusFilter, dnpFilter, assignedFilter, leadAgeFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
-
-  // Fetch staff list for quick-assign (manager+ only)
-  useEffect(() => {
-    if (!isManager) return;
-    api.get("/users/staff?department=sales").then((res) => {
-      const list = res?.data || res || [];
-      setStaffList(Array.isArray(list) ? list : []);
-    }).catch(() => {});
-  }, [isManager]);
 
   // Debounce search
   useEffect(() => {
@@ -423,12 +461,12 @@ function EnquiriesContent() {
   }
 
   async function quickAssign(enquiryId: string, staffId: string) {
-    if (!staffId) return;
     try {
-      await api.put(`/enquiries/${enquiryId}`, { assignedTo: staffId });
+      await api.put(`/enquiries/${enquiryId}`, { assignedTo: (staffId === "unassigned" || !staffId) ? null : staffId });
       fetchEnquiries();
+      loadStaffList();
     } catch {
-      alert("Failed to assign enquiry");
+      alert("Failed to update enquiry assignment");
     }
   }
 
@@ -511,14 +549,24 @@ function EnquiriesContent() {
         <div className="flex items-center gap-1 border-b border-slate-200">
           {[
             { id: "all", label: "All Enquiries" },
+            { id: "unassigned", label: `⚡ Unassigned Leads${unassignedCount > 0 ? ` (${unassignedCount})` : ""}`, highlight: unassignedCount > 0 },
             { id: "follow-ups", label: `Follow-ups Today${followUpsDue > 0 ? ` (${followUpsDue})` : ""}` },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as "all" | "follow-ups")}
-              className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors -mb-px ${
+              onClick={() => {
+                setActiveTab(tab.id as "all" | "unassigned" | "follow-ups");
+                if (tab.id === "unassigned") {
+                  setAssignedFilter("unassigned");
+                } else if (activeTab === "unassigned" && tab.id === "all") {
+                  setAssignedFilter("all");
+                }
+              }}
+              className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${
                 activeTab === tab.id
-                  ? "border-cyan-600 text-cyan-700"
+                  ? "border-cyan-600 text-cyan-700 font-bold"
+                  : tab.highlight
+                  ? "border-transparent text-amber-600 hover:text-amber-800"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -527,8 +575,61 @@ function EnquiriesContent() {
           ))}
         </div>
 
+        {/* Smart Assignment Insights Bar (visible when Unassigned tab or filter is active) */}
+        {(activeTab === "unassigned" || assignedFilter === "unassigned") && isManager && (
+          <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                  </span>
+                  <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                    Smart Lead Assignment Insights
+                  </h4>
+                </div>
+                <p className="text-xs text-amber-800">
+                  {enquiries.length} unassigned lead{enquiries.length === 1 ? "" : "s"} waiting for distribution.
+                  {recommendedStaff && (
+                    <> Recommended for new leads: <strong className="font-bold underline text-amber-950">{recommendedStaff.firstName} {recommendedStaff.lastName}</strong> (lowest active workload with {recommendedStaff.activeLeadsCount || 0} active leads).</>
+                  )}
+                </p>
+              </div>
+
+              {/* Sales Team Workload Badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {staffList.map((s) => {
+                  const isLowest = s._id === recommendedStaff?._id;
+                  return (
+                    <div
+                      key={s._id}
+                      className={`px-2.5 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
+                        isLowest
+                          ? "bg-white border-amber-300 text-amber-900 shadow-xs ring-1 ring-amber-300/60 font-semibold"
+                          : "bg-white/80 border-amber-200/80 text-slate-700"
+                      }`}
+                    >
+                      <User size={11} className={isLowest ? "text-amber-600" : "text-slate-400"} />
+                      <span>{s.firstName}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        (s.activeLeadsCount || 0) === 0 ? "bg-emerald-100 text-emerald-700" :
+                        (s.activeLeadsCount || 0) <= 5 ? "bg-blue-100 text-blue-700" :
+                        "bg-slate-100 text-slate-700"
+                      }`}>
+                        {s.activeLeadsCount || 0} leads
+                      </span>
+                      {isLowest && <span className="text-[10px] text-amber-600 font-bold" title="Lowest Workload (Recommended)">⭐</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Search + Filters */}
-        {activeTab === "all" && (
+        {activeTab !== "follow-ups" && (
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 flex-1 min-w-[220px] max-w-sm">
               <Search size={14} className="text-slate-400 shrink-0" />
@@ -544,24 +645,87 @@ function EnquiriesContent() {
               )}
             </div>
 
-            {/* Status Filter Buttons */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <Filter size={13} className="text-slate-400 shrink-0" />
-              {FILTER_STATUS_ITEMS.map((item) => (
+            {/* Status Filter Dropdown (Decluttered) */}
+            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
+              statusFilter !== "all"
+                ? "bg-cyan-50 border-cyan-300 text-cyan-900 shadow-2xs"
+                : "bg-white border-slate-200 text-slate-700"
+            }`}>
+              <Filter size={11} className={statusFilter !== "all" ? "text-cyan-600 shrink-0" : "text-slate-400 shrink-0"} />
+              <span className="text-[11px] font-bold text-slate-700">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-transparent border-none text-slate-800 text-[11px] font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <optgroup label="Active Pipeline">
+                  <option value="new">Begin (New)</option>
+                  <option value="ytc">YTC (Yet to Connect)</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="follow-up">Follow-Up</option>
+                  <option value="callback-scheduled">Callback Scheduled</option>
+                  <option value="callback-requested">Callback Requested</option>
+                  <option value="whatsapp-sent">WhatsApp Sent</option>
+                  <option value="responded">Responded</option>
+                  <option value="negotiation">Negotiation</option>
+                  <option value="assigned">Assigned</option>
+                </optgroup>
+                <optgroup label="Outcomes & Issues">
+                  <option value="dnp">DNP (Did Not Pick)</option>
+                  <option value="busy">Busy</option>
+                  <option value="converted">Converted (Won)</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed / Lost</option>
+                </optgroup>
+              </select>
+              {statusFilter !== "all" && (
                 <button
-                  key={item.id}
-                  onClick={() => setStatusFilter(item.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                    statusFilter === item.id
-                      ? item.id === "dnp"
-                        ? "bg-rose-600 text-white shadow-xs"
-                        : "bg-cyan-600 text-white shadow-xs"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
+                  onClick={() => setStatusFilter("all")}
+                  title="Clear status filter"
+                  className="text-cyan-600 hover:text-cyan-800 p-0.5"
                 >
-                  {item.label}
+                  <X size={12} />
                 </button>
-              ))}
+              )}
+            </div>
+
+            {/* Collapsible Status Chips Button */}
+            <button
+              onClick={() => setShowStatusChips(!showStatusChips)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
+                showStatusChips || statusFilter !== "all"
+                  ? "bg-slate-100 border-slate-300 text-slate-800 shadow-2xs"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Toggle detailed status filter chips"
+            >
+              <span>Status Chips</span>
+              {showStatusChips ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+
+            {/* Lead Age Filter (New vs Old) */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+              <Clock size={11} className="text-slate-500 shrink-0" />
+              <span className="text-[11px] font-bold text-slate-700">Lead Age:</span>
+              <select
+                value={leadAgeFilter}
+                onChange={(e) => setLeadAgeFilter(e.target.value)}
+                className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+              >
+                {LEAD_AGE_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+              {leadAgeFilter !== "all" && (
+                <button
+                  onClick={() => setLeadAgeFilter("all")}
+                  title="Clear lead age filter"
+                  className="text-slate-400 hover:text-slate-600 p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
 
             {/* DNP Filter Dropdown */}
@@ -604,20 +768,28 @@ function EnquiriesContent() {
                 <span className="text-[11px] font-bold">Salesperson:</span>
                 <select
                   value={assignedFilter}
-                  onChange={(e) => setAssignedFilter(e.target.value)}
-                  className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer max-w-[150px]"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAssignedFilter(val);
+                    if (val === "unassigned") setActiveTab("unassigned");
+                    else if (activeTab === "unassigned") setActiveTab("all");
+                  }}
+                  className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer max-w-[200px]"
                 >
                   <option value="all">All Sales Reps</option>
-                  <option value="unassigned">Unassigned Leads</option>
+                  <option value="unassigned">⚡ Unassigned Leads {unassignedCount > 0 ? `(${unassignedCount})` : ""}</option>
                   {staffList.map((s) => (
                     <option key={s._id} value={s._id}>
-                      {s.firstName} {s.lastName}
+                      {s.firstName} {s.lastName} ({s.activeLeadsCount ?? 0} active leads){s._id === recommendedStaff?._id ? " ⭐" : ""}
                     </option>
                   ))}
                 </select>
                 {assignedFilter !== "all" && (
                   <button
-                    onClick={() => setAssignedFilter("all")}
+                    onClick={() => {
+                      setAssignedFilter("all");
+                      if (activeTab === "unassigned") setActiveTab("all");
+                    }}
                     title="Clear salesperson filter"
                     className="text-indigo-500 hover:text-indigo-700 p-0.5"
                   >
@@ -701,35 +873,154 @@ function EnquiriesContent() {
           </div>
         )}
 
-        {/* Active Salesperson Filter Banner */}
-        {assignedFilter !== "all" && (
-          <div className="flex items-center justify-between gap-2 px-3.5 py-2 bg-indigo-50/90 border border-indigo-200 rounded-xl text-xs text-indigo-900">
-            <div className="flex items-center gap-2">
-              <User size={13} className="text-indigo-600 shrink-0" />
-              <span>
-                Filtered by salesperson:{" "}
-                <strong className="text-indigo-950 font-bold">
-                  {assignedFilter === "unassigned"
-                    ? "Unassigned Leads"
-                    : staffList.find((s) => s._id === assignedFilter)
-                    ? `${staffList.find((s) => s._id === assignedFilter)?.firstName} ${staffList.find((s) => s._id === assignedFilter)?.lastName}`
-                    : assignedFilter}
-                </strong>{" "}
-                ({enquiries.length} lead{enquiries.length !== 1 ? "s" : ""})
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                href={`/enquiries/pipeline?assignedTo=${assignedFilter}`}
-                className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-1"
-              >
-                Open in Pipeline View <KanbanSquare size={11} />
-              </Link>
+        {/* Collapsible Status Chips Panel */}
+        {showStatusChips && (
+          <div className="flex items-center gap-1.5 flex-wrap p-3 bg-slate-50 border border-slate-200 rounded-2xl shadow-2xs transition-all">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Status Chips:</span>
+            {FILTER_STATUS_ITEMS.map((item) => (
               <button
-                onClick={() => setAssignedFilter("all")}
-                className="text-[11px] font-semibold text-red-600 hover:text-red-800"
+                key={item.id}
+                onClick={() => setStatusFilter(item.id)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                  statusFilter === item.id
+                    ? item.id === "dnp"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : item.id === "ytc"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-cyan-600 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
               >
-                Clear Filter
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Active Salesperson Filter Banner (when an Employee is selected) */}
+        {assignedFilter !== "all" && assignedFilter !== "unassigned" && (
+          <div className="bg-gradient-to-r from-indigo-50 via-slate-50 to-indigo-50 border border-indigo-200 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  {staffList.find((s) => s._id === assignedFilter)?.firstName?.[0] || "E"}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-indigo-950">
+                      {staffList.find((s) => s._id === assignedFilter)?.firstName} {staffList.find((s) => s._id === assignedFilter)?.lastName}
+                    </h4>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 uppercase">
+                      {staffList.find((s) => s._id === assignedFilter)?.role || "Sales Rep"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Viewing assigned pipeline • <strong className="text-indigo-900">{enquiries.length} lead{enquiries.length !== 1 ? "s" : ""}</strong> matching current filters
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/enquiries/pipeline?assignedTo=${assignedFilter}`}
+                  className="px-3 py-1.5 border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <KanbanSquare size={13} /> View in Pipeline Board
+                </Link>
+                <button
+                  onClick={() => {
+                    setAssignedFilter("all");
+                    setActiveTab("all");
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200/60"
+                >
+                  Clear Employee Filter
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stackable Sub-Filter Pills for this Employee */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-indigo-100 text-xs">
+              <span className="text-slate-500 font-medium text-[11px] mr-1">Stack Filters:</span>
+              <button
+                onClick={() => { setStatusFilter("all"); setLeadAgeFilter("all"); setDnpFilter("all"); }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  statusFilter === "all" && leadAgeFilter === "all" && dnpFilter === "all"
+                    ? "bg-indigo-700 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                All ({enquiries.length})
+              </button>
+              <button
+                onClick={() => setLeadAgeFilter(leadAgeFilter === "3days" ? "all" : "3days")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  leadAgeFilter === "3days"
+                    ? "bg-indigo-700 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                🌱 New Leads (&lt; 3d)
+              </button>
+              <button
+                onClick={() => setLeadAgeFilter(leadAgeFilter === "older7days" ? "all" : "older7days")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  leadAgeFilter === "older7days"
+                    ? "bg-indigo-700 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                ⏳ Old Leads (&gt; 7d)
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "ytc" ? "all" : "ytc")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  statusFilter === "ytc"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                YTC (Yet to Connect)
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "in-progress" ? "all" : "in-progress")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  statusFilter === "in-progress"
+                    ? "bg-sky-600 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                In Progress
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "follow-up" ? "all" : "follow-up")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  statusFilter === "follow-up"
+                    ? "bg-purple-600 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Follow-Up Due
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "dnp" ? "all" : "dnp")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  statusFilter === "dnp"
+                    ? "bg-rose-600 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                DNP Leads
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "converted" ? "all" : "converted")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  statusFilter === "converted"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Converted
               </button>
             </div>
           </div>
@@ -786,6 +1077,7 @@ function EnquiriesContent() {
             >
               <option value="">Choose action...</option>
               <option value="reassign">Assign to Employee</option>
+              <option value="unassign">Unassign (Return to Pool)</option>
               <option value="mark-follow-up">Mark as Follow-up</option>
               <option value="close">Close (No Response)</option>
             </select>
@@ -905,18 +1197,42 @@ function EnquiriesContent() {
                         {STATUS_LABELS[e.status] || e.status.replace("-", " ")}
                       </span>
                       {e.assignedTo && (
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                          <User size={10} /> {e.assignedTo.firstName} {e.assignedTo.lastName}
-                        </span>
+                        <div className="flex flex-col items-end gap-1" onClick={(ev) => ev.preventDefault()}>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1 bg-slate-100 border border-slate-200/60 px-2 py-0.5 rounded-full">
+                              <User size={10} className="text-slate-400" /> {e.assignedTo.firstName} {e.assignedTo.lastName}
+                            </span>
+                            {isManager && staffList.length > 0 && (
+                              <select
+                                value={e.assignedTo._id}
+                                onChange={(ev) => {
+                                  ev.stopPropagation();
+                                  const staffId = ev.target.value;
+                                  if (staffId) quickAssign(e._id, staffId);
+                                }}
+                                className="text-[10px] border border-slate-200 rounded-md px-1.5 py-0.5 bg-white text-slate-600 cursor-pointer hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500 max-w-[125px]"
+                                title="Reassign or Unassign lead"
+                              >
+                                <option value={e.assignedTo._id}>Reassign...</option>
+                                {staffList.map((s) => (
+                                  <option key={s._id} value={s._id}>
+                                    {s.firstName} {s.lastName} ({s.activeLeadsCount ?? 0})
+                                  </option>
+                                ))}
+                                <option value="unassigned" className="text-rose-600 font-medium">🚫 Unassign (Pool)</option>
+                              </select>
+                            )}
+                          </div>
+                        </div>
                       )}
-                      {/* Unassigned badge + quick-assign for managers */}
+                      {/* Unassigned badge + quick-assign for managers with workload indicators */}
                       {!e.assignedTo && (
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <User size={9} /> Unassigned
+                        <div className="flex flex-col items-end gap-1" onClick={(ev) => ev.preventDefault()}>
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                            <User size={9} /> Unassigned Lead
                           </span>
                           {isManager && staffList.length > 0 && (
-                            <div onClick={(ev) => ev.preventDefault()}>
+                            <div className="flex items-center gap-1">
                               <select
                                 defaultValue=""
                                 onChange={(ev) => {
@@ -924,12 +1240,17 @@ function EnquiriesContent() {
                                   const staffId = ev.target.value;
                                   if (staffId) quickAssign(e._id, staffId);
                                 }}
-                                className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white text-slate-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyan-500 max-w-[130px]"
+                                className="text-[10px] font-medium border border-amber-300 rounded-lg px-2 py-1 bg-white text-slate-700 cursor-pointer hover:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs max-w-[170px]"
                               >
-                                <option value="">Assign to...</option>
-                                {staffList.map((s) => (
-                                  <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
-                                ))}
+                                <option value="">Assign Rep...</option>
+                                {staffList.map((s) => {
+                                  const isRec = recommendedStaff?._id === s._id;
+                                  return (
+                                    <option key={s._id} value={s._id}>
+                                      {isRec ? "⭐ " : ""}{s.firstName} {s.lastName} ({s.activeLeadsCount ?? 0} leads){isRec ? " — Best fit" : ""}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                           )}

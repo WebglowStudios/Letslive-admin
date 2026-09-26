@@ -8,7 +8,7 @@ import { Enquiry } from "@/types";
 import {
   Phone, User, Calendar, AlertTriangle, RefreshCw,
   ChevronRight, Search, X, KanbanSquare, Table2, ArrowRight,
-  TrendingUp, Users, CheckCircle2, ChevronDown, ChevronUp, DollarSign
+  TrendingUp, Users, CheckCircle2, ChevronDown, ChevronUp, DollarSign, Clock
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
@@ -28,7 +28,7 @@ const COLUMNS = [
 type ColumnId = typeof COLUMNS[number]["id"];
 
 function mapStatusToColumn(status: string): ColumnId {
-  if (status === "begin" || status === "new") return "new";
+  if (status === "begin" || status === "new" || status === "ytc") return "new";
   if (status === "assigned") return "assigned";
   if (status === "dnp" || status === "busy") return "dnp";
   if (status === "follow-up" || status === "callback-scheduled" || status === "callback-requested") return "follow-up";
@@ -101,7 +101,7 @@ function KanbanCard({
       {/* Badges row */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {/* DNP badge */}
-        {(enquiry.dnpCount > 0 || enquiry.status === "dnp") && (
+        {enquiry.status === "dnp" && (
           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${
             enquiry.dnpCount >= 6 ? "bg-red-100 text-red-700" :
             enquiry.dnpCount >= 3 ? "bg-orange-100 text-orange-700" :
@@ -143,7 +143,13 @@ function KanbanCard({
         <div className="flex items-center gap-1 min-w-0">
           <User size={10} className="text-slate-400 shrink-0" />
           <span className="text-[10px] text-slate-500 truncate font-medium">
-            {enquiry.assignedTo ? `${enquiry.assignedTo.firstName} ${enquiry.assignedTo.lastName || ""}` : "Unassigned"}
+            {enquiry.assignedTo ? (
+              `${enquiry.assignedTo.firstName} ${enquiry.assignedTo.lastName || ""}`
+            ) : (
+              <span className="text-amber-700 bg-amber-50 font-bold px-1.5 py-0.5 rounded-full text-[9px] border border-amber-200">
+                ⚡ Unassigned
+              </span>
+            )}
           </span>
         </div>
         {enquiry.status !== "new" && enquiry.status !== "assigned" && (
@@ -241,7 +247,8 @@ function PipelineContent() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [assignedFilter, setAssignedFilter] = useState(() => searchParams.get("assignedTo") || "all");
-  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string; email?: string }[]>([]);
+  const [leadAgeFilter, setLeadAgeFilter] = useState("all");
+  const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string; email?: string; activeLeadsCount?: number }[]>([]);
   const [staffMatrix, setStaffMatrix] = useState<StaffMatrixItem[]>([]);
   const [matrixTotals, setMatrixTotals] = useState<any>(null);
   const [showSummaryBanner, setShowSummaryBanner] = useState(true);
@@ -293,6 +300,9 @@ function PipelineContent() {
       if (assignedFilter && assignedFilter !== "all") {
         params.set("assignedTo", assignedFilter);
       }
+      if (leadAgeFilter && leadAgeFilter !== "all") {
+        params.set("leadAge", leadAgeFilter);
+      }
       const res = await api.get(`/enquiries?${params}`);
       // Exclude "closed" and "resolved" from active pipeline
       const data = (res?.data || []).filter((e: Enquiry) =>
@@ -304,7 +314,7 @@ function PipelineContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, assignedFilter]);
+  }, [search, assignedFilter, leadAgeFilter]);
 
   useEffect(() => {
     fetchEnquiries();
@@ -435,10 +445,10 @@ function PipelineContent() {
                   className="bg-transparent border-none text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer max-w-[150px]"
                 >
                   <option value="all">All Sales Reps</option>
-                  <option value="unassigned">Unassigned Leads</option>
+                  <option value="unassigned">⚡ Unassigned Leads</option>
                   {staffList.map((s) => (
                     <option key={s._id} value={s._id}>
-                      {s.firstName} {s.lastName}
+                      {s.firstName} {s.lastName}{s.activeLeadsCount !== undefined ? ` (${s.activeLeadsCount})` : ""}
                     </option>
                   ))}
                 </select>
@@ -453,6 +463,38 @@ function PipelineContent() {
                 )}
               </div>
             )}
+
+            {/* Lead Age Filter */}
+            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border transition-colors ${
+              leadAgeFilter !== "all"
+                ? "bg-amber-50 border-amber-300 text-amber-900 shadow-2xs"
+                : "bg-white border-slate-200 text-slate-700"
+            }`}>
+              <Clock size={13} className={leadAgeFilter !== "all" ? "text-amber-600 shrink-0" : "text-slate-400 shrink-0"} />
+              <span className="text-xs font-bold">Age:</span>
+              <select
+                value={leadAgeFilter}
+                onChange={(e) => setLeadAgeFilter(e.target.value)}
+                className="bg-transparent border-none text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Ages</option>
+                <option value="today">⚡ Today</option>
+                <option value="3days">🌱 New (&lt; 3d)</option>
+                <option value="7days">📅 Past 7d</option>
+                <option value="older7days">⏳ Older (&gt; 7d)</option>
+                <option value="older14days">⚠️ Stale (&gt; 14d)</option>
+                <option value="older30days">🛑 Cold (&gt; 30d)</option>
+              </select>
+              {leadAgeFilter !== "all" && (
+                <button
+                  onClick={() => setLeadAgeFilter("all")}
+                  title="Clear age filter"
+                  className="text-amber-600 hover:text-amber-800 p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
 
             {/* Search */}
             <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
