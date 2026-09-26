@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
@@ -327,11 +327,19 @@ function EnquiriesContent() {
   const searchParams = useSearchParams();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") || "all");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(() => {
+    const s = searchParams.get("status");
+    if (!s || s === "all") return [];
+    return s.split(",").map((x) => x.trim()).filter(Boolean);
+  });
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(() => {
+    const c = searchParams.get("channel");
+    if (!c || c === "all") return [];
+    return c.split(",").map((x) => x.trim()).filter(Boolean);
+  });
   const [dnpFilter, setDnpFilter] = useState(() => searchParams.get("dnp") || "all");
   const [assignedFilter, setAssignedFilter] = useState(() => searchParams.get("assignedTo") || "all");
   const [leadAgeFilter, setLeadAgeFilter] = useState("all");
-  const [channelFilter, setChannelFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -347,13 +355,71 @@ function EnquiriesContent() {
   const [showAddLead, setShowAddLead] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [showStatusChips, setShowStatusChips] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState("");
   const [bulkAssignStaff, setBulkAssignStaff] = useState("");
 
   useEffect(() => {
+    function handleClickOutside(ev: MouseEvent) {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(ev.target as Node)) {
+        setShowStatusDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function toggleStatus(st: string) {
+    if (st === "all") {
+      setSelectedStatuses([]);
+      return;
+    }
+    setSelectedStatuses((prev) =>
+      prev.includes(st) ? prev.filter((x) => x !== st) : [...prev, st]
+    );
+  }
+
+  function toggleChannel(ch: string) {
+    if (ch === "all") {
+      setSelectedChannels([]);
+      return;
+    }
+    setSelectedChannels((prev) =>
+      prev.includes(ch) ? prev.filter((x) => x !== ch) : [...prev, ch]
+    );
+  }
+
+  function clearAllFilters() {
+    setSelectedStatuses([]);
+    setSelectedChannels([]);
+    setAssignedFilter("all");
+    setLeadAgeFilter("all");
+    setDnpFilter("all");
+    setDestinationFilter("");
+    setPaxFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setSearch("");
+    setSearchInput("");
+    if (activeTab === "unassigned") setActiveTab("all");
+  }
+
+  const activeFiltersCount =
+    selectedStatuses.length +
+    selectedChannels.length +
+    (assignedFilter !== "all" ? 1 : 0) +
+    (leadAgeFilter !== "all" ? 1 : 0) +
+    (dnpFilter !== "all" ? 1 : 0) +
+    (destinationFilter ? 1 : 0) +
+    (paxFilter ? 1 : 0) +
+    (dateFrom || dateTo ? 1 : 0) +
+    (search ? 1 : 0);
+
+  useEffect(() => {
     const s = searchParams.get("status");
-    if (s) setStatusFilter(s);
+    if (s && s !== "all") setSelectedStatuses(s.split(",").map((x) => x.trim()).filter(Boolean));
     const d = searchParams.get("dnp");
     if (d) setDnpFilter(d);
     const a = searchParams.get("assignedTo");
@@ -361,6 +427,8 @@ function EnquiriesContent() {
       setAssignedFilter(a);
       if (a === "unassigned") setActiveTab("unassigned");
     }
+    const c = searchParams.get("channel");
+    if (c && c !== "all") setSelectedChannels(c.split(",").map((x) => x.trim()).filter(Boolean));
     const tab = searchParams.get("tab");
     if (tab === "follow-ups") setActiveTab("follow-ups");
   }, [searchParams]);
@@ -412,7 +480,7 @@ function EnquiriesContent() {
       } else {
         const endpoint = "/enquiries";
         const params = new URLSearchParams({ limit: "100" });
-        if (statusFilter !== "all") params.set("status", statusFilter);
+        if (selectedStatuses.length > 0) params.set("status", selectedStatuses.join(","));
         if (dnpFilter !== "all") params.set("dnp", dnpFilter);
         if (activeTab === "unassigned") {
           params.set("assignedTo", "unassigned");
@@ -420,7 +488,7 @@ function EnquiriesContent() {
           params.set("assignedTo", assignedFilter);
         }
         if (leadAgeFilter && leadAgeFilter !== "all") params.set("leadAge", leadAgeFilter);
-        if (channelFilter !== "all") params.set("channel", channelFilter);
+        if (selectedChannels.length > 0) params.set("channel", selectedChannels.join(","));
         if (search) params.set("search", search);
         if (dateFrom) params.set("from", dateFrom);
         if (dateTo) params.set("to", dateTo);
@@ -434,7 +502,7 @@ function EnquiriesContent() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, dnpFilter, assignedFilter, leadAgeFilter, channelFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
+  }, [selectedStatuses, selectedChannels, dnpFilter, assignedFilter, leadAgeFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
@@ -645,48 +713,108 @@ function EnquiriesContent() {
               )}
             </div>
 
-            {/* Status Filter Dropdown (Decluttered) */}
-            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
-              statusFilter !== "all"
-                ? "bg-cyan-50 border-cyan-300 text-cyan-900 shadow-2xs"
-                : "bg-white border-slate-200 text-slate-700"
-            }`}>
-              <Filter size={11} className={statusFilter !== "all" ? "text-cyan-600 shrink-0" : "text-slate-400 shrink-0"} />
-              <span className="text-[11px] font-bold text-slate-700">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-transparent border-none text-slate-800 text-[11px] font-semibold focus:outline-none cursor-pointer"
+            {/* Status Filter Multi-Select Popover */}
+            <div className="relative" ref={statusDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-all text-xs font-semibold ${
+                  selectedStatuses.length > 0
+                    ? "bg-cyan-50 border-cyan-300 text-cyan-900 shadow-2xs"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
               >
-                <option value="all">All Statuses</option>
-                <optgroup label="Active Pipeline">
-                  <option value="new">Begin (New)</option>
-                  <option value="ytc">YTC (Yet to Connect)</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="follow-up">Follow-Up</option>
-                  <option value="callback-scheduled">Callback Scheduled</option>
-                  <option value="callback-requested">Callback Requested</option>
-                  <option value="whatsapp-sent">WhatsApp Sent</option>
-                  <option value="responded">Responded</option>
-                  <option value="negotiation">Negotiation</option>
-                  <option value="assigned">Assigned</option>
-                </optgroup>
-                <optgroup label="Outcomes & Issues">
-                  <option value="dnp">DNP (Did Not Pick)</option>
-                  <option value="busy">Busy</option>
-                  <option value="converted">Converted (Won)</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed / Lost</option>
-                </optgroup>
-              </select>
-              {statusFilter !== "all" && (
-                <button
-                  onClick={() => setStatusFilter("all")}
-                  title="Clear status filter"
-                  className="text-cyan-600 hover:text-cyan-800 p-0.5"
-                >
-                  <X size={12} />
-                </button>
+                <Filter size={11} className={selectedStatuses.length > 0 ? "text-cyan-600 shrink-0" : "text-slate-400 shrink-0"} />
+                <span className="text-[11px] font-bold text-slate-700">Status:</span>
+                <span className="text-[11px] font-semibold text-slate-800">
+                  {selectedStatuses.length === 0
+                    ? "All"
+                    : selectedStatuses.length === 1
+                    ? (STATUS_LABELS[selectedStatuses[0]] || selectedStatuses[0])
+                    : `${selectedStatuses.length} selected`}
+                </span>
+                {selectedStatuses.length > 0 && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedStatuses([]);
+                    }}
+                    title="Clear status filter"
+                    className="p-0.5 rounded-full hover:bg-cyan-100 text-cyan-700"
+                  >
+                    <X size={11} />
+                  </span>
+                )}
+                <ChevronDown size={11} className={`text-slate-400 transition-transform ${showStatusDropdown ? "rotate-180" : ""}`} />
+              </button>
+
+              {showStatusDropdown && (
+                <div className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  {/* Popover Header */}
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-800">Filter by Status</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatuses([])}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 underline"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatuses(["new", "ytc", "in-progress", "follow-up", "callback-scheduled", "whatsapp-sent"])}
+                      className="text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200 px-2 py-0.5 rounded-md hover:bg-cyan-100"
+                    >
+                      ⚡ Active Pipeline
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatuses(["dnp", "busy"])}
+                      className="text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md hover:bg-rose-100"
+                    >
+                      📵 DNP / Busy
+                    </button>
+                  </div>
+
+                  {/* Status Checkbox List */}
+                  <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                    {FILTER_STATUS_ITEMS.filter((it) => it.id !== "all").map((item) => {
+                      const isChecked = selectedStatuses.includes(item.id);
+                      return (
+                        <label
+                          key={item.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition-colors select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleStatus(item.id)}
+                            className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-3.5 h-3.5"
+                          />
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${STATUS_COLORS[item.id] || "bg-slate-100 text-slate-700"}`}>
+                            {item.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  {/* Popover Footer */}
+                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-slate-100 text-[11px]">
+                    <span className="text-slate-400">{selectedStatuses.length} selected</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowStatusDropdown(false)}
+                      className="px-3 py-1 bg-cyan-600 text-white rounded-lg font-semibold hover:bg-cyan-700"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -694,13 +822,18 @@ function EnquiriesContent() {
             <button
               onClick={() => setShowStatusChips(!showStatusChips)}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
-                showStatusChips || statusFilter !== "all"
+                showStatusChips || selectedStatuses.length > 0
                   ? "bg-slate-100 border-slate-300 text-slate-800 shadow-2xs"
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               }`}
               title="Toggle detailed status filter chips"
             >
               <span>Status Chips</span>
+              {selectedStatuses.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-cyan-600 text-white rounded-full text-[9px] font-bold">
+                  {selectedStatuses.length}
+                </span>
+              )}
               {showStatusChips ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
 
@@ -799,18 +932,37 @@ function EnquiriesContent() {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5">
-              {ALL_CHANNELS.slice(1).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setChannelFilter(channelFilter === c ? "all" : c)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium capitalize transition-colors ${
-                    channelFilter === c ? "bg-slate-800 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {CHANNEL_ICONS[c]} {c}
-                </button>
-              ))}
+            {/* Multi-select Channels */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSelectedChannels([])}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                  selectedChannels.length === 0
+                    ? "bg-slate-800 text-white shadow-2xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                All Channels
+              </button>
+              {ALL_CHANNELS.slice(1).map((c) => {
+                const isSelected = selectedChannels.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleChannel(c)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium capitalize flex items-center gap-1 transition-colors ${
+                      isSelected
+                        ? "bg-cyan-700 text-white shadow-2xs font-bold ring-1 ring-cyan-500"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {isSelected && <span className="text-[10px]">✓</span>}
+                    {CHANNEL_ICONS[c]} {c}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Date range filter */}
@@ -873,27 +1025,177 @@ function EnquiriesContent() {
           </div>
         )}
 
-        {/* Collapsible Status Chips Panel */}
+        {/* Collapsible Status Chips Panel (Multi-select) */}
         {showStatusChips && (
           <div className="flex items-center gap-1.5 flex-wrap p-3 bg-slate-50 border border-slate-200 rounded-2xl shadow-2xs transition-all">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Status Chips:</span>
-            {FILTER_STATUS_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setStatusFilter(item.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                  statusFilter === item.id
-                    ? item.id === "dnp"
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : item.id === "ytc"
-                      ? "bg-amber-600 text-white shadow-xs"
-                      : "bg-cyan-600 text-white shadow-xs"
-                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
+            <button
+              type="button"
+              onClick={() => setSelectedStatuses([])}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                selectedStatuses.length === 0
+                  ? "bg-slate-800 text-white shadow-xs font-bold"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              All Statuses
+            </button>
+            {FILTER_STATUS_ITEMS.filter((it) => it.id !== "all").map((item) => {
+              const isChecked = selectedStatuses.includes(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggleStatus(item.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                    isChecked
+                      ? item.id === "dnp"
+                        ? "bg-rose-600 text-white shadow-xs font-bold ring-2 ring-rose-300"
+                        : item.id === "ytc"
+                        ? "bg-amber-600 text-white shadow-xs font-bold ring-2 ring-amber-300"
+                        : "bg-cyan-600 text-white shadow-xs font-bold ring-2 ring-cyan-300"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="text-[10px]">{isChecked ? "✓" : "+"}</span>
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Active Filters Bar / Mix & Match Strip */}
+        {activeFiltersCount > 0 && (
+          <div className="flex items-center gap-2 flex-wrap bg-slate-100/90 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs">
+            <span className="font-bold text-slate-700 flex items-center gap-1.5 shrink-0 text-xs">
+              <Filter size={12} className="text-cyan-600" /> Active Filters ({activeFiltersCount}):
+            </span>
+
+            {/* Status pills */}
+            {selectedStatuses.map((st) => (
+              <span
+                key={st}
+                className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs"
               >
-                {item.label}
-              </button>
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                Status: {STATUS_LABELS[st] || st}
+                <button
+                  type="button"
+                  onClick={() => toggleStatus(st)}
+                  className="text-slate-400 hover:text-slate-700 ml-0.5"
+                  title="Remove status filter"
+                >
+                  <X size={11} />
+                </button>
+              </span>
             ))}
+
+            {/* Salesperson pill */}
+            {assignedFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                <User size={10} />
+                Rep: {assignedFilter === "unassigned" ? "Unassigned" : staffList.find((s) => s._id === assignedFilter)?.firstName || "Employee"}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssignedFilter("all");
+                    if (activeTab === "unassigned") setActiveTab("all");
+                  }}
+                  className="text-indigo-400 hover:text-indigo-700 ml-0.5"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+
+            {/* Lead age pill */}
+            {leadAgeFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                <Clock size={10} />
+                Age: {LEAD_AGE_OPTIONS.find((o) => o.id === leadAgeFilter)?.label || leadAgeFilter}
+                <button
+                  type="button"
+                  onClick={() => setLeadAgeFilter("all")}
+                  className="text-amber-500 hover:text-amber-800 ml-0.5"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+
+            {/* DNP pill */}
+            {dnpFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                <Phone size={10} />
+                DNP: {DNP_OPTIONS.find((o) => o.id === dnpFilter)?.label || dnpFilter}
+                <button
+                  type="button"
+                  onClick={() => setDnpFilter("all")}
+                  className="text-rose-400 hover:text-rose-700 ml-0.5"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+
+            {/* Channel pills */}
+            {selectedChannels.map((ch) => (
+              <span
+                key={ch}
+                className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs capitalize"
+              >
+                Channel: {ch}
+                <button
+                  type="button"
+                  onClick={() => toggleChannel(ch)}
+                  className="text-slate-400 hover:text-slate-700 ml-0.5"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+
+            {/* Destination pill */}
+            {destinationFilter && (
+              <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                📍 {destinationFilter}
+                <button type="button" onClick={() => setDestinationFilter("")} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+              </span>
+            )}
+
+            {/* PAX pill */}
+            {paxFilter && (
+              <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                👥 {paxFilter} PAX
+                <button type="button" onClick={() => setPaxFilter("")} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+              </span>
+            )}
+
+            {/* Date range pill */}
+            {(dateFrom || dateTo) && (
+              <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                📅 {dateFrom || "Start"} → {dateTo || "End"}
+                <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+              </span>
+            )}
+
+            {/* Search query pill */}
+            {search && (
+              <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                🔍 &ldquo;{search}&rdquo;
+                <button type="button" onClick={() => { setSearch(""); setSearchInput(""); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+              </span>
+            )}
+
+            {/* Clear all button */}
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-[11px] font-bold text-rose-600 hover:text-rose-800 ml-auto hover:underline"
+            >
+              Reset All ({activeFiltersCount})
+            </button>
           </div>
         )}
 
@@ -939,95 +1241,103 @@ function EnquiriesContent() {
               </div>
             </div>
 
-            {/* Quick Stackable Sub-Filter Pills for this Employee */}
+            {/* Quick Stackable Sub-Filter Pills for this Employee (Multi-select) */}
             <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-indigo-100 text-xs">
               <span className="text-slate-500 font-medium text-[11px] mr-1">Stack Filters:</span>
               <button
-                onClick={() => { setStatusFilter("all"); setLeadAgeFilter("all"); setDnpFilter("all"); }}
+                type="button"
+                onClick={() => { setSelectedStatuses([]); setLeadAgeFilter("all"); setDnpFilter("all"); }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  statusFilter === "all" && leadAgeFilter === "all" && dnpFilter === "all"
-                    ? "bg-indigo-700 text-white shadow-xs"
+                  selectedStatuses.length === 0 && leadAgeFilter === "all" && dnpFilter === "all"
+                    ? "bg-indigo-700 text-white shadow-xs font-bold"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 All ({enquiries.length})
               </button>
               <button
+                type="button"
                 onClick={() => setLeadAgeFilter(leadAgeFilter === "3days" ? "all" : "3days")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   leadAgeFilter === "3days"
-                    ? "bg-indigo-700 text-white shadow-xs"
+                    ? "bg-indigo-700 text-white shadow-xs font-bold"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 🌱 New Leads (&lt; 3d)
               </button>
               <button
+                type="button"
                 onClick={() => setLeadAgeFilter(leadAgeFilter === "older7days" ? "all" : "older7days")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   leadAgeFilter === "older7days"
-                    ? "bg-indigo-700 text-white shadow-xs"
+                    ? "bg-indigo-700 text-white shadow-xs font-bold"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 ⏳ Old Leads (&gt; 7d)
               </button>
               <button
-                onClick={() => setStatusFilter(statusFilter === "ytc" ? "all" : "ytc")}
+                type="button"
+                onClick={() => toggleStatus("ytc")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  statusFilter === "ytc"
-                    ? "bg-amber-600 text-white shadow-xs"
+                  selectedStatuses.includes("ytc")
+                    ? "bg-amber-600 text-white shadow-xs font-bold ring-2 ring-amber-300"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                YTC (Yet to Connect)
+                {selectedStatuses.includes("ytc") ? "✓ " : "+ "}YTC (Yet to Connect)
               </button>
               <button
-                onClick={() => setStatusFilter(statusFilter === "in-progress" ? "all" : "in-progress")}
+                type="button"
+                onClick={() => toggleStatus("in-progress")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  statusFilter === "in-progress"
-                    ? "bg-sky-600 text-white shadow-xs"
+                  selectedStatuses.includes("in-progress")
+                    ? "bg-sky-600 text-white shadow-xs font-bold ring-2 ring-sky-300"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                In Progress
+                {selectedStatuses.includes("in-progress") ? "✓ " : "+ "}In Progress
               </button>
               <button
-                onClick={() => setStatusFilter(statusFilter === "follow-up" ? "all" : "follow-up")}
+                type="button"
+                onClick={() => toggleStatus("follow-up")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  statusFilter === "follow-up"
-                    ? "bg-purple-600 text-white shadow-xs"
+                  selectedStatuses.includes("follow-up")
+                    ? "bg-purple-600 text-white shadow-xs font-bold ring-2 ring-purple-300"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                Follow-Up Due
+                {selectedStatuses.includes("follow-up") ? "✓ " : "+ "}Follow-Up Due
               </button>
               <button
-                onClick={() => setStatusFilter(statusFilter === "dnp" ? "all" : "dnp")}
+                type="button"
+                onClick={() => toggleStatus("dnp")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  statusFilter === "dnp"
-                    ? "bg-rose-600 text-white shadow-xs"
+                  selectedStatuses.includes("dnp")
+                    ? "bg-rose-600 text-white shadow-xs font-bold ring-2 ring-rose-300"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                DNP Leads
+                {selectedStatuses.includes("dnp") ? "✓ " : "+ "}DNP Leads
               </button>
               <button
-                onClick={() => setStatusFilter(statusFilter === "converted" ? "all" : "converted")}
+                type="button"
+                onClick={() => toggleStatus("converted")}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                  statusFilter === "converted"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                  selectedStatuses.includes("converted")
+                    ? "bg-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-300"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                Converted
+                {selectedStatuses.includes("converted") ? "✓ " : "+ "}Converted
               </button>
             </div>
           </div>
         )}
 
         {/* DNP Segregation Toolbar (visible whenever DNP status or DNP filter is active) */}
-        {activeTab === "all" && (statusFilter === "dnp" || dnpFilter !== "all") && (
+        {activeTab === "all" && (selectedStatuses.includes("dnp") || dnpFilter !== "all") && (
           <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-rose-800 flex items-center gap-1.5 text-xs">
@@ -1037,7 +1347,7 @@ function EnquiriesContent() {
                 {DNP_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setDnpFilter(opt.id === "all" && statusFilter !== "dnp" ? "any" : opt.id)}
+                    onClick={() => setDnpFilter(opt.id === "all" && !selectedStatuses.includes("dnp") ? "any" : opt.id)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                       (dnpFilter === opt.id) || (opt.id === "all" && (dnpFilter === "all" || dnpFilter === "any"))
                         ? "bg-rose-600 text-white shadow-xs font-bold"
@@ -1055,7 +1365,7 @@ function EnquiriesContent() {
               </span>
               <button
                 onClick={() => {
-                  setStatusFilter("all");
+                  setSelectedStatuses((prev) => prev.filter((s) => s !== "dnp"));
                   setDnpFilter("all");
                 }}
                 className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 bg-white border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1"
