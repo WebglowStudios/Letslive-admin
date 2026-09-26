@@ -150,28 +150,13 @@ function getVehicleIcon(type?: string): string {
   return ICONS.car; // default
 }
 
-// ─── Helper: Resolve At Least 3 Activity Images per Day ───────────────────────
-const FALLBACK_ACTIVITY_IMAGES = [
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1528181304800-259b08848526?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1516426122078-c23e76319801?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format&fit=crop&q=80",
-  "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=600&auto=format&fit=crop&q=80",
-];
-
+// ─── Helper: Resolve Activity / Day Images from Itinerary ─────────────────────
 interface DayImageDisplay {
   url: string;
   caption: string;
 }
 
-function resolveDayImages(day: ItineraryDay, pkg: PackageData, minCount = 3): DayImageDisplay[] {
+function resolveDayImages(day: ItineraryDay): DayImageDisplay[] {
   const images: DayImageDisplay[] = [];
   const seenUrls = new Set<string>();
 
@@ -220,7 +205,7 @@ function resolveDayImages(day: ItineraryDay, pkg: PackageData, minCount = 3): Da
     });
   }
 
-  // Extract available activity/sight titles for captions
+  // Ensure each image has a caption if missing
   const availableTitles: string[] = [];
   if (day.activities && Array.isArray(day.activities)) {
     day.activities.forEach((a) => {
@@ -238,46 +223,13 @@ function resolveDayImages(day: ItineraryDay, pkg: PackageData, minCount = 3): Da
     availableTitles.push(day.title);
   }
 
-  // 4. If fewer than minCount images, supplement from package image pools
-  if (images.length < minCount) {
-    const pkgPool: string[] = [
-      ...(pkg.activityImages || []),
-      ...(pkg.destinationImages || []),
-      ...(pkg.images || []),
-      ...(pkg.stayImages || []),
-      ...(pkg.heroImage ? [pkg.heroImage] : []),
-    ].filter((u): u is string => typeof u === "string" && u.trim().length > 0 && !seenUrls.has(u.trim()));
-
-    const dayOffset = (Math.max(1, day.day) - 1) * 3;
-    let poolIdx = 0;
-
-    while (images.length < minCount && poolIdx < pkgPool.length) {
-      const picked = pkgPool[(dayOffset + poolIdx) % pkgPool.length];
-      if (picked && !seenUrls.has(picked)) {
-        const titleForSlot = availableTitles[images.length % availableTitles.length] || `Highlight ${images.length + 1}`;
-        addImg(picked, titleForSlot);
-      }
-      poolIdx++;
-    }
-
-    // 5. If still below minCount, supplement from curated fallback photos
-    let fallbackIdx = 0;
-    while (images.length < minCount && fallbackIdx < FALLBACK_ACTIVITY_IMAGES.length) {
-      const fallbackUrl = FALLBACK_ACTIVITY_IMAGES[(dayOffset + fallbackIdx) % FALLBACK_ACTIVITY_IMAGES.length];
-      const titleForSlot = availableTitles[images.length % availableTitles.length] || `Activity ${images.length + 1}`;
-      addImg(fallbackUrl, titleForSlot);
-      fallbackIdx++;
-    }
-  }
-
-  // Ensure each image has a meaningful caption
   images.forEach((item, idx) => {
     if (!item.caption || !item.caption.trim()) {
-      item.caption = availableTitles[idx % (availableTitles.length || 1)] || `Activity ${idx + 1}`;
+      item.caption = availableTitles[idx % (availableTitles.length || 1)] || "";
     }
   });
 
-  return images.slice(0, Math.max(minCount, 3));
+  return images;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -1629,14 +1581,20 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                 </View>
               )}
 
-              {/* At least 3 Activity Images per Day Grid */}
+              {/* Activity / Itinerary Images for this day (only when images were explicitly added) */}
               {(() => {
-                const dayImgs = resolveDayImages(day, pkg, 3);
+                const dayImgs = resolveDayImages(day);
                 if (dayImgs.length === 0) return null;
                 return (
                   <View style={s.dayImgGrid}>
                     {dayImgs.map((imgItem, imgIdx) => (
-                      <View key={imgIdx} style={s.dayImgCell}>
+                      <View
+                        key={imgIdx}
+                        style={[
+                          s.dayImgCell,
+                          dayImgs.length === 1 ? { maxWidth: 220, height: 95 } : {},
+                        ]}
+                      >
                         <Image src={imgItem.url} style={s.dayImg} />
                         {imgItem.caption ? (
                           <View style={s.dayImgCaption}>
