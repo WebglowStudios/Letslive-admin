@@ -74,15 +74,6 @@ const FILTER_STATUS_ITEMS = [
   { id: "assigned", label: "Assigned" },
 ];
 
-const DNP_OPTIONS = [
-  { id: "all", label: "All DNP" },
-  { id: "1", label: "DNP 1" },
-  { id: "2", label: "DNP 2" },
-  { id: "3", label: "DNP 3" },
-  { id: "4", label: "DNP 4" },
-  { id: "5", label: "DNP 5" },
-  { id: "6+", label: "DNP 6+ (Escalate)" },
-];
 
 const LEAD_AGE_OPTIONS = [
   { id: "all", label: "All Ages" },
@@ -861,34 +852,30 @@ function EnquiriesContent() {
               )}
             </div>
 
-            {/* DNP Filter Dropdown */}
-            <div className="flex items-center gap-1.5 bg-rose-50/80 border border-rose-200/80 rounded-lg px-2.5 py-1">
-              <Phone size={11} className="text-rose-600 shrink-0" />
-              <span className="text-[11px] font-bold text-rose-800">DNP Filter:</span>
-              <select
-                value={dnpFilter}
-                onChange={(e) => setDnpFilter(e.target.value)}
-                className="bg-white border border-rose-200 text-rose-800 text-[11px] font-semibold rounded-md px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-rose-400 cursor-pointer"
-              >
-                <option value="all">None (All Leads)</option>
-                <option value="any">Any DNP (1+)</option>
-                <option value="1">DNP 1 (1st call)</option>
-                <option value="2">DNP 2 (2nd call)</option>
-                <option value="3">DNP 3 (3rd call)</option>
-                <option value="4">DNP 4 (4th call)</option>
-                <option value="5">DNP 5 (5th call)</option>
-                <option value="6+">DNP 6+ (Escalate/Drop)</option>
-              </select>
-              {dnpFilter !== "all" && (
-                <button
-                  onClick={() => setDnpFilter("all")}
-                  title="Clear DNP filter"
-                  className="text-rose-500 hover:text-rose-700 p-0.5"
-                >
-                  <X size={12} />
-                </button>
+            {/* Overall DNP Filter */}
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedStatuses.includes("dnp") || dnpFilter === "dnp") {
+                  setSelectedStatuses((prev) => prev.filter((s) => s !== "dnp"));
+                  setDnpFilter("all");
+                } else {
+                  setSelectedStatuses((prev) => Array.from(new Set([...prev, "dnp"])));
+                  setDnpFilter("dnp");
+                }
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                selectedStatuses.includes("dnp") || dnpFilter === "dnp"
+                  ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                  : "bg-rose-50/80 text-rose-800 border-rose-200/80 hover:bg-rose-100"
+              }`}
+            >
+              <Phone size={11} className={selectedStatuses.includes("dnp") || dnpFilter === "dnp" ? "text-white" : "text-rose-600"} />
+              <span>DNP Filter</span>
+              {(selectedStatuses.includes("dnp") || dnpFilter === "dnp") && (
+                <span className="text-[10px] bg-white/20 px-1 py-0.2 rounded font-semibold ml-0.5">Active</span>
               )}
-            </div>
+            </button>
 
             {/* Salesperson Filter Dropdown (Manager / Admin / Sales-Manager) */}
             {isManager && (
@@ -1125,10 +1112,10 @@ function EnquiriesContent() {
             )}
 
             {/* DNP pill */}
-            {dnpFilter !== "all" && (
+            {(dnpFilter === "dnp" || dnpFilter !== "all") && !selectedStatuses.includes("dnp") && (
               <span className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 text-rose-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
                 <Phone size={10} />
-                DNP: {DNP_OPTIONS.find((o) => o.id === dnpFilter)?.label || dnpFilter}
+                DNP Leads
                 <button
                   type="button"
                   onClick={() => setDnpFilter("all")}
@@ -1336,43 +1323,26 @@ function EnquiriesContent() {
           </div>
         )}
 
-        {/* DNP Segregation Toolbar (visible whenever DNP status or DNP filter is active) */}
-        {activeTab === "all" && (selectedStatuses.includes("dnp") || dnpFilter !== "all") && (
-          <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-rose-800 flex items-center gap-1.5 text-xs">
-                <Phone size={13} className="text-rose-600" /> DNP Segregation:
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {DNP_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setDnpFilter(opt.id === "all" && !selectedStatuses.includes("dnp") ? "any" : opt.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
-                      (dnpFilter === opt.id) || (opt.id === "all" && (dnpFilter === "all" || dnpFilter === "any"))
-                        ? "bg-rose-600 text-white shadow-xs font-bold"
-                        : "bg-white border border-rose-200 text-rose-700 hover:bg-rose-100"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* DNP Filter Active Banner */}
+        {activeTab === "all" && (selectedStatuses.includes("dnp") || dnpFilter === "dnp") && (
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-rose-700 font-medium">
-                {enquiries.length} enquiry{enquiries.length === 1 ? "" : "ies"} found
+              <span className="font-bold text-rose-800 flex items-center gap-1.5 text-xs">
+                <Phone size={13} className="text-rose-600" /> DNP Filter Active:
               </span>
-              <button
-                onClick={() => {
-                  setSelectedStatuses((prev) => prev.filter((s) => s !== "dnp"));
-                  setDnpFilter("all");
-                }}
-                className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 bg-white border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1"
-              >
-                <X size={11} /> Reset DNP Filter
-              </button>
+              <span className="text-[11px] text-rose-700 font-medium">
+                Showing all {enquiries.length} client{enquiries.length === 1 ? "" : "s"} currently in DNP status
+              </span>
             </div>
+            <button
+              onClick={() => {
+                setSelectedStatuses((prev) => prev.filter((s) => s !== "dnp"));
+                setDnpFilter("all");
+              }}
+              className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 bg-white border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer"
+            >
+              <X size={11} /> Clear DNP Filter
+            </button>
           </div>
         )}
 
@@ -1469,14 +1439,14 @@ function EnquiriesContent() {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${PRIORITY_COLORS[e.priority] || ""}`}>
                           {e.priority}
                         </span>
-                        {/* DNP badge - only show for active leads (not closed/lost, resolved, or converted) */}
-                        {e.dnpCount > 0 && e.status !== "closed" && e.status !== "resolved" && e.status !== "converted" && (
+                        {/* DNP badge - only show when client status is currently DNP */}
+                        {e.status === "dnp" && (
                           <span className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            e.dnpCount >= 6 ? "bg-red-100 text-red-700" :
-                            e.dnpCount >= 3 ? "bg-orange-100 text-orange-700" :
+                            (e.dnpCount || 0) >= 6 ? "bg-red-100 text-red-700" :
+                            (e.dnpCount || 0) >= 3 ? "bg-orange-100 text-orange-700" :
                             "bg-orange-50 text-orange-600"
                           }`}>
-                            <Phone size={9} /> DNP {e.dnpCount}
+                            <Phone size={9} /> DNP {e.dnpCount > 0 ? e.dnpCount : 1}
                           </span>
                         )}
                         {e.channel && (
