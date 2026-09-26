@@ -1469,8 +1469,8 @@ function EnquiriesContent() {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${PRIORITY_COLORS[e.priority] || ""}`}>
                           {e.priority}
                         </span>
-                        {/* DNP badge */}
-                        {e.dnpCount > 0 && (
+                        {/* DNP badge - only show for active leads (not closed/lost, resolved, or converted) */}
+                        {e.dnpCount > 0 && e.status !== "closed" && e.status !== "resolved" && e.status !== "converted" && (
                           <span className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             e.dnpCount >= 6 ? "bg-red-100 text-red-700" :
                             e.dnpCount >= 3 ? "bg-orange-100 text-orange-700" :
