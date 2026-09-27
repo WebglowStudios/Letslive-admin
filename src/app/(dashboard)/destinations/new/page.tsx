@@ -3,10 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
+import IconPicker from "@/components/ui/IconPicker";
+
+interface WhyVisitEntry {
+  icon: string;
+  title: string;
+  description: string;
+}
 
 export default function NewDestinationPage() {
   const router = useRouter();
@@ -27,6 +34,19 @@ export default function NewDestinationPage() {
   const [visaType, setVisaType] = useState("free");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [whyVisit, setWhyVisit] = useState<WhyVisitEntry[]>([]);
+
+  function addWhyVisit() {
+    setWhyVisit([...whyVisit, { icon: "", title: "", description: "" }]);
+  }
+  function removeWhyVisit(index: number) {
+    setWhyVisit(whyVisit.filter((_, i) => i !== index));
+  }
+  function updateWhyVisit(index: number, field: string, value: string) {
+    const updated = [...whyVisit];
+    updated[index] = { ...updated[index], [field]: value };
+    setWhyVisit(updated);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +69,7 @@ export default function NewDestinationPage() {
         visaType,
         isFeatured,
         isActive,
+        whyVisit: whyVisit.filter((w) => w.title.trim() || w.icon.trim()),
       };
 
       const res = await api.post("/destinations", payload);
@@ -207,6 +228,84 @@ export default function NewDestinationPage() {
               <option value="on-arrival">Visa on Arrival</option>
               <option value="required">Visa Required</option>
             </select>
+          </div>
+
+          {/* Why Visit Section */}
+          <div className="pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Why Visit Section</p>
+                <p className="text-xs text-slate-400">Cards showing key reasons to visit this destination</p>
+              </div>
+              <button
+                type="button"
+                onClick={addWhyVisit}
+                className="flex items-center gap-1 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100 transition-colors"
+              >
+                <Plus size={14} /> Add Card
+              </button>
+            </div>
+            <div className="space-y-4">
+              {whyVisit.map((entry, i) => (
+                <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-cyan-700">Card {i + 1}</span>
+                      {entry.icon && (
+                        <span className="material-symbols-rounded text-base text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-100 leading-none">
+                          {entry.icon.toLowerCase().replace(/[\s-]+/g, "_")}
+                        </span>
+                      )}
+                      {entry.title && (
+                        <span className="text-xs text-slate-500 font-medium truncate max-w-[220px]">
+                          — {entry.title}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeWhyVisit(i)}
+                      className="p-1 text-red-400 hover:text-red-600"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 mb-1 block">Icon (Preloaded Dropdown)</label>
+                      <IconPicker
+                        value={entry.icon}
+                        onChange={(icon) => updateWhyVisit(i, "icon", icon)}
+                        placeholder="Select an icon..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 mb-1 block">Title</label>
+                      <input
+                        type="text"
+                        value={entry.title}
+                        onChange={(e) => updateWhyVisit(i, "title", e.target.value)}
+                        placeholder="e.g. Grand Forts & Palaces"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 mb-1 block">Description</label>
+                    <textarea
+                      value={entry.description}
+                      onChange={(e) => updateWhyVisit(i, "description", e.target.value)}
+                      placeholder="Brief description..."
+                      rows={2}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+                    />
+                  </div>
+                </div>
+              ))}
+              {whyVisit.length === 0 && (
+                <p className="text-xs text-slate-400 italic">No why-visit cards added yet. Click &quot;Add Card&quot; to highlight features.</p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-6">

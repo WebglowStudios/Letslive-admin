@@ -16,6 +16,7 @@ import TextTemplateControls from "@/components/ui/TextTemplateControls";
 import { DayTemplateModal } from "@/components/ui/DayTemplateModal";
 import { SaveDayTemplateModal } from "@/components/ui/SaveDayTemplateModal";
 import { useRecentEdits } from "@/hooks/useRecentEdits";
+import BadgeSelect from "@/components/ui/BadgeSelect";
 
 interface ItineraryDay {
   day: number;
@@ -874,10 +875,7 @@ export default function EditPackagePage() {
                   <input type="number" value={discount} onChange={(e) => handleDiscountChange(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder={discountType === "percent" ? "20" : "5000"} />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Badge</label>
-                <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-              </div>
+              <BadgeSelect value={badge} onChange={setBadge} />
               <div className="flex flex-wrap items-center gap-6 mt-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />

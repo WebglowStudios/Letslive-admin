@@ -8,6 +8,7 @@ import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
 import ImageUpload, { MultiImageUpload } from "@/components/ui/ImageUpload";
+import IconPicker from "@/components/ui/IconPicker";
 
 interface WhyVisitEntry {
   icon: string;
@@ -396,13 +397,29 @@ export default function EditDestinationPage() {
                   {whyVisit.map((entry, i) => (
                     <div key={i} className="border border-slate-200 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-cyan-700">Card {i + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-cyan-700">Card {i + 1}</span>
+                          {entry.icon && (
+                            <span className="material-symbols-rounded text-base text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-100 leading-none">
+                              {entry.icon.toLowerCase().replace(/[\s-]+/g, "_")}
+                            </span>
+                          )}
+                          {entry.title && (
+                            <span className="text-xs text-slate-500 font-medium truncate max-w-[220px]">
+                              — {entry.title}
+                            </span>
+                          )}
+                        </div>
                         <button type="button" onClick={() => removeWhyVisit(i)} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-medium text-slate-500 mb-1 block">Icon (Material Symbol)</label>
-                          <input type="text" value={entry.icon} onChange={(e) => updateWhyVisit(i, "icon", e.target.value)} placeholder="e.g. wb_sunny" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                          <label className="text-xs font-medium text-slate-500 mb-1 block">Icon (Preloaded Dropdown)</label>
+                          <IconPicker
+                            value={entry.icon}
+                            onChange={(icon) => updateWhyVisit(i, "icon", icon)}
+                            placeholder="Select an icon..."
+                          />
                         </div>
                         <div>
                           <label className="text-xs font-medium text-slate-500 mb-1 block">Title</label>
