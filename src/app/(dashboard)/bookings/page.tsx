@@ -4,16 +4,28 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Booking } from "@/types";
-import { Search, Filter, ExternalLink } from "lucide-react";
+import { Search, Filter, ExternalLink, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
 
+const STATUS_OPTIONS = [
+  { id: "all", label: "All Active", activeLabel: "All Bookings" },
+  { id: "confirmed", label: "Guest Confirmed" },
+  { id: "staff-confirmed", label: "Staff Confirmed" },
+  { id: "vendor-confirmed", label: "Vendor Confirmed" },
+  { id: "in-progress", label: "In Progress" },
+  { id: "completed", label: "Completed" },
+  { id: "pending", label: "Pending" },
+  { id: "cancelled", label: "Cancelled" },
+];
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showPendingCancelled, setShowPendingCancelled] = useState(false);
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [activeTab, setActiveTab] = useState("single");
@@ -23,11 +35,14 @@ export default function BookingsPage() {
 
   useEffect(() => {
     if (activeTab === "single") {
-      fetchBookings();
+      const timer = setTimeout(() => {
+        fetchBookings();
+      }, 250);
+      return () => clearTimeout(timer);
     } else {
       fetchGroupPackages();
     }
-  }, [statusFilter, page, activeTab]);
+  }, [statusFilter, showPendingCancelled, search, page, activeTab]);
 
   async function fetchGroupPackages() {
     setLoadingGroups(true);
@@ -45,7 +60,15 @@ export default function BookingsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: "10" });
-      if (statusFilter !== "all") params.set("bookingStatus", statusFilter);
+      if (statusFilter !== "all") {
+        params.set("bookingStatus", statusFilter);
+      }
+      if (showPendingCancelled) {
+        params.set("includeInactive", "true");
+      }
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
       const res = await api.get(`/bookings/all?${params}`);
       setBookings(res?.data || []);
       setTotalPages(res?.pages || 1);
@@ -110,49 +133,176 @@ export default function BookingsPage() {
         {activeTab === "single" ? (
           <>
             {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 flex-1 max-w-sm">
-            <Search size={16} className="text-slate-400" />
-            <input type="text" placeholder="Search bookings..." className="bg-transparent border-none outline-none text-sm w-full" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter size={16} className="text-slate-400" />
-            {["all", "pending", "confirmed", "staff-confirmed", "vendor-confirmed", "completed", "cancelled"].map((s) => (
-              <button
-                key={s}
-                onClick={() => { setStatusFilter(s); setPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  statusFilter === s ? "bg-cyan-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {s === 'confirmed' ? 'Guest Confirmed' : s === 'staff-confirmed' ? 'Staff Confirmed' : s === 'vendor-confirmed' ? 'Vendor Confirmed' : s.replace("-", " ")}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Search */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 flex-1 max-w-sm focus-within:ring-2 focus-within:ring-cyan-500/20 focus-within:border-cyan-500 transition-all">
+                  <Search size={16} className="text-slate-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Search bookings by ID, customer, email..."
+                    className="bg-transparent border-none outline-none text-sm w-full text-slate-800 placeholder:text-slate-400"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setPage(1);
+                      }}
+                      className="text-xs text-slate-400 hover:text-slate-600 px-1"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50">
-                  <th className="px-6 py-3">Customer</th>
-                  <th className="px-6 py-3">Package</th>
-                  <th className="px-6 py-3">Travel Date</th>
-                  <th className="px-6 py-3">Amount</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Payment</th>
-                  {canUpdate && <th className="px-6 py-3">Actions</th>}
-                  <th className="px-6 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
-                ) : bookings.length === 0 ? (
-                  <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">No bookings found</td></tr>
-                ) : (
+                {/* Toggle for Cancelled & Pending */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPendingCancelled((prev) => !prev);
+                    setPage(1);
+                  }}
+                  className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all shadow-sm ${
+                    showPendingCancelled
+                      ? "bg-amber-50 border-amber-300 text-amber-900 ring-2 ring-amber-500/20"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                  }`}
+                  title="Cancelled and pending bookings are hidden normally. Toggle to show or hide them."
+                >
+                  {showPendingCancelled ? (
+                    <Eye size={15} className="text-amber-600 shrink-0" />
+                  ) : (
+                    <EyeOff size={15} className="text-slate-400 shrink-0" />
+                  )}
+                  <span>Show Cancelled &amp; Pending</span>
+                  <div
+                    className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      showPendingCancelled ? "bg-amber-500" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        showPendingCancelled ? "translate-x-3" : "translate-x-0"
+                      }`}
+                    />
+                  </div>
+                </button>
+              </div>
+
+              {/* Status Tabs */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 mr-1">
+                  <Filter size={14} />
+                  <span className="font-medium">Status:</span>
+                </div>
+                {STATUS_OPTIONS.map((item) => {
+                  const isActive = statusFilter === item.id;
+                  const label =
+                    item.id === "all"
+                      ? showPendingCancelled
+                        ? "All Bookings"
+                        : "All Active"
+                      : item.label;
+
+                  const isInactiveStatus = item.id === "pending" || item.id === "cancelled";
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setStatusFilter(item.id);
+                        setPage(1);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        isActive
+                          ? "bg-cyan-600 text-white shadow-sm"
+                          : isInactiveStatus && !showPendingCancelled
+                          ? "bg-white border border-dashed border-slate-300 text-slate-500 hover:bg-slate-50 hover:border-slate-400"
+                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Context notification */}
+              {!showPendingCancelled && (statusFilter === "all" || !["pending", "cancelled"].includes(statusFilter)) && (
+                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 rounded-md px-2.5 py-1 w-fit">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Cancelled &amp; pending bookings are hidden by default. Use the toggle above or select a status tab to view them.</span>
+                </div>
+              )}
+              {showPendingCancelled && (
+                <div className="text-[11px] text-amber-800 bg-amber-50/80 border border-amber-200 rounded-md px-2.5 py-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    Displaying all bookings including pending and cancelled.
+                  </span>
+                  <button
+                    onClick={() => {
+                      setShowPendingCancelled(false);
+                      setPage(1);
+                    }}
+                    className="font-semibold underline hover:text-amber-950 ml-2"
+                  >
+                    Hide them
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Table */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50">
+                      <th className="px-6 py-3">Customer</th>
+                      <th className="px-6 py-3">Package</th>
+                      <th className="px-6 py-3">Travel Date</th>
+                      <th className="px-6 py-3">Amount</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3">Payment</th>
+                      {canUpdate && <th className="px-6 py-3">Actions</th>}
+                      <th className="px-6 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {loading ? (
+                      <tr><td colSpan={canUpdate ? 8 : 7} className="px-6 py-12 text-center text-sm text-slate-400">Loading...</td></tr>
+                    ) : bookings.length === 0 ? (
+                      <tr>
+                        <td colSpan={canUpdate ? 8 : 7} className="px-6 py-12 text-center text-sm text-slate-400">
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <p className="font-medium text-slate-600">No bookings found</p>
+                            {!showPendingCancelled && (statusFilter === "all" || !["pending", "cancelled"].includes(statusFilter)) && (
+                              <div className="text-xs text-slate-400">
+                                Cancelled and pending bookings are currently hidden.
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowPendingCancelled(true);
+                                    setPage(1);
+                                  }}
+                                  className="ml-1 text-cyan-600 hover:text-cyan-700 underline font-medium"
+                                >
+                                  Show pending &amp; cancelled bookings
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
                   bookings.map((b) => {
                     const user = typeof b.user === "object" ? b.user : null;
                     const primary = b.primaryTraveller;
@@ -171,6 +321,11 @@ export default function BookingsPage() {
                         <td className="px-6 py-4">
                           <p className="text-sm font-medium text-slate-700">{displayName}</p>
                           <p className="text-xs text-slate-400">{displayEmail}</p>
+                          {b.bookingId && (
+                            <span className="inline-block mt-0.5 text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                              #{b.bookingId}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600 max-w-[180px] truncate">{pkg?.name || "—"}</td>
                         <td className="px-6 py-4 text-sm text-slate-500">{formatDate(b.travelDate)}</td>
