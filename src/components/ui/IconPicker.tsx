@@ -19,18 +19,66 @@ export interface CuratedIcon {
   keywords: string[];
 }
 
+export const ICON_ALIAS_MAP: Record<string, string> = {
+  heritage: "castle",
+  history: "history_edu",
+  historic: "history_edu",
+  culture: "history_edu",
+  cultural: "history_edu",
+  monument: "account_balance",
+  palace: "castle",
+  citadel: "fort",
+  food: "restaurant",
+  dining: "restaurant",
+  cuisine: "restaurant",
+  culinary: "restaurant",
+  streetfood: "local_dining",
+  street_food: "local_dining",
+  drinks: "local_bar",
+  drink: "local_bar",
+  nature: "landscape",
+  mountain: "landscape",
+  mountains: "landscape",
+  beach: "beach_access",
+  beaches: "beach_access",
+  sea: "waves",
+  ocean: "waves",
+  adventure: "explore",
+  trek: "hiking",
+  trekking: "hiking",
+  hotel: "hotel",
+  stay: "bed",
+  resort: "hotel_class",
+  flight: "flight",
+  plane: "flight",
+  safari: "pets",
+  wildlife: "pets",
+  shopping: "shopping_bag",
+  market: "shopping_bag",
+  bazaar: "shopping_bag",
+  spa: "spa",
+  wellness: "spa",
+  nightlife: "nightlife",
+  party: "celebration",
+};
+
+export function resolveIconName(raw: string): string {
+  const clean = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return ICON_ALIAS_MAP[clean] || clean;
+}
+
 export const CURATED_ICONS: CuratedIcon[] = [
   // ─── Heritage & Landmarks ────────────────────────────────────────────────
-  { id: "castle", name: "Castle & Palace", category: "Heritage", keywords: ["castle", "palace", "fort", "royal", "heritage", "monument"] },
-  { id: "fort", name: "Historic Fort", category: "Heritage", keywords: ["fort", "citadel", "fortress", "bastion", "walls"] },
+  { id: "castle", name: "Heritage & Castle", category: "Heritage", keywords: ["castle", "palace", "fort", "royal", "heritage", "monument", "unesco", "walled", "old city"] },
+  { id: "fort", name: "Historic Fort & Citadel", category: "Heritage", keywords: ["fort", "citadel", "fortress", "bastion", "walls", "heritage"] },
   { id: "temple_buddhist", name: "Buddhist Monastery", category: "Heritage", keywords: ["temple", "buddhist", "monastery", "zen", "ladakh", "himalaya"] },
   { id: "temple_hindu", name: "Hindu Temple", category: "Heritage", keywords: ["temple", "hindu", "mandir", "devbhoomi", "sacred", "spiritual", "shrine"] },
   { id: "mosque", name: "Mosque & Minaret", category: "Heritage", keywords: ["mosque", "masjid", "islamic", "monument", "architecture"] },
   { id: "church", name: "Church & Cathedral", category: "Heritage", keywords: ["church", "cathedral", "chapel", "christian", "historic"] },
   { id: "museum", name: "Museum & Exhibits", category: "Heritage", keywords: ["museum", "art", "exhibit", "history", "artifacts"] },
-  { id: "monument", name: "Monuments & Memorials", category: "Heritage", keywords: ["monument", "statue", "memorial", "landmark"] },
-  { id: "account_balance", name: "Classic Heritage", category: "Heritage", keywords: ["pillars", "architecture", "heritage", "palace", "government"] },
-  { id: "history_edu", name: "Ancient History", category: "Heritage", keywords: ["history", "scroll", "culture", "ancient", "learning"] },
+  { id: "monument", name: "Monuments & Memorials", category: "Heritage", keywords: ["monument", "statue", "memorial", "landmark", "heritage"] },
+  { id: "account_balance", name: "Classic Heritage Pillars", category: "Heritage", keywords: ["pillars", "architecture", "heritage", "palace", "government", "monument"] },
+  { id: "history_edu", name: "Ancient History & Culture", category: "Heritage", keywords: ["history", "scroll", "culture", "ancient", "learning", "historic"] },
   { id: "architecture", name: "Iconic Architecture", category: "Heritage", keywords: ["architecture", "building", "modern", "design", "structure"] },
   { id: "palette", name: "Art & Handicrafts", category: "Heritage", keywords: ["art", "craft", "painting", "handicraft", "pottery", "culture"] },
 
@@ -158,10 +206,10 @@ export default function IconPicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Normalize currently selected value: trim, lowercase, replace spaces/hyphens with underscore
+  // Normalize currently selected value: trim, lowercase, replace spaces/hyphens with underscore, map aliases
   const normalizedValue = useMemo(() => {
     if (!value) return "";
-    return value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    return resolveIconName(value);
   }, [value]);
 
   // Find if currently selected value matches one of our curated items
@@ -215,7 +263,7 @@ export default function IconPicker({
   }, [isOpen]);
 
   const handleSelect = (iconId: string) => {
-    const clean = iconId.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const clean = resolveIconName(iconId);
     onChange(clean);
     setIsOpen(false);
   };
@@ -223,7 +271,7 @@ export default function IconPicker({
   const handleApplyCustom = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!customInput.trim()) return;
-    const clean = customInput.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const clean = resolveIconName(customInput);
     onChange(clean);
     setCustomInput("");
     setIsOpen(false);
@@ -235,7 +283,9 @@ export default function IconPicker({
   };
 
   const normalizedCustomInput = customInput.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const resolvedCustomInput = resolveIconName(normalizedCustomInput);
   const normalizedSearch = search.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const resolvedSearch = resolveIconName(normalizedSearch);
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -384,13 +434,13 @@ export default function IconPicker({
               {normalizedSearch && (
                 <button
                   type="button"
-                  onClick={() => handleSelect(normalizedSearch)}
+                  onClick={() => handleSelect(resolvedSearch)}
                   className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-50 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100 border border-cyan-200 transition-colors"
                 >
                   <span className="material-symbols-rounded text-[18px]">
-                    {normalizedSearch}
+                    {resolvedSearch}
                   </span>
-                  Use &quot;{normalizedSearch}&quot; as custom icon
+                  Use &quot;{resolvedSearch}&quot; as icon
                 </button>
               )}
             </div>
@@ -399,7 +449,7 @@ export default function IconPicker({
           {/* Custom Icon Entry Input */}
           <div className="pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
-              <span>Custom Material Symbol:</span>
+              <span>Custom Material Symbol / Name:</span>
               <span className="text-[10px] text-slate-400">Live preview</span>
             </div>
             <form onSubmit={handleApplyCustom} className="flex items-center gap-2">
@@ -408,7 +458,7 @@ export default function IconPicker({
                   type="text"
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}
-                  placeholder="e.g. castle, kayak, fort..."
+                  placeholder="e.g. castle, restaurant, fort..."
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
                 />
               </div>
@@ -416,11 +466,11 @@ export default function IconPicker({
               {/* Instant Live Preview Badge */}
               <div
                 className="w-8 h-8 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center shrink-0 text-cyan-700"
-                title="Icon preview"
+                title={resolvedCustomInput !== normalizedCustomInput ? `Mapped "${normalizedCustomInput}" → "${resolvedCustomInput}"` : "Icon preview"}
               >
-                {normalizedCustomInput ? (
+                {resolvedCustomInput ? (
                   <span className="material-symbols-rounded text-[20px] select-none">
-                    {normalizedCustomInput}
+                    {resolvedCustomInput}
                   </span>
                 ) : (
                   <span className="text-xs text-slate-300 font-mono">?</span>
@@ -435,6 +485,12 @@ export default function IconPicker({
                 Apply
               </button>
             </form>
+            {normalizedCustomInput && resolvedCustomInput !== normalizedCustomInput && (
+              <p className="text-[10px] text-cyan-700 mt-1 font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                Auto-mapping &ldquo;{normalizedCustomInput}&rdquo; → &ldquo;{resolvedCustomInput}&rdquo;
+              </p>
+            )}
           </div>
         </div>
       )}
