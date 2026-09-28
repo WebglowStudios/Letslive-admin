@@ -25,7 +25,6 @@ export const ICON_ALIAS_MAP: Record<string, string> = {
   historic: "history_edu",
   culture: "history_edu",
   cultural: "history_edu",
-  monument: "account_balance",
   palace: "castle",
   citadel: "fort",
   food: "restaurant",
@@ -46,26 +45,18 @@ export const ICON_ALIAS_MAP: Record<string, string> = {
   adventure: "explore",
   trek: "hiking",
   trekking: "hiking",
-  hotel: "hotel",
+  hotel: "hotel_class",
   stay: "bed",
   resort: "hotel_class",
-  flight: "flight",
   plane: "flight",
   safari: "pets",
   wildlife: "pets",
   shopping: "shopping_bag",
   market: "shopping_bag",
   bazaar: "shopping_bag",
-  spa: "spa",
   wellness: "spa",
-  nightlife: "nightlife",
   party: "celebration",
 };
-
-export function resolveIconName(raw: string): string {
-  const clean = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
-  return ICON_ALIAS_MAP[clean] || clean;
-}
 
 export const CURATED_ICONS: CuratedIcon[] = [
   // ─── Heritage & Landmarks ────────────────────────────────────────────────
@@ -170,6 +161,18 @@ export const CURATED_ICONS: CuratedIcon[] = [
   { id: "favorite", name: "Traveler Favorite", category: "Badges", keywords: ["favorite", "heart", "loved", "popular"] },
 ];
 
+export const CURATED_ICON_IDS = new Set<string>(CURATED_ICONS.map((i) => i.id));
+
+export function resolveIconName(raw: string): string {
+  if (!raw) return "";
+  const clean = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  // If already an exact curated icon, keep it 100% intact
+  if (CURATED_ICON_IDS.has(clean)) {
+    return clean;
+  }
+  return ICON_ALIAS_MAP[clean] || clean;
+}
+
 const CATEGORIES = [
   "All",
   "Heritage",
@@ -263,7 +266,7 @@ export default function IconPicker({
   }, [isOpen]);
 
   const handleSelect = (iconId: string) => {
-    const clean = resolveIconName(iconId);
+    const clean = iconId.trim().toLowerCase().replace(/[\s-]+/g, "_");
     onChange(clean);
     setIsOpen(false);
   };
