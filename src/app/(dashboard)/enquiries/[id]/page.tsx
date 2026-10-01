@@ -187,6 +187,7 @@ function MarkLostModal({ id, onClose, onSave }: { id: string; onClose: () => voi
   const [saving, setSaving] = useState(false);
 
   const reasons = [
+    { value: "wrong-phone-number", label: "Wrong Phone Number" },
     { value: "no-budget", label: "No Budget" },
     { value: "went-elsewhere", label: "Went Elsewhere / Booked Another" },
     { value: "not-responding", label: "Not Responding (DNP)" },

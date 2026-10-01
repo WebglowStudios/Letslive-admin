@@ -437,6 +437,7 @@ function EnquiriesContent() {
   const user = useAuthStore((s) => s.user);
   const isStaffOnly = user?.role === "staff" || user?.role === "sales-staff";
   const isManager = user?.role === "admin" || user?.role === "manager" || user?.role === "sales-manager";
+  const isUnassignedActive = activeTab === "unassigned" || assignedFilter === "unassigned";
 
   // Staff list with active workload counts (manager+ only)
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string; email?: string; role?: string; activeLeadsCount?: number }[]>([]);
@@ -484,9 +485,13 @@ function EnquiriesContent() {
         if (dateFrom) params.set("from", dateFrom);
         if (dateTo) params.set("to", dateTo);
         if (destinationFilter) params.set("destination", destinationFilter);
-        if (paxFilter) params.set("travellerCount", paxFilter);
         const res = await api.get(`${endpoint}?${params}`);
-        setEnquiries(res?.data || []);
+        const isUnassigned = activeTab === "unassigned" || assignedFilter === "unassigned";
+        let data = res?.data || [];
+        if (isUnassigned) {
+          data = data.filter((e: Enquiry) => e.status !== "closed");
+        }
+        setEnquiries(data);
       }
     } catch {
       setEnquiries([]);
@@ -617,6 +622,7 @@ function EnquiriesContent() {
                 setActiveTab(tab.id as "all" | "unassigned" | "follow-ups");
                 if (tab.id === "unassigned") {
                   setAssignedFilter("unassigned");
+                  setSelectedStatuses((prev) => prev.filter((s) => s !== "closed"));
                 } else if (activeTab === "unassigned" && tab.id === "all") {
                   setAssignedFilter("all");
                 }
@@ -773,7 +779,7 @@ function EnquiriesContent() {
 
                   {/* Status Checkbox List */}
                   <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                    {FILTER_STATUS_ITEMS.filter((it) => it.id !== "all").map((item) => {
+                    {FILTER_STATUS_ITEMS.filter((it) => it.id !== "all" && (!isUnassignedActive || it.id !== "closed")).map((item) => {
                       const isChecked = selectedStatuses.includes(item.id);
                       return (
                         <label
@@ -891,8 +897,12 @@ function EnquiriesContent() {
                   onChange={(e) => {
                     const val = e.target.value;
                     setAssignedFilter(val);
-                    if (val === "unassigned") setActiveTab("unassigned");
-                    else if (activeTab === "unassigned") setActiveTab("all");
+                    if (val === "unassigned") {
+                      setActiveTab("unassigned");
+                      setSelectedStatuses((prev) => prev.filter((s) => s !== "closed"));
+                    } else if (activeTab === "unassigned") {
+                      setActiveTab("all");
+                    }
                   }}
                   className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer max-w-[200px]"
                 >
@@ -1027,7 +1037,7 @@ function EnquiriesContent() {
             >
               All Statuses
             </button>
-            {FILTER_STATUS_ITEMS.filter((it) => it.id !== "all").map((item) => {
+            {FILTER_STATUS_ITEMS.filter((it) => it.id !== "all" && (!isUnassignedActive || it.id !== "closed")).map((item) => {
               const isChecked = selectedStatuses.includes(item.id);
               return (
                 <button
