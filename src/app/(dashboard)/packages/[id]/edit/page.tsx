@@ -375,7 +375,7 @@ export default function EditPackagePage() {
                 amenities: s.amenities || [],
                 checkIn: s.checkIn || "",
                 checkOut: s.checkOut || "",
-                address: s.address || "",
+                address: s.address || (s as any).location || (s as any).city || "",
                 confirmationNo: s.confirmationNo || "",
                 remark: s.remark || s.remarks || "",
                 showRemarkToCustomer: s.showRemarkToCustomer ?? false,

@@ -333,7 +333,7 @@ export default function EditCustomItineraryPage() {
       );
       setStays(
         p.stays?.length > 0
-          ? p.stays.map((s: any, i: number) => ({ _key: Date.now() + i + 1000, name: s.name || "", rating: s.rating || "", nights: s.nights || 0, roomType: s.roomType || "", rooms: s.rooms || 0, checkIn: s.checkIn || "", checkOut: s.checkOut || "", address: s.address || "", confirmationNo: s.confirmationNo || "", amenities: s.amenities || [], remark: s.remark || s.remarks || "", showRemarkToCustomer: s.showRemarkToCustomer ?? false }))
+          ? p.stays.map((s: any, i: number) => ({ _key: Date.now() + i + 1000, name: s.name || "", rating: s.rating || "", nights: s.nights || 0, roomType: s.roomType || "", rooms: s.rooms || 0, checkIn: s.checkIn || "", checkOut: s.checkOut || "", address: s.address || s.location || s.city || "", confirmationNo: s.confirmationNo || "", amenities: s.amenities || [], remark: s.remark || s.remarks || "", showRemarkToCustomer: s.showRemarkToCustomer ?? false }))
           : []
       );
       setTransfers(

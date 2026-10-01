@@ -174,7 +174,7 @@ export default function NewCustomItineraryPage() {
           amenities: s.amenities || [],
           checkIn: s.checkIn || "",
           checkOut: s.checkOut || "",
-          address: s.address || "",
+          address: s.address || s.location || s.city || "",
           confirmationNo: s.confirmationNo || "",
           remark: s.remark || s.remarks || "",
           showRemarkToCustomer: s.showRemarkToCustomer ?? false,

@@ -651,6 +651,7 @@ function DuplicateItineraryModal({ enquiryId, onClose }: { enquiryId: string; on
       const res = await api.post(`/packages/${selectedPackage}/duplicate`, { enquiryId });
       const newPackage = res?.data?.data || res?.data;
       if (newPackage?._id) {
+        onClose();
         router.push(`/itineraries/${newPackage._id}/edit`);
       } else {
         onClose();
@@ -2475,71 +2476,84 @@ export default function EnquiryDetailPage() {
                       {/* Linked Custom Itineraries */}
                       {enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0 ? (
                         <div className="space-y-2 mt-2">
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Linked Itineraries</p>
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                            Linked Itineraries ({enquiry.linkedItineraries.length})
+                          </p>
                           {enquiry.linkedItineraries.map((pkg) => (
-                            <div key={pkg._id} className="flex flex-col gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <p className="flex items-center gap-2 text-sm text-cyan-800 font-semibold leading-tight">
-                                  <Package size={14} className="shrink-0 text-cyan-600" /> {pkg.name}
-                                </p>
+                            <div key={pkg._id} className="flex flex-col gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-1.5 min-w-0">
+                                  <Package size={14} className="shrink-0 text-cyan-600 mt-0.5" />
+                                  <p className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2" title={pkg.name}>
+                                    {pkg.name}
+                                  </p>
+                                </div>
                                 {pkg.price ? (
-                                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 whitespace-nowrap">
                                     ₹{pkg.price.toLocaleString('en-IN')}
                                   </span>
                                 ) : null}
                               </div>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOfflinePrefilledPackage({
-                                      _id: pkg._id,
-                                      name: pkg.name,
-                                      price: pkg.price,
-                                      isInternational: (pkg as any).isInternational,
-                                    });
-                                    setShowOfflineModal(true);
-                                  }}
-                                  className="flex-1 text-center text-xs bg-emerald-50 border border-emerald-300 text-emerald-700 py-1.5 rounded-md hover:bg-emerald-100 transition-colors font-bold shadow-sm"
-                                  title="Proceed to manual booking for this itinerary"
-                                >
-                                  Book Offline
-                                </button>
+
+                              {/* Primary Action: Book Offline */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOfflinePrefilledPackage({
+                                    _id: pkg._id,
+                                    name: pkg.name,
+                                    price: pkg.price,
+                                    isInternational: (pkg as any).isInternational,
+                                  });
+                                  setShowOfflineModal(true);
+                                }}
+                                className="w-full flex items-center justify-center gap-1.5 text-xs bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-300 text-emerald-800 py-1.5 px-3 rounded-lg font-bold shadow-xs transition-colors"
+                                title="Proceed to manual booking for this itinerary"
+                              >
+                                <Banknote size={13} className="text-emerald-600" />
+                                <span>Book Offline</span>
+                              </button>
+
+                              {/* Secondary Actions Toolbar */}
+                              <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-slate-200/60">
                                 <button
                                   type="button"
                                   onClick={() => handleCopyItineraryLink(pkg._id)}
-                                  className="flex-1 flex items-center justify-center gap-1 text-center text-xs bg-white border border-slate-200 text-slate-700 py-1.5 rounded-md hover:bg-slate-50 transition-colors font-medium shadow-sm"
+                                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 h-7 rounded-md transition-colors shadow-2xs"
                                   title="Copy customer itinerary link"
                                 >
-                                  <Copy size={12} className={copiedItineraryId === pkg._id ? "text-emerald-600" : "text-slate-500"} />
-                                  {copiedItineraryId === pkg._id ? "Copied!" : "Copy"}
+                                  <Copy size={11} className={copiedItineraryId === pkg._id ? "text-emerald-600" : "text-slate-500"} />
+                                  <span className="truncate">{copiedItineraryId === pkg._id ? "Copied!" : "Copy"}</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDownloadItineraryPdf(pkg._id)}
                                   disabled={downloadingPdfId === pkg._id}
-                                  className="flex-1 flex items-center justify-center gap-1 text-center text-xs bg-white border border-cyan-200 text-cyan-700 py-1.5 rounded-md hover:bg-cyan-50 transition-colors font-medium shadow-sm disabled:opacity-50"
+                                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-white hover:bg-cyan-50 border border-slate-200 hover:border-cyan-200 text-cyan-700 h-7 rounded-md transition-colors shadow-2xs disabled:opacity-50"
                                   title="Download itinerary PDF"
                                 >
                                   {downloadingPdfId === pkg._id ? (
-                                    <Loader2 size={12} className="animate-spin text-cyan-600" />
+                                    <Loader2 size={11} className="animate-spin text-cyan-600" />
                                   ) : (
-                                    <Download size={12} className="text-cyan-600" />
+                                    <Download size={11} className="text-cyan-600" />
                                   )}
-                                  {downloadingPdfId === pkg._id ? "PDF..." : "PDF"}
+                                  <span className="truncate">{downloadingPdfId === pkg._id ? "PDF..." : "PDF"}</span>
                                 </button>
                                 <Link
                                   href={`/itineraries/${pkg._id}/edit`}
-                                  className="flex-1 text-center text-xs bg-white border border-slate-200 text-slate-600 py-1.5 rounded-md hover:bg-slate-100 transition-colors font-medium shadow-sm"
+                                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 h-7 rounded-md transition-colors shadow-2xs text-center"
+                                  title="Edit itinerary"
                                 >
-                                  Edit
+                                  <Edit2 size={11} className="text-slate-500" />
+                                  <span>Edit</span>
                                 </Link>
                                 <button
                                   type="button"
                                   onClick={() => handleDelink(pkg._id)}
-                                  className="flex-1 text-center text-xs bg-white border border-rose-200 text-rose-600 py-1.5 rounded-md hover:bg-rose-50 transition-colors font-medium shadow-sm"
+                                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 h-7 rounded-md transition-colors shadow-2xs"
+                                  title="Delink itinerary from enquiry"
                                 >
-                                  Delink
+                                  <span>Delink</span>
                                 </button>
                               </div>
                             </div>

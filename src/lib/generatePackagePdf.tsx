@@ -1026,8 +1026,9 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
   if (pkg.stays && pkg.stays.length > 0) {
     pkg.stays.forEach((stay) => {
       let rawCity = "";
-      if (stay.address && stay.address.trim()) {
-        rawCity = stay.address.split(",")[0].trim();
+      const stayLoc = stay.address || (stay as any).location || (stay as any).city || "";
+      if (stayLoc && stayLoc.trim()) {
+        rawCity = stayLoc.split(",")[0].trim();
       } else if (stay.name) {
         rawCity = stay.name
           .replace(/\b(hotel|resort|palace|inn|villas|villa|suites|suite|spa|houseboat|retreat|grand|the|camp|cottages)\b/gi, "")
@@ -2028,7 +2029,7 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
         {pkg.stays.map((stay, i) => (
           <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
             <Text style={[s.tableCell, { width: hasDateInfo ? "20%" : "25%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "15%" : "20%" }]}>{stay.address || "—"}</Text>
+            <Text style={[s.tableCell, { width: hasDateInfo ? "15%" : "20%" }]}>{stay.address || (stay as any).location || (stay as any).city || "—"}</Text>
             <Text style={[s.tableCell, { width: hasDateInfo ? "10%" : "12%" }]}>{stay.rating}</Text>
             <Text style={[s.tableCell, { width: hasDateInfo ? "8%" : "10%" }]}>{stay.nights}N</Text>
             <Text style={[s.tableCell, { width: hasDateInfo ? "21%" : "33%" }]}>{stay.rooms ? `${stay.rooms}x ` : ''}{stay.roomType}</Text>
