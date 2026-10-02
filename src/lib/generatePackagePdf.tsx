@@ -41,6 +41,15 @@ const Icon = ({ d, color = C.gn3, size = 12 }: { d: string; color?: string; size
   </Svg>
 );
 
+const RupeeIcon = ({ color = "#005570", size = 8 }: { color?: string; size?: number }) => (
+  <Svg width={size * 0.8} height={size} viewBox="0 0 24 24" style={{ marginRight: 1.5 }}>
+    <Path
+      d="M13.66 7C13.1 5.82 11.9 5 10.5 5L6 5V3H18V5H14.74C15.22 5.58 15.58 6.26 15.79 7H18V9H16C15.73 11.8 13.37 14 10.5 14H9.61L15.89 21H13.21L7 14V12H10.5C12.16 12 13.5 10.66 13.5 9H6V7H13.66Z"
+      fill={color}
+    />
+  </Svg>
+);
+
 // Icon paths (Material Icons)
 const ICONS = {
   location: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z",
@@ -1504,9 +1513,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                   {row.label}
                 </Text>
                 {row.amount !== null && row.amount > 0 ? (
-                  <Text style={{ width: 130, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#005570", textAlign: "right", paddingRight: 6 }}>
-                    ₹ {row.amount.toLocaleString("en-IN")}
-                  </Text>
+                  <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
+                    <RupeeIcon color="#005570" size={7.5} />
+                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#005570" }}>
+                      {row.amount.toLocaleString("en-IN")}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
                     Included in Package
@@ -1555,9 +1567,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             <Text style={{ flex: 1, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#003b47", paddingLeft: 6 }}>
               Total Package Price (per {pkg.priceUnit || "person"})
             </Text>
-            <Text style={{ width: 130, fontSize: 9, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "right", paddingRight: 6 }}>
-              INR {formattedPrice}/-
-            </Text>
+            <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
+              <RupeeIcon color="#004d5e" size={9} />
+              <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#004d5e" }}>
+                {formattedPrice}/-
+              </Text>
+            </View>
           </View>
         </View>
 

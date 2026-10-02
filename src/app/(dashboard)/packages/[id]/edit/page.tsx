@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Destination } from "@/types";
-import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown, Download, Eye, EyeOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Wand2, ArrowUp, ArrowDown, Download, Eye, EyeOff, Sparkles, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import ListInput from "@/components/ui/ListInput";
@@ -124,87 +124,25 @@ export default function EditPackagePage() {
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
 
-  const recalculateTotal = (overrides: {
-    hotelPrice?: string;
-    activityAndTransportPrice?: string;
-    extraMealsIncluded?: boolean;
-    extraMealsPrice?: string;
-    visaIncluded?: boolean;
-    visaPrice?: string;
-    flightsIncluded?: boolean;
-    flightPrice?: string;
-    trainsIncluded?: boolean;
-    trainPrice?: string;
-    cruiseIncluded?: boolean;
-    cruisePrice?: string;
-  } = {}) => {
-    const hp = parseFloat(overrides.hotelPrice ?? hotelPrice) || 0;
-    const atp = parseFloat(overrides.activityAndTransportPrice ?? activityAndTransportPrice) || 0;
-    const emInc = overrides.extraMealsIncluded ?? extraMealsIncluded;
-    const emp = (isInternational && emInc) ? (parseFloat(overrides.extraMealsPrice ?? extraMealsPrice) || 0) : 0;
-    const vInc = overrides.visaIncluded ?? visaIncluded;
-    const vp = vInc ? (parseFloat(overrides.visaPrice ?? visaPrice) || 0) : 0;
-    const fInc = overrides.flightsIncluded ?? flightsIncluded;
-    const fp = fInc ? (parseFloat(overrides.flightPrice ?? flightPrice) || 0) : 0;
-    const tInc = overrides.trainsIncluded ?? trainsIncluded;
-    const tp = tInc ? (parseFloat(overrides.trainPrice ?? trainPrice) || 0) : 0;
-    const cInc = overrides.cruiseIncluded ?? cruiseIncluded;
-    const cp = cInc ? (parseFloat(overrides.cruisePrice ?? cruisePrice) || 0) : 0;
+  const handleHotelPriceChange = (val: string) => { setHotelPrice(val); };
+  const handleActivityAndTransportPriceChange = (val: string) => { setActivityAndTransportPrice(val); };
+  const handleExtraMealsPriceChange = (val: string) => { setExtraMealsPrice(val); };
+  const handleVisaPriceChange = (val: string) => { setVisaPrice(val); };
+  const handleFlightPriceChange = (val: string) => { setFlightPrice(val); };
+  const handleTrainPriceChange = (val: string) => { setTrainPrice(val); };
+  const handleCruisePriceChange = (val: string) => { setCruisePrice(val); };
+  const handleLandCostChange = (val: string) => { setLandCost(val); };
 
-    const itemizedLand = hp + atp + emp + vp + tp + cp;
-    if (itemizedLand > 0 || fp > 0) {
-      if (itemizedLand > 0) {
-        setLandCost(String(itemizedLand));
-      }
-      if (!isGroupTour) {
-        handlePriceChange(String(itemizedLand + fp));
-      }
-    }
-  };
-
-  const handleHotelPriceChange = (val: string) => {
-    setHotelPrice(val);
-    recalculateTotal({ hotelPrice: val });
-  };
-
-  const handleActivityAndTransportPriceChange = (val: string) => {
-    setActivityAndTransportPrice(val);
-    recalculateTotal({ activityAndTransportPrice: val });
-  };
-
-  const handleExtraMealsPriceChange = (val: string) => {
-    setExtraMealsPrice(val);
-    recalculateTotal({ extraMealsPrice: val });
-  };
-
-  const handleVisaPriceChange = (val: string) => {
-    setVisaPrice(val);
-    recalculateTotal({ visaPrice: val });
-  };
-
-  const handleFlightPriceChange = (val: string) => {
-    setFlightPrice(val);
-    recalculateTotal({ flightPrice: val });
-  };
-
-  const handleTrainPriceChange = (val: string) => {
-    setTrainPrice(val);
-    recalculateTotal({ trainPrice: val });
-  };
-
-  const handleCruisePriceChange = (val: string) => {
-    setCruisePrice(val);
-    recalculateTotal({ cruisePrice: val });
-  };
-
-  const handleLandCostChange = (val: string) => {
-    setLandCost(val);
-    const lc = parseFloat(val) || 0;
-    const fp = (flightsIncluded && flightPrice) ? (parseFloat(flightPrice) || 0) : 0;
-    if (!isGroupTour && (lc > 0 || fp > 0)) {
-      handlePriceChange(String(lc + fp));
-    }
-  };
+  const hpVal = parseFloat(hotelPrice) || 0;
+  const atpVal = parseFloat(activityAndTransportPrice) || 0;
+  const empVal = (isInternational && extraMealsIncluded) ? (parseFloat(extraMealsPrice) || 0) : 0;
+  const vpVal = visaIncluded ? (parseFloat(visaPrice) || 0) : 0;
+  const fpVal = flightsIncluded ? (parseFloat(flightPrice) || 0) : 0;
+  const tpVal = trainsIncluded ? (parseFloat(trainPrice) || 0) : 0;
+  const cpVal = cruiseIncluded ? (parseFloat(cruisePrice) || 0) : 0;
+  const totalItemizedCost = hpVal + atpVal + empVal + vpVal + fpVal + tpVal + cpVal;
+  const totalPackagePriceVal = parseFloat(price) || 0;
+  const isItemizedCostExceeded = totalPackagePriceVal > 0 && totalItemizedCost > totalPackagePriceVal;
   // Auto-calculation handlers
   const handlePriceChange = (val: string) => {
     setPrice(val);
@@ -649,6 +587,12 @@ export default function EditPackagePage() {
     setError("");
     setSuccess("");
 
+    if (!isGroupTour && Number(price) > 0 && totalItemizedCost > Number(price)) {
+      setError(`Total itemized price (₹${totalItemizedCost.toLocaleString("en-IN")}) exceeds the Total Package Price (₹${Number(price).toLocaleString("en-IN")}). Total itemized prices must not exceed the package cost.`);
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         name,
@@ -1029,8 +973,62 @@ export default function EditPackagePage() {
                   <span className="text-xs text-slate-500 font-medium">Unit: Per {priceUnit}</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Tick checkboxes to display optional items in the PDF price breakdown table. If a price is entered, the exact amount is displayed; otherwise it displays as <span className="font-semibold text-sky-800">&quot;Included in Package&quot;</span>. Unchecked items are excluded from the table.
+                  Tick checkboxes to display optional items in the PDF price breakdown table. If a price is entered, the exact amount is displayed; otherwise it displays as <span className="font-semibold text-sky-800">&quot;Included in Package&quot;</span>. The package cost remains whatever you set; itemized prices must not exceed the total package price.
                 </p>
+
+                {/* Live Allocation Summary & Exceeded Warning */}
+                <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors ${
+                  isItemizedCostExceeded 
+                    ? "bg-red-50/90 border-red-300 text-red-900" 
+                    : "bg-white/80 border-sky-200 text-slate-700"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {isItemizedCostExceeded ? (
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-cyan-600 shrink-0" />
+                    )}
+                    <div>
+                      <span className="font-semibold">
+                        {isItemizedCostExceeded ? "Itemized Cost Exceeds Total Package Price!" : "Itemized Cost Summary:"}
+                      </span>{" "}
+                      <span>
+                        Total Items: <strong className={isItemizedCostExceeded ? "text-red-700 font-bold" : "text-slate-900 font-bold"}>₹{totalItemizedCost.toLocaleString("en-IN")}</strong>
+                        {" "}of{" "}
+                        Package Price: <strong className="text-slate-900 font-bold">{totalPackagePriceVal > 0 ? `₹${totalPackagePriceVal.toLocaleString("en-IN")}` : "Not set"}</strong>
+                      </span>
+                      {isItemizedCostExceeded && (
+                        <p className="text-[11px] text-red-600 mt-0.5">
+                          Exceeded by ₹{(totalItemizedCost - totalPackagePriceVal).toLocaleString("en-IN")}. Component prices must not exceed the total package price.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isItemizedCostExceeded && totalPackagePriceVal > 0 && (
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                        totalItemizedCost === totalPackagePriceVal 
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200" 
+                          : "bg-sky-50 text-sky-800 border border-sky-200"
+                      }`}>
+                        {totalItemizedCost === totalPackagePriceVal 
+                          ? "✓ 100% Allocated" 
+                          : `Remaining: ₹${(totalPackagePriceVal - totalItemizedCost).toLocaleString("en-IN")}`}
+                      </span>
+                    )}
+                    {totalItemizedCost > 0 && totalItemizedCost !== totalPackagePriceVal && (
+                      <button
+                        type="button"
+                        onClick={() => handlePriceChange(String(totalItemizedCost))}
+                        className="px-2.5 py-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-[11px] font-semibold transition-colors shadow-xs"
+                        title="Set package price to match sum of items"
+                      >
+                        Set Price to ₹{totalItemizedCost.toLocaleString("en-IN")}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 <div className="space-y-3">
                   {/* 1. Hotel */}
@@ -1091,11 +1089,7 @@ export default function EditPackagePage() {
                             <input
                               type="checkbox"
                               checked={extraMealsIncluded}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setExtraMealsIncluded(checked);
-                                recalculateTotal({ extraMealsIncluded: checked });
-                              }}
+                              onChange={(e) => setExtraMealsIncluded(e.target.checked)}
                               className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
                             />
                             <span className="text-xs font-bold text-slate-800">Extra Add-on Meals</span>
@@ -1145,11 +1139,7 @@ export default function EditPackagePage() {
                           <input
                             type="checkbox"
                             checked={visaIncluded}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setVisaIncluded(checked);
-                              recalculateTotal({ visaIncluded: checked });
-                            }}
+                            onChange={(e) => setVisaIncluded(e.target.checked)}
                             className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className="text-xs font-bold text-slate-800">VISA Assistance &amp; Processing</span>
@@ -1184,11 +1174,7 @@ export default function EditPackagePage() {
                           <input
                             type="checkbox"
                             checked={flightsIncluded}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setFlightsIncluded(checked);
-                              recalculateTotal({ flightsIncluded: checked });
-                            }}
+                            onChange={(e) => setFlightsIncluded(e.target.checked)}
                             className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className="text-xs font-bold text-slate-800">Flight Cost (Airfare)</span>
@@ -1223,11 +1209,7 @@ export default function EditPackagePage() {
                           <input
                             type="checkbox"
                             checked={trainsIncluded}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setTrainsIncluded(checked);
-                              recalculateTotal({ trainsIncluded: checked });
-                            }}
+                            onChange={(e) => setTrainsIncluded(e.target.checked)}
                             className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className="text-xs font-bold text-slate-800">Train Cost</span>
@@ -1262,11 +1244,7 @@ export default function EditPackagePage() {
                           <input
                             type="checkbox"
                             checked={cruiseIncluded}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setCruiseIncluded(checked);
-                              recalculateTotal({ cruiseIncluded: checked });
-                            }}
+                            onChange={(e) => setCruiseIncluded(e.target.checked)}
                             className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className="text-xs font-bold text-slate-800">Cruise / Ferry Cost</span>
