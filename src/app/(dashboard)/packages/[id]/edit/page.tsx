@@ -96,6 +96,17 @@ export default function EditPackagePage() {
   const [price, setPrice] = useState("");
   const [flightPrice, setFlightPrice] = useState("");
   const [landCost, setLandCost] = useState("");
+  const [hotelPrice, setHotelPrice] = useState("");
+  const [activityPrice, setActivityPrice] = useState("");
+  const [transferPrice, setTransferPrice] = useState("");
+  const [activityAndTransportPrice, setActivityAndTransportPrice] = useState("");
+  const [extraMealsIncluded, setExtraMealsIncluded] = useState(false);
+  const [extraMealsCount, setExtraMealsCount] = useState("");
+  const [extraMealsPrice, setExtraMealsPrice] = useState("");
+  const [visaPrice, setVisaPrice] = useState("");
+  const [trainPrice, setTrainPrice] = useState("");
+  const [cruiseIncluded, setCruiseIncluded] = useState(false);
+  const [cruisePrice, setCruisePrice] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [discount, setDiscount] = useState("");
   const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
@@ -113,26 +124,85 @@ export default function EditPackagePage() {
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
 
-  const handleLandCostChange = (val: string) => {
-    setLandCost(val);
-    const lc = parseFloat(val) || 0;
-    const fp = parseFloat(flightPrice) || 0;
-    if (!isGroupTour && (lc > 0 || fp > 0)) {
-      handlePriceChange(String(lc + fp));
+  const recalculateTotal = (overrides: {
+    hotelPrice?: string;
+    activityAndTransportPrice?: string;
+    extraMealsIncluded?: boolean;
+    extraMealsPrice?: string;
+    visaIncluded?: boolean;
+    visaPrice?: string;
+    flightsIncluded?: boolean;
+    flightPrice?: string;
+    trainsIncluded?: boolean;
+    trainPrice?: string;
+    cruiseIncluded?: boolean;
+    cruisePrice?: string;
+  } = {}) => {
+    const hp = parseFloat(overrides.hotelPrice ?? hotelPrice) || 0;
+    const atp = parseFloat(overrides.activityAndTransportPrice ?? activityAndTransportPrice) || 0;
+    const emInc = overrides.extraMealsIncluded ?? extraMealsIncluded;
+    const emp = (isInternational && emInc) ? (parseFloat(overrides.extraMealsPrice ?? extraMealsPrice) || 0) : 0;
+    const vInc = overrides.visaIncluded ?? visaIncluded;
+    const vp = vInc ? (parseFloat(overrides.visaPrice ?? visaPrice) || 0) : 0;
+    const fInc = overrides.flightsIncluded ?? flightsIncluded;
+    const fp = fInc ? (parseFloat(overrides.flightPrice ?? flightPrice) || 0) : 0;
+    const tInc = overrides.trainsIncluded ?? trainsIncluded;
+    const tp = tInc ? (parseFloat(overrides.trainPrice ?? trainPrice) || 0) : 0;
+    const cInc = overrides.cruiseIncluded ?? cruiseIncluded;
+    const cp = cInc ? (parseFloat(overrides.cruisePrice ?? cruisePrice) || 0) : 0;
+
+    const itemizedLand = hp + atp + emp + vp + tp + cp;
+    if (itemizedLand > 0 || fp > 0) {
+      if (itemizedLand > 0) {
+        setLandCost(String(itemizedLand));
+      }
+      if (!isGroupTour) {
+        handlePriceChange(String(itemizedLand + fp));
+      }
     }
+  };
+
+  const handleHotelPriceChange = (val: string) => {
+    setHotelPrice(val);
+    recalculateTotal({ hotelPrice: val });
+  };
+
+  const handleActivityAndTransportPriceChange = (val: string) => {
+    setActivityAndTransportPrice(val);
+    recalculateTotal({ activityAndTransportPrice: val });
+  };
+
+  const handleExtraMealsPriceChange = (val: string) => {
+    setExtraMealsPrice(val);
+    recalculateTotal({ extraMealsPrice: val });
+  };
+
+  const handleVisaPriceChange = (val: string) => {
+    setVisaPrice(val);
+    recalculateTotal({ visaPrice: val });
   };
 
   const handleFlightPriceChange = (val: string) => {
     setFlightPrice(val);
-    const fp = parseFloat(val) || 0;
-    const lc = parseFloat(landCost) || 0;
-    if (!isGroupTour) {
-      if (lc > 0) {
-        handlePriceChange(String(lc + fp));
-      } else if (price && parseFloat(price) > 0) {
-        const remaining = Math.max(0, parseFloat(price) - fp);
-        setLandCost(String(remaining));
-      }
+    recalculateTotal({ flightPrice: val });
+  };
+
+  const handleTrainPriceChange = (val: string) => {
+    setTrainPrice(val);
+    recalculateTotal({ trainPrice: val });
+  };
+
+  const handleCruisePriceChange = (val: string) => {
+    setCruisePrice(val);
+    recalculateTotal({ cruisePrice: val });
+  };
+
+  const handleLandCostChange = (val: string) => {
+    setLandCost(val);
+    const lc = parseFloat(val) || 0;
+    const fp = (flightsIncluded && flightPrice) ? (parseFloat(flightPrice) || 0) : 0;
+    if (!isGroupTour && (lc > 0 || fp > 0)) {
+      handlePriceChange(String(lc + fp));
     }
   };
   // Auto-calculation handlers
@@ -306,6 +376,25 @@ export default function EditPackagePage() {
         setPrice(p.price ? String(p.price) : "");
         setFlightPrice(p.flightPrice ? String(p.flightPrice) : "");
         setLandCost(p.landCost ? String(p.landCost) : (p.flightsIncluded && p.flightPrice ? String(Math.max(0, (p.price || 0) - p.flightPrice)) : ""));
+        setHotelPrice(p.hotelPrice ? String(p.hotelPrice) : "");
+        setActivityPrice(p.activityPrice ? String(p.activityPrice) : "");
+        setTransferPrice(p.transferPrice ? String(p.transferPrice) : "");
+        setActivityAndTransportPrice(
+          p.activityAndTransportPrice
+            ? String(p.activityAndTransportPrice)
+            : (p.activityPrice || p.transferPrice ? String((p.activityPrice || 0) + (p.transferPrice || 0)) : "")
+        );
+        setExtraMealsIncluded(p.extraMealsIncluded || false);
+        setExtraMealsCount(p.extraMealsCount != null ? String(p.extraMealsCount) : "");
+        setExtraMealsPrice(p.extraMealsPrice != null ? String(p.extraMealsPrice) : "");
+        setVisaIncluded(p.visaIncluded || false);
+        setVisaPrice(p.visaPrice != null ? String(p.visaPrice) : "");
+        setFlightsIncluded(p.flightsIncluded || false);
+        setTrainsIncluded(p.trainsIncluded || false);
+        setTrainPrice(p.trainPrice != null ? String(p.trainPrice) : "");
+        setCruiseIncluded(p.cruiseIncluded || false);
+        setCruisePrice(p.cruisePrice != null ? String(p.cruisePrice) : "");
+        setHideTrainInfo(p.hideTrainInfo || false);
         setPriceUnit(p.priceUnit || "person");
         setExtraPersonPrice(p.extraPersonPrice ? String(p.extraPersonPrice) : "");
         setOriginalPrice(p.originalPrice ? String(p.originalPrice) : "");
@@ -316,9 +405,6 @@ export default function EditPackagePage() {
         setIsActive(p.isActive ?? true);
         setIsCustom(p.isCustom || false);
         setIsGroupTour(p.isGroupTour || false);
-        setFlightsIncluded(p.flightsIncluded || false);
-        setTrainsIncluded(p.trainsIncluded || false);
-        setHideTrainInfo(p.hideTrainInfo || false);
         setTravellerCount(p.travellerCount || "");
         setAdultCount(p.adultCount != null ? String(p.adultCount) : "");
         setChildCount(p.childCount != null ? String(p.childCount) : "");
@@ -583,8 +669,19 @@ export default function EditPackagePage() {
         isInternational,
         visaIncluded,
         price: Number(price) || 0,
-        flightPrice: flightPrice ? Number(flightPrice) : undefined,
+        flightPrice: (flightsIncluded && flightPrice) ? Number(flightPrice) : undefined,
         landCost: landCost ? Number(landCost) : undefined,
+        hotelPrice: hotelPrice ? Number(hotelPrice) : undefined,
+        activityPrice: activityPrice ? Number(activityPrice) : undefined,
+        transferPrice: transferPrice ? Number(transferPrice) : undefined,
+        activityAndTransportPrice: activityAndTransportPrice ? Number(activityAndTransportPrice) : undefined,
+        extraMealsIncluded: isInternational ? extraMealsIncluded : false,
+        extraMealsCount: (isInternational && extraMealsIncluded && extraMealsCount) ? Number(extraMealsCount) : undefined,
+        extraMealsPrice: (isInternational && extraMealsIncluded && extraMealsPrice) ? Number(extraMealsPrice) : undefined,
+        visaPrice: (visaIncluded && visaPrice) ? Number(visaPrice) : undefined,
+        trainPrice: (trainsIncluded && trainPrice) ? Number(trainPrice) : undefined,
+        cruiseIncluded,
+        cruisePrice: (cruiseIncluded && cruisePrice) ? Number(cruisePrice) : undefined,
         originalPrice: originalPrice ? Number(originalPrice) : undefined,
         discount: discount ? Number(discount) : undefined,
         discountType,
@@ -922,63 +1019,314 @@ export default function EditPackagePage() {
                 )}
               </div>
 
-              {flightsIncluded && (
-                <div className="p-4 bg-sky-50 border border-sky-200 rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sky-800 font-bold text-sm">✈ Flight Included Price Breakdown</span>
-                      <span className="text-xs text-sky-700 bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full font-medium">Included in PDF Summary</span>
-                    </div>
-                    <span className="text-xs text-slate-500">Unit: Per {priceUnit}</span>
+              {/* Cost Bifurcation & Itemized Pricing for PDF */}
+              <div className="p-5 bg-gradient-to-br from-sky-50/90 to-cyan-50/50 border border-sky-200 rounded-xl space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sky-900 font-bold text-sm">📊 Price Quote & Cost Bifurcation</span>
+                    <span className="text-xs text-sky-700 bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full font-medium">Reflected in PDF Summary Table</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Land Cost (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={landCost}
-                        onChange={(e) => handleLandCostChange(e.target.value)}
-                        placeholder="e.g. 60000"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      />
-                      <p className="text-[11px] text-slate-500 mt-1">Hotels, transfers & sightseeing</p>
+                  <span className="text-xs text-slate-500 font-medium">Unit: Per {priceUnit}</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Tick checkboxes to display optional items in the PDF price breakdown table. If a price is entered, the exact amount is displayed; otherwise it displays as <span className="font-semibold text-sky-800">&quot;Included in Package&quot;</span>. Unchecked items are excluded from the table.
+                </p>
+
+                <div className="space-y-3">
+                  {/* 1. Hotel */}
+                  <div className="bg-white p-3.5 rounded-xl border border-sky-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">1</span>
+                        <span className="text-xs font-bold text-slate-800">Hotels &amp; Accommodations</span>
+                        <span className="text-[11px] text-slate-400 font-normal">(Included in package)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Leave blank to display &quot;Included in Package&quot;</p>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Flight Price (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={flightPrice}
-                        onChange={(e) => handleFlightPriceChange(e.target.value)}
-                        placeholder="e.g. 25000"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      />
-                      <p className="text-[11px] text-slate-500 mt-1">Airfare per {priceUnit}</p>
+                    <div className="w-full sm:w-48">
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                        <input
+                          type="number"
+                          value={hotelPrice}
+                          onChange={(e) => handleHotelPriceChange(e.target.value)}
+                          placeholder="Included in package"
+                          className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Total Package Price (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={isGroupTour ? "" : price}
-                        onChange={(e) => handlePriceChange(e.target.value)}
-                        disabled={isGroupTour}
-                        placeholder={isGroupTour ? "Locked (Uses Slot Price)" : "85000"}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      />
-                      <p className="text-[11px] text-sky-700 font-medium mt-1">
-                        {Number(landCost) > 0 || Number(flightPrice) > 0
-                          ? `₹${Number(landCost || 0).toLocaleString("en-IN")} (Land) + ₹${Number(flightPrice || 0).toLocaleString("en-IN")} (Flight) = ₹${(Number(landCost || 0) + Number(flightPrice || 0)).toLocaleString("en-IN")}`
-                          : `Total package price`}
-                      </p>
+                  </div>
+
+                  {/* 2. Activity and transportation cost in one */}
+                  <div className="bg-white p-3.5 rounded-xl border border-sky-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">2</span>
+                        <span className="text-xs font-bold text-slate-800">Activity and Transportation Cost</span>
+                        <span className="text-[11px] text-slate-400 font-normal">(Combined Activities, Sightseeing &amp; Ground Transport)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Leave blank to display &quot;Included in Package&quot;</p>
+                    </div>
+                    <div className="w-full sm:w-48">
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                        <input
+                          type="number"
+                          value={activityAndTransportPrice}
+                          onChange={(e) => handleActivityAndTransportPriceChange(e.target.value)}
+                          placeholder="Included in package"
+                          className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Extra add on meals (Only for international packages) */}
+                  {isInternational && (
+                    <div className={`p-3.5 rounded-xl border transition-all ${extraMealsIncluded ? "bg-white border-amber-200 shadow-xs" : "bg-slate-50/70 border-slate-200 opacity-80"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold flex items-center justify-center">3</span>
+                            <input
+                              type="checkbox"
+                              checked={extraMealsIncluded}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setExtraMealsIncluded(checked);
+                                recalculateTotal({ extraMealsIncluded: checked });
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                            />
+                            <span className="text-xs font-bold text-slate-800">Extra Add-on Meals</span>
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold uppercase">International Only</span>
+                          </label>
+                          <p className="text-[11px] text-slate-500 ml-7 mt-0.5">
+                            {extraMealsIncluded ? "Displayed in PDF table. Enter quantity and optional cost." : "Unchecked — excluded from PDF cost table."}
+                          </p>
+                        </div>
+                        {extraMealsIncluded && (
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="w-24">
+                              <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">No. of Meals</label>
+                              <input
+                                type="number"
+                                value={extraMealsCount}
+                                onChange={(e) => setExtraMealsCount(e.target.value)}
+                                placeholder="Qty (e.g. 5)"
+                                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              />
+                            </div>
+                            <div className="w-36">
+                              <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Total Cost (₹)</label>
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1.5 text-xs font-semibold text-slate-400">₹</span>
+                                <input
+                                  type="number"
+                                  value={extraMealsPrice}
+                                  onChange={(e) => handleExtraMealsPriceChange(e.target.value)}
+                                  placeholder="Included"
+                                  className="w-full pl-6 pr-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 4. VISA */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${visaIncluded ? "bg-white border-sky-200 shadow-xs" : "bg-slate-50/70 border-slate-200 opacity-80"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">4</span>
+                          <input
+                            type="checkbox"
+                            checked={visaIncluded}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setVisaIncluded(checked);
+                              recalculateTotal({ visaIncluded: checked });
+                            }}
+                            className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">VISA Assistance &amp; Processing</span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 ml-7 mt-0.5">
+                          {visaIncluded ? "Displayed in PDF table. Blank = \"Included in Package\"." : "Unchecked — excluded from PDF cost table."}
+                        </p>
+                      </div>
+                      {visaIncluded && (
+                        <div className="w-full sm:w-48">
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              value={visaPrice}
+                              onChange={(e) => handleVisaPriceChange(e.target.value)}
+                              placeholder="Included in package"
+                              className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 5. Flight Cost */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${flightsIncluded ? "bg-white border-sky-200 shadow-xs" : "bg-slate-50/70 border-slate-200 opacity-80"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">5</span>
+                          <input
+                            type="checkbox"
+                            checked={flightsIncluded}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setFlightsIncluded(checked);
+                              recalculateTotal({ flightsIncluded: checked });
+                            }}
+                            className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">Flight Cost (Airfare)</span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 ml-7 mt-0.5">
+                          {flightsIncluded ? "Displayed in PDF table. Blank = \"Included in Package\"." : "Unchecked — excluded from PDF cost table."}
+                        </p>
+                      </div>
+                      {flightsIncluded && (
+                        <div className="w-full sm:w-48">
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              value={flightPrice}
+                              onChange={(e) => handleFlightPriceChange(e.target.value)}
+                              placeholder="Included in package"
+                              className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 6. Train Cost */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${trainsIncluded ? "bg-white border-sky-200 shadow-xs" : "bg-slate-50/70 border-slate-200 opacity-80"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">6</span>
+                          <input
+                            type="checkbox"
+                            checked={trainsIncluded}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setTrainsIncluded(checked);
+                              recalculateTotal({ trainsIncluded: checked });
+                            }}
+                            className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">Train Cost</span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 ml-7 mt-0.5">
+                          {trainsIncluded ? "Displayed in PDF table. Blank = \"Included in Package\"." : "Unchecked — excluded from PDF cost table."}
+                        </p>
+                      </div>
+                      {trainsIncluded && (
+                        <div className="w-full sm:w-48">
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              value={trainPrice}
+                              onChange={(e) => handleTrainPriceChange(e.target.value)}
+                              placeholder="Included in package"
+                              className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 7. Cruise/ Ferry Cost */}
+                  <div className={`p-3.5 rounded-xl border transition-all ${cruiseIncluded ? "bg-white border-sky-200 shadow-xs" : "bg-slate-50/70 border-slate-200 opacity-80"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">7</span>
+                          <input
+                            type="checkbox"
+                            checked={cruiseIncluded}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setCruiseIncluded(checked);
+                              recalculateTotal({ cruiseIncluded: checked });
+                            }}
+                            className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          />
+                          <span className="text-xs font-bold text-slate-800">Cruise / Ferry Cost</span>
+                        </label>
+                        <p className="text-[11px] text-slate-500 ml-7 mt-0.5">
+                          {cruiseIncluded ? "Displayed in PDF table. Blank = \"Included in Package\"." : "Unchecked — excluded from PDF cost table."}
+                        </p>
+                      </div>
+                      {cruiseIncluded && (
+                        <div className="w-full sm:w-48">
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              value={cruisePrice}
+                              onChange={(e) => handleCruisePriceChange(e.target.value)}
+                              placeholder="Included in package"
+                              className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
+
+                {/* Land Cost & Total Price Footer */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-sky-200">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Land Cost (₹) <span className="text-[11px] font-normal text-slate-500">(Auto-sum of itemized components or custom)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={landCost}
+                      onChange={(e) => handleLandCostChange(e.target.value)}
+                      placeholder="e.g. 14500"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Total Package Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={isGroupTour ? "" : price}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      disabled={isGroupTour}
+                      placeholder={isGroupTour ? "Locked (Uses Slot Price)" : "16500"}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                    <p className="text-[11px] text-sky-800 font-medium mt-1">
+                      {flightsIncluded && Number(flightPrice) > 0
+                        ? `Land Cost (₹${Number(landCost || 0).toLocaleString("en-IN")}) + Flight (₹${Number(flightPrice || 0).toLocaleString("en-IN")}) = ₹${(Number(landCost || 0) + Number(flightPrice || 0)).toLocaleString("en-IN")}`
+                        : `Total Package Price per ${priceUnit}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Overall Traveller Count</label>

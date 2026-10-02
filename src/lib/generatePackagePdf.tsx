@@ -108,6 +108,17 @@ interface PackageData {
   hideTrainInfo?: boolean;
   flightPrice?: number;
   landCost?: number;
+  hotelPrice?: number;
+  activityPrice?: number;
+  transferPrice?: number;
+  activityAndTransportPrice?: number;
+  extraMealsIncluded?: boolean;
+  extraMealsCount?: number;
+  extraMealsPrice?: number;
+  visaPrice?: number;
+  trainPrice?: number;
+  cruiseIncluded?: boolean;
+  cruisePrice?: number;
   destination?: { name: string; slug?: string; country?: string };
   description?: string; shortDescription?: string;
   duration: { nights: number; days: number };
@@ -1057,10 +1068,69 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
   const priceVal = pkg.price || 0;
   const formattedPrice = priceVal > 0 ? priceVal.toLocaleString("en-IN") : "—";
-  const flightPriceVal = pkg.flightPrice || 0;
-  const landCostVal = (pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, priceVal - flightPriceVal);
-  const hasFlightCostBreakdown = Boolean(pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost));
+  const flightPriceVal = pkg.flightsIncluded ? (pkg.flightPrice || 0) : 0;
+  const hotelPriceVal = pkg.hotelPrice || 0;
+  const actTransPriceVal = (pkg.activityAndTransportPrice && pkg.activityAndTransportPrice > 0)
+    ? pkg.activityAndTransportPrice
+    : ((pkg.activityPrice || 0) + (pkg.transferPrice || 0));
+  const extraMealsPriceVal = (pkg.isInternational && pkg.extraMealsIncluded && pkg.extraMealsPrice) ? pkg.extraMealsPrice : 0;
+  const visaPriceVal = (pkg.visaIncluded && pkg.visaPrice) ? pkg.visaPrice : 0;
+  const trainPriceVal = (pkg.trainsIncluded && pkg.trainPrice) ? pkg.trainPrice : 0;
+  const cruisePriceVal = (pkg.cruiseIncluded && pkg.cruisePrice) ? pkg.cruisePrice : 0;
+
+  const itemizedTotal = hotelPriceVal + actTransPriceVal + extraMealsPriceVal + visaPriceVal + trainPriceVal + cruisePriceVal;
+  const landCostVal = (pkg.landCost && pkg.landCost > 0)
+    ? pkg.landCost
+    : (itemizedTotal > 0 ? itemizedTotal : Math.max(0, priceVal - flightPriceVal));
+  const hasItemizedBreakdown = Boolean(hotelPriceVal > 0 || actTransPriceVal > 0 || extraMealsPriceVal > 0 || visaPriceVal > 0 || trainPriceVal > 0 || cruisePriceVal > 0);
+  const hasFlightCostBreakdown = Boolean((pkg.flightsIncluded && (flightPriceVal > 0 || landCostVal > 0)) || (flightPriceVal > 0 && landCostVal > 0));
   const showTrains = !pkg.hideTrainInfo && Boolean(pkg.trainsIncluded);
+
+  const bifurcationRows: { label: string; amount: number | null }[] = [
+    {
+      label: `Hotels & Accommodations (${pkg.stays?.length ? `${pkg.stays.length} Selected ${pkg.stays.length > 1 ? "Properties" : "Property"}` : durationText})`,
+      amount: hotelPriceVal > 0 ? hotelPriceVal : null,
+    },
+    {
+      label: `Activities, Sightseeing & Ground Transport (${days} Days Curated Itinerary)`,
+      amount: actTransPriceVal > 0 ? actTransPriceVal : null,
+    },
+  ];
+
+  if (pkg.isInternational && pkg.extraMealsIncluded) {
+    bifurcationRows.push({
+      label: `Extra Add-on Meals (${pkg.extraMealsCount && pkg.extraMealsCount > 0 ? pkg.extraMealsCount : 0} Meals)`,
+      amount: extraMealsPriceVal > 0 ? extraMealsPriceVal : null,
+    });
+  }
+
+  if (pkg.visaIncluded) {
+    bifurcationRows.push({
+      label: "Visa Assistance & Processing",
+      amount: visaPriceVal > 0 ? visaPriceVal : null,
+    });
+  }
+
+  if (pkg.flightsIncluded) {
+    bifurcationRows.push({
+      label: `Flights & Airfare (${pkg.flights?.length ? `${pkg.flights.length} Flight Leg${pkg.flights.length > 1 ? "s" : ""}` : "Confirmed Airfare"})`,
+      amount: flightPriceVal > 0 ? flightPriceVal : null,
+    });
+  }
+
+  if (pkg.trainsIncluded) {
+    bifurcationRows.push({
+      label: "Train Tickets & Reservations",
+      amount: trainPriceVal > 0 ? trainPriceVal : null,
+    });
+  }
+
+  if (pkg.cruiseIncluded) {
+    bifurcationRows.push({
+      label: "Cruise / Ferry Tickets & Transfers",
+      amount: cruisePriceVal > 0 ? cruisePriceVal : null,
+    });
+  }
 
   return (
     <Page size="A4" style={[s.page, { position: "relative" }]}>
@@ -1413,95 +1483,54 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           </View>
 
           {/* Table Rows */}
-          {hasFlightCostBreakdown ? (
-            <>
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>1</Text>
+          {bifurcationRows.map((row, idx) => {
+            const srNo = idx + 1;
+            const isAlt = idx % 2 === 1;
+            return (
+              <View
+                key={idx}
+                style={{
+                  flexDirection: "row",
+                  paddingVertical: 4.5,
+                  paddingHorizontal: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: "#f0f4f6",
+                  alignItems: "center",
+                  backgroundColor: isAlt ? "#fafdfe" : "#ffffff",
+                }}
+              >
+                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>{srNo}</Text>
                 <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Hotels & Ground Services ({routeStops.length > 0 ? routeStops.map(s => s.city).slice(0, 3).join(", ") : "Accommodation"}, Transfers & Sightseeing)
+                  {row.label}
                 </Text>
-                <Text style={{ width: 130, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#005570", textAlign: "right", paddingRight: 6 }}>
-                  ₹ {landCostVal.toLocaleString("en-IN")}
-                </Text>
+                {row.amount !== null && row.amount > 0 ? (
+                  <Text style={{ width: 130, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#005570", textAlign: "right", paddingRight: 6 }}>
+                    ₹ {row.amount.toLocaleString("en-IN")}
+                  </Text>
+                ) : (
+                  <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
+                    Included in Package
+                  </Text>
+                )}
               </View>
-
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center", backgroundColor: "#fafdfe" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>2</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Flights & Airfare ({pkg.flights?.length ? `${pkg.flights.length} Flight Leg${pkg.flights.length > 1 ? "s" : ""}` : "Confirmed Airfare"})
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#005570", textAlign: "right", paddingRight: 6 }}>
-                  ₹ {flightPriceVal.toLocaleString("en-IN")}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>3</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Activities & Experiences ({days} Days Curated Itinerary)
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
-                  Included in Land Cost
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center", backgroundColor: "#fafdfe" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>4</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Airport / Local Transfers & Sightseeing Transport
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
-                  Included in Land Cost
-                </Text>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>1</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Hotels & Accommodations ({pkg.stays?.length ? `${pkg.stays.length} Selected Properte${pkg.stays.length > 1 ? "ies" : "y"}` : durationText})
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
-                  Included in Package
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center", backgroundColor: "#fafdfe" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>2</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Activities & Sightseeing ({days} Days Curated Itinerary)
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
-                  Included in Package
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>3</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Transfers & Ground Transport ({pkg.transfers?.length ? "Coordinated Transfers" : "Airport / Station & Sightseeing"})
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, color: "#007a96", textAlign: "right", paddingRight: 6 }}>
-                  Included in Package
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f0f4f6", alignItems: "center", backgroundColor: "#fafdfe" }}>
-                <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>4</Text>
-                <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-                  Flights & Travel Arrangements
-                </Text>
-                <Text style={{ width: 130, fontSize: 7.5, color: pkg.flightsIncluded ? "#007a96" : "#8a9ea4", textAlign: "right", paddingRight: 6 }}>
-                  {pkg.flightsIncluded ? "Included in Package" : "Not Included (Excluded)"}
-                </Text>
-              </View>
-            </>
-          )}
+            );
+          })}
 
           {/* GST Row */}
-          <View style={{ flexDirection: "row", paddingVertical: 4.5, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#d4ecf0", alignItems: "center" }}>
-            <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>5</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              paddingVertical: 4.5,
+              paddingHorizontal: 8,
+              borderBottomWidth: 1,
+              borderBottomColor: "#d4ecf0",
+              alignItems: "center",
+              backgroundColor: bifurcationRows.length % 2 === 1 ? "#fafdfe" : "#ffffff",
+            }}
+          >
+            <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>
+              {bifurcationRows.length + 1}
+            </Text>
             <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
               Goods & Services Tax (GST)
             </Text>
@@ -1520,7 +1549,9 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
               alignItems: "center",
             }}
           >
-            <Text style={{ width: 36, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>6</Text>
+            <Text style={{ width: 36, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>
+              {bifurcationRows.length + 2}
+            </Text>
             <Text style={{ flex: 1, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#003b47", paddingLeft: 6 }}>
               Total Package Price (per {pkg.priceUnit || "person"})
             </Text>
