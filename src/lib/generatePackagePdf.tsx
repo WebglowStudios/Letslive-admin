@@ -2259,18 +2259,18 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
             ) : null}
             <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
             <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"}</Text>
-            {pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost) ? (
-              <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.06)" }}>
-                <Text style={{ fontSize: 9, color: C.ink3 }}>
-                  Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.ink }}>INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}</Text>
+            {(pkg.flightPrice || pkg.landCost) ? (
+              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" }}>
+                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+                  Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}</Text>
                 </Text>
-                <Text style={{ fontSize: 9, color: C.ink3 }}>•</Text>
-                <Text style={{ fontSize: 9, color: C.ink3 }}>
-                  Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.ink }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}</Text>
+                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
+                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+                  Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}</Text>
                 </Text>
-                <Text style={{ fontSize: 9, color: C.ink3 }}>•</Text>
-                <Text style={{ fontSize: 9, color: C.ink3 }}>
-                  Total: <Text style={{ fontFamily: "Helvetica-Bold", color: C.ink }}>INR {pkg.price.toLocaleString("en-IN")}</Text>
+                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
+                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+                  Total: <Text style={{ fontFamily: "Helvetica-Bold", color: C.cu }}>INR {pkg.price.toLocaleString("en-IN")}</Text>
                 </Text>
               </View>
             ) : null}
@@ -2291,15 +2291,43 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
     <View style={s.ctaBox}>
       <Text style={s.ctaTitle}>Ready to Book?</Text>
       <Text style={s.ctaSubtitle}>
-        Contact us to customise dates, group size, and confirm your trip.
+        Confirm your trip, pay securely online, or contact us to customize dates and travellers.
       </Text>
-      {pkg.slug && (
-        <Text style={{ fontSize: 10, color: C.gn3, marginTop: 4, marginBottom: 8, textAlign: "center" }}>
-          <Link src={`https://letslivetours.com/packages/${pkg.slug}`} style={{ color: C.gn3, textDecoration: "underline" }}>
-            View Full Itinerary Online
-          </Link>
-        </Text>
-      )}
+      {pkg.slug && (() => {
+        const enquiryIdStr = pkg.enquiryId ? (typeof pkg.enquiryId === "object" ? (pkg.enquiryId as any)._id : pkg.enquiryId) : "";
+        const payUrl = `https://letslivetours.com/book/${pkg.slug}${enquiryIdStr ? `?enquiryId=${enquiryIdStr}` : ""}`;
+        const viewUrl = `https://letslivetours.com/packages/${pkg.slug}`;
+        return (
+          <View style={{ alignItems: "center", marginTop: 8, marginBottom: 10 }}>
+            {/* Direct Online Payment Button */}
+            <Link
+              src={payUrl}
+              style={{
+                backgroundColor: C.gn,
+                borderRadius: 20,
+                paddingVertical: 8,
+                paddingHorizontal: 22,
+                textDecoration: "none",
+                marginBottom: 6,
+              }}
+            >
+              <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: C.white, textAlign: "center" }}>
+                Pay & Book Online →
+              </Text>
+            </Link>
+
+            {/* Clickable Payment URL & Itinerary link */}
+            <Text style={{ fontSize: 8.5, color: C.ink3, textAlign: "center", marginBottom: 4 }}>
+              Payment Link: <Link src={payUrl} style={{ color: C.gn2, textDecoration: "underline", fontFamily: "Helvetica-Bold" }}>{payUrl}</Link>
+            </Text>
+            <Text style={{ fontSize: 9, color: C.gn3, textAlign: "center" }}>
+              <Link src={viewUrl} style={{ color: C.gn3, textDecoration: "underline" }}>
+                View Full Itinerary Online
+              </Link>
+            </Text>
+          </View>
+        );
+      })()}
       <Text style={s.ctaContact}>+91 77700 88466  ·  info@letslivetours.com</Text>
     </View>
   </View>

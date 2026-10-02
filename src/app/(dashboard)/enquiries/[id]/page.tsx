@@ -1473,7 +1473,9 @@ export default function EnquiryDetailPage() {
       childCount: enquiry.childCount != null ? String(enquiry.childCount) : "0",
       infantCount: enquiry.infantCount != null ? String(enquiry.infantCount) : "0",
       budget: enquiry.budget != null ? String(enquiry.budget) : "",
-      packageName: enquiry.packageName || (enquiry.package as any)?.name || "",
+      packageName: (enquiry.linkedItineraries && enquiry.linkedItineraries.length > 0)
+        ? (enquiry.linkedItineraries[0] as any).name
+        : (enquiry.packageName || (enquiry.package as any)?.name || ""),
       source: enquiry.source || "",
       channel: enquiry.channel || "",
     });
