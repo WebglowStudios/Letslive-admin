@@ -46,6 +46,48 @@ export default function EditDestinationPage() {
   const [description, setDescription] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState("");
+
+  const SUGGESTED_TAGS = [
+    "Heritage",
+    "Nature",
+    "Beach",
+    "Pilgrimage",
+    "Cultural",
+    "Mountain",
+    "Adventure",
+    "Wildlife",
+    "City",
+    "Tropical",
+    "Island",
+    "Honeymoon",
+    "Luxury",
+    "Spiritual",
+  ];
+
+  function toggleTag(tag: string) {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
+      setTags(tags.filter((t) => t.toLowerCase() !== trimmed.toLowerCase()));
+    } else {
+      setTags([...tags, trimmed]);
+    }
+  }
+
+  function addCustomTag() {
+    const trimmed = customTagInput.trim();
+    if (!trimmed) return;
+    if (!tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
+      setTags([...tags, trimmed]);
+    }
+    setCustomTagInput("");
+  }
+
+  function removeTag(tagToRemove: string) {
+    setTags(tags.filter((t) => t !== tagToRemove));
+  }
   const [startingPrice, setStartingPrice] = useState("");
   const [bestSeason, setBestSeason] = useState("");
   const [visaType, setVisaType] = useState("free");
@@ -86,6 +128,7 @@ export default function EditDestinationPage() {
         setDescription(d.description || "");
         setShortDescription(d.shortDescription || "");
         setCategory(d.category || "");
+        setTags(Array.isArray(d.tags) && d.tags.length > 0 ? d.tags : (d.category ? [d.category] : []));
         setStartingPrice(d.startingPrice ? String(d.startingPrice) : "");
         setBestSeason(d.bestSeason || "");
         setVisaType(d.visaType || "free");
@@ -173,7 +216,8 @@ export default function EditDestinationPage() {
         region,
         description,
         shortDescription,
-        category: category || undefined,
+        category: tags.length > 0 ? tags[0].toLowerCase() : (category || undefined),
+        tags: tags.length > 0 ? tags : (category ? [category] : []),
         startingPrice: startingPrice ? Number(startingPrice) : undefined,
         bestSeason,
         visaType,
@@ -279,24 +323,99 @@ export default function EditDestinationPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Short Description</label>
                 <input type="text" value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Category</label>
-                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                    <option value="">Select category</option>
-                    <option value="beach">Beach</option>
-                    <option value="city">City</option>
-                    <option value="mountain">Mountain</option>
-                    <option value="adventure">Adventure</option>
-                    <option value="cultural">Cultural</option>
-                    <option value="wildlife">Wildlife</option>
-                    <option value="tropical">Tropical</option>
-                  </select>
+              {/* Multiple Tagging Section */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-800">
+                      Destination Tags & Categories
+                    </label>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Select multiple tags so users can search & filter this destination across multiple themes (e.g. Heritage, Nature, Beach, Pilgrimage).
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 bg-cyan-100 text-cyan-800 rounded-full">
+                    {tags.length} selected
+                  </span>
                 </div>
+
+                {/* Selected Tags Pills */}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1 pb-1">
+                    {tags.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-cyan-600 text-white text-xs font-medium rounded-full shadow-sm"
+                      >
+                        {t}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(t)}
+                          className="hover:bg-cyan-700 rounded-full w-4 h-4 inline-flex items-center justify-center font-bold text-[10px]"
+                          title="Remove tag"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quick Click Suggested Tags */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Starting Price (₹)</label>
-                  <input type="number" value={startingPrice} onChange={(e) => setStartingPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                    Suggested Tags (Click to toggle)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SUGGESTED_TAGS.map((t) => {
+                      const isSelected = tags.some((tag) => tag.toLowerCase() === t.toLowerCase());
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => toggleTag(t)}
+                          className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
+                            isSelected
+                              ? "bg-cyan-50 border-cyan-400 text-cyan-800 font-semibold shadow-xs"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                          }`}
+                        >
+                          {isSelected ? "✓ " : "+ "}
+                          {t}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Add Custom Tag Input */}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={customTagInput}
+                    onChange={(e) => setCustomTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCustomTag();
+                      }
+                    }}
+                    placeholder="Type custom tag (e.g. Hill Station, Desert)..."
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomTag}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    + Add Tag
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Starting Price (₹)</label>
+                <input type="number" value={startingPrice} onChange={(e) => setStartingPrice(e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

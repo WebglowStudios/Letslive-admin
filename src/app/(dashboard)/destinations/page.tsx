@@ -68,7 +68,9 @@ export default function DestinationsPage() {
       d.name.toLowerCase().includes(q) ||
       (d.slug && d.slug.toLowerCase().includes(q)) ||
       (d.region && d.region.toLowerCase().includes(q)) ||
-      (d.country && d.country.toLowerCase().includes(q))
+      (d.country && d.country.toLowerCase().includes(q)) ||
+      (d.category && d.category.toLowerCase().includes(q)) ||
+      (d.tags && d.tags.some((t: string) => t.toLowerCase().includes(q)))
     );
   });
 
@@ -136,6 +138,15 @@ export default function DestinationsPage() {
                           <div>
                             <p className="text-sm font-medium text-slate-700">{d.name}</p>
                             <p className="text-xs text-slate-400">{d.slug}</p>
+                            {d.tags && d.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {d.tags.map((t: string) => (
+                                  <span key={t} className="px-1.5 py-0.5 bg-cyan-50 text-cyan-700 border border-cyan-200 text-[10px] font-medium rounded-md">
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

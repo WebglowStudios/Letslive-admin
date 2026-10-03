@@ -31,6 +31,7 @@ export interface Destination {
   images: string[];
   heroImage?: string;
   category?: string;
+  tags?: string[];
   rating: number;
   reviewCount: number;
   packageCount: number;
