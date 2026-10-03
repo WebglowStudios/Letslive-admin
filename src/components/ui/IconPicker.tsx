@@ -271,8 +271,11 @@ export default function IconPicker({
     setIsOpen(false);
   };
 
-  const handleApplyCustom = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleApplyCustom = (e?: React.SyntheticEvent | Event) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!customInput.trim()) return;
     const clean = resolveIconName(customInput);
     onChange(clean);
@@ -369,6 +372,17 @@ export default function IconPicker({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (filteredIcons.length > 0) {
+                    handleSelect(filteredIcons[0].id);
+                  } else if (resolvedSearch) {
+                    handleSelect(resolvedSearch);
+                  }
+                }
+              }}
               placeholder="Search 80+ icons (e.g. castle, beach, night)..."
               className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 bg-slate-50/50"
             />
@@ -455,12 +469,19 @@ export default function IconPicker({
               <span>Custom Material Symbol / Name:</span>
               <span className="text-[10px] text-slate-400">Live preview</span>
             </div>
-            <form onSubmit={handleApplyCustom} className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <input
                   type="text"
                   value={customInput}
                   onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleApplyCustom(e);
+                    }
+                  }}
                   placeholder="e.g. castle, restaurant, fort..."
                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
                 />
@@ -481,13 +502,18 @@ export default function IconPicker({
               </div>
 
               <button
-                type="submit"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleApplyCustom(e);
+                }}
                 disabled={!normalizedCustomInput}
                 className="px-2.5 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-medium hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-colors"
               >
                 Apply
               </button>
-            </form>
+            </div>
             {normalizedCustomInput && resolvedCustomInput !== normalizedCustomInput && (
               <p className="text-[10px] text-cyan-700 mt-1 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
