@@ -2379,44 +2379,43 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
   </View>
 )};
 
-// ─── Default Partner Logos (Dummy placeholders - update with real CDN/asset URLs) ──
+// ─── Default Partner Logos (Procured brand assets) ───────────────────────────
+const getBrandImg = (file: string) => {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/brands/${file}`;
+  }
+  return `/brands/${file}`;
+};
+
 export const PARTNER_LOGOS_ROWS: { row: PartnerItem[] }[] = [
   {
     row: [
-      { name: "Dubai", image: "https://placehold.co/220x90/ffffff/00AECC.png?text=DUBAI" },
-      { name: "Marriott", image: "https://placehold.co/220x90/ffffff/8B0000.png?text=MARRIOTT" },
-      { name: "Razorpay", image: "https://placehold.co/220x90/ffffff/0C2340.png?text=Razorpay" },
-      { name: "Indian Bank", image: "https://placehold.co/220x90/ffffff/004080.png?text=Indian+Bank" },
+      { name: "Dubai", image: getBrandImg("dubai.png") },
+      { name: "Marriott", image: getBrandImg("marriott.png") },
+      { name: "Razorpay", image: getBrandImg("razorpay.png") },
+      { name: "Indian Bank", image: getBrandImg("indian-bank.png") },
     ],
   },
   {
     row: [
-      { name: "Emirates", image: "https://placehold.co/220x90/ffffff/D71921.png?text=Emirates" },
-      { name: "IndiGo", image: "https://placehold.co/220x90/ffffff/002B80.png?text=IndiGo" },
-      { name: "Incredible India", image: "https://placehold.co/220x90/ffffff/222222.png?text=Incredible+India" },
+      { name: "Emirates", image: getBrandImg("emirates.png") },
+      { name: "IndiGo", image: getBrandImg("indigo.png") },
+      { name: "Incredible India", image: getBrandImg("incredible-india.png") },
     ],
   },
   {
     row: [
-      { name: "BHIM", image: "https://placehold.co/220x90/ffffff/333333.png?text=BHIM" },
-      { name: "MakeMyTrip", image: "https://placehold.co/220x90/ffffff/E42B26.png?text=MakeMyTrip" },
-      { name: "VISA", image: "https://placehold.co/220x90/ffffff/1A1F71.png?text=VISA" },
-      { name: "PayU", image: "https://placehold.co/220x90/ffffff/7ABA28.png?text=PayU" },
+      { name: "BHIM", image: getBrandImg("bhim.png") },
+      { name: "MakeMyTrip", image: getBrandImg("makemytrip.png") },
+      { name: "VISA", image: getBrandImg("visa.png") },
+      { name: "PayU", image: getBrandImg("payu.png") },
     ],
   },
   {
     row: [
-      { name: "Uber", image: "https://placehold.co/220x90/ffffff/000000.png?text=Uber" },
-      { name: "Amazing Thailand", image: "https://placehold.co/220x90/ffffff/D82374.png?text=Amazing+Thailand" },
-      { name: "AirAsia", image: "https://placehold.co/220x90/ffffff/ED1C24.png?text=AirAsia" },
-      { name: "Oberoi Hotels & Resorts", image: "https://placehold.co/220x90/ffffff/B8860B.png?text=Oberoi" },
-    ],
-  },
-  {
-    row: [
-      { name: "Tripadvisor", image: "https://placehold.co/220x90/ffffff/00AF87.png?text=Tripadvisor" },
-      { name: "Turkey", image: "https://placehold.co/220x90/ffffff/E30A17.png?text=Turkey" },
-      { name: "Zoomcar", image: "https://placehold.co/220x90/ffffff/38B449.png?text=Zoomcar" },
+      { name: "Uber", image: getBrandImg("uber.png") },
+      { name: "Turkey Tourism", image: getBrandImg("turkey.png") },
+      { name: "Zoomcar", image: getBrandImg("zoomcar.png") },
     ],
   },
 ];
@@ -2493,10 +2492,14 @@ const PartnersPage = ({ pkg }: { pkg?: PackageData }) => {
                 key={itemIdx}
                 style={{
                   width: rowGroup.row.length === 3 ? "28%" : "21%",
-                  height: 44,
+                  height: 48,
                   alignItems: "center",
                   justifyContent: "center",
-                  padding: 4,
+                  padding: 5,
+                  backgroundColor: "#ffffff",
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: "#e8eff1",
                 }}
               >
                 {item.image ? (
