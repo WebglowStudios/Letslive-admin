@@ -330,6 +330,7 @@ function EnquiriesContent() {
   });
   const [dnpFilter, setDnpFilter] = useState(() => searchParams.get("dnp") || "all");
   const [assignedFilter, setAssignedFilter] = useState(() => searchParams.get("assignedTo") || "all");
+  const [brandFilter, setBrandFilter] = useState(() => searchParams.get("brand") || "all");
   const [leadAgeFilter, setLeadAgeFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -386,6 +387,7 @@ function EnquiriesContent() {
     setSelectedStatuses([]);
     setSelectedChannels([]);
     setAssignedFilter("all");
+    setBrandFilter("all");
     setLeadAgeFilter("all");
     setDnpFilter("all");
     setDestinationFilter("");
@@ -401,6 +403,7 @@ function EnquiriesContent() {
     selectedStatuses.length +
     selectedChannels.length +
     (assignedFilter !== "all" ? 1 : 0) +
+    (brandFilter !== "all" ? 1 : 0) +
     (leadAgeFilter !== "all" ? 1 : 0) +
     (dnpFilter !== "all" ? 1 : 0) +
     (destinationFilter ? 1 : 0) +
@@ -485,6 +488,7 @@ function EnquiriesContent() {
         if (dateFrom) params.set("from", dateFrom);
         if (dateTo) params.set("to", dateTo);
         if (destinationFilter) params.set("destination", destinationFilter);
+        if (brandFilter && brandFilter !== "all") params.set("brand", brandFilter);
         const res = await api.get(`${endpoint}?${params}`);
         const isUnassigned = activeTab === "unassigned" || assignedFilter === "unassigned";
         let data = res?.data || [];
@@ -498,7 +502,7 @@ function EnquiriesContent() {
     } finally {
       setLoading(false);
     }
-  }, [selectedStatuses, selectedChannels, dnpFilter, assignedFilter, leadAgeFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
+  }, [selectedStatuses, selectedChannels, dnpFilter, assignedFilter, brandFilter, leadAgeFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
@@ -883,6 +887,33 @@ function EnquiriesContent() {
               )}
             </button>
 
+            {/* Brand Filter Dropdown */}
+            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
+              brandFilter !== "all"
+                ? "bg-amber-50 border-amber-300 text-amber-900 shadow-xs"
+                : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}>
+              <span className="text-[11px] font-bold">Brand:</span>
+              <select
+                value={brandFilter}
+                onChange={(e) => setBrandFilter(e.target.value)}
+                className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 cursor-pointer"
+              >
+                <option value="all">All Brands</option>
+                <option value="letslivetours">LetsLive Tours</option>
+                <option value="trippy-travellerz">Trippy Travellerz</option>
+              </select>
+              {brandFilter !== "all" && (
+                <button
+                  onClick={() => setBrandFilter("all")}
+                  title="Clear brand filter"
+                  className="text-amber-500 hover:text-amber-800 p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
             {/* Salesperson Filter Dropdown (Manager / Admin / Sales-Manager) */}
             {isManager && (
               <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
@@ -1114,6 +1145,20 @@ function EnquiriesContent() {
                 <button
                   type="button"
                   onClick={() => setLeadAgeFilter("all")}
+                  className="text-amber-500 hover:text-amber-800 ml-0.5"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+
+            {/* Brand pill */}
+            {brandFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-900 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
+                Brand: {brandFilter === "trippy-travellerz" ? "Trippy Travellerz" : "LetsLive Tours"}
+                <button
+                  type="button"
+                  onClick={() => setBrandFilter("all")}
                   className="text-amber-500 hover:text-amber-800 ml-0.5"
                 >
                   <X size={11} />
@@ -1461,6 +1506,15 @@ function EnquiriesContent() {
                         )}
                         {e.channel && (
                           <span className="text-[10px] text-slate-400">{CHANNEL_ICONS[e.channel] || "📋"} {e.channel}</span>
+                        )}
+                        {e.brand === "trippy-travellerz" ? (
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-1.5 py-0.5 rounded">
+                            ✦ Trippy Travellerz
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">
+                            LetsLive Tours
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-slate-400 truncate">{e.email} · {e.phone}</p>

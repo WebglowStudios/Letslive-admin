@@ -24,6 +24,7 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
   const [showPendingCancelled, setShowPendingCancelled] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -42,7 +43,7 @@ export default function BookingsPage() {
     } else {
       fetchGroupPackages();
     }
-  }, [statusFilter, showPendingCancelled, search, page, activeTab]);
+  }, [statusFilter, brandFilter, showPendingCancelled, search, page, activeTab]);
 
   async function fetchGroupPackages() {
     setLoadingGroups(true);
@@ -62,6 +63,9 @@ export default function BookingsPage() {
       const params = new URLSearchParams({ page: String(page), limit: "10" });
       if (statusFilter !== "all") {
         params.set("bookingStatus", statusFilter);
+      }
+      if (brandFilter !== "all") {
+        params.set("brand", brandFilter);
       }
       if (showPendingCancelled) {
         params.set("includeInactive", "true");
@@ -160,6 +164,22 @@ export default function BookingsPage() {
                       ✕
                     </button>
                   )}
+                </div>
+
+                {/* Brand Filter */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={brandFilter}
+                    onChange={(e) => {
+                      setBrandFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-cyan-500/20 shadow-sm cursor-pointer"
+                  >
+                    <option value="all">All Brands</option>
+                    <option value="letslivetours">LetsLive Tours</option>
+                    <option value="trippy-travellerz">Trippy Travellerz</option>
+                  </select>
                 </div>
 
                 {/* Toggle for Cancelled & Pending */}
@@ -321,11 +341,22 @@ export default function BookingsPage() {
                         <td className="px-6 py-4">
                           <p className="text-sm font-medium text-slate-700">{displayName}</p>
                           <p className="text-xs text-slate-400">{displayEmail}</p>
-                          {b.bookingId && (
-                            <span className="inline-block mt-0.5 text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                              #{b.bookingId}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {b.bookingId && (
+                              <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                #{b.bookingId}
+                              </span>
+                            )}
+                            {b.brand === "trippy-travellerz" ? (
+                              <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-1.5 py-0.5 rounded">
+                                ✦ Trippy Travellerz
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">
+                                LetsLive Tours
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600 max-w-[180px] truncate">{pkg?.name || "—"}</td>
                         <td className="px-6 py-4 text-sm text-slate-500">{formatDate(b.travelDate)}</td>
