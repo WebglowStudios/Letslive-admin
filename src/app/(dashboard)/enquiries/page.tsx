@@ -7,7 +7,7 @@ import { formatDate } from "@/lib/utils";
 import {
   Search, Filter, MessageSquare, User, Clock, Phone, Plus,
   AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, ChevronUp, Download, Upload, X,
-  KanbanSquare
+  KanbanSquare, Archive
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
@@ -34,7 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
   negotiation: "bg-orange-100 text-orange-700",
   converted: "bg-emerald-100 text-emerald-800",
   resolved: "bg-green-100 text-green-700",
-  closed: "bg-slate-100 text-slate-600",
+  closed: "bg-red-100 text-red-700 border border-red-200",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -53,7 +53,7 @@ const STATUS_LABELS: Record<string, string> = {
   negotiation: "Negotiation",
   converted: "Converted",
   resolved: "Resolved",
-  closed: "Closed",
+  closed: "Closed (Dead)",
 };
 
 const FILTER_STATUS_ITEMS = [
@@ -69,7 +69,7 @@ const FILTER_STATUS_ITEMS = [
   { id: "whatsapp-sent", label: "WhatsApp" },
   { id: "negotiation", label: "Negotiation" },
   { id: "converted", label: "Converted" },
-  { id: "closed", label: "Closed" },
+  { id: "closed", label: "Closed (Dead)" },
   { id: "busy", label: "Busy" },
   { id: "assigned", label: "Assigned" },
 ];
@@ -495,7 +495,14 @@ function EnquiriesContent() {
         if (isUnassigned) {
           data = data.filter((e: Enquiry) => e.status !== "closed");
         }
-        setEnquiries(data);
+        // Ensure closed inquiries are pushed to the bottom so active leads appear first
+        const sorted = [...data].sort((a: Enquiry, b: Enquiry) => {
+          const aClosed = a.status === "closed" ? 1 : 0;
+          const bClosed = b.status === "closed" ? 1 : 0;
+          if (aClosed !== bClosed) return aClosed - bClosed;
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+        setEnquiries(sorted);
       }
     } catch {
       setEnquiries([]);
@@ -779,6 +786,17 @@ function EnquiriesContent() {
                     >
                       📵 DNP / Busy
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatuses(["closed"])}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
+                        selectedStatuses.length === 1 && selectedStatuses[0] === "closed"
+                          ? "bg-red-600 text-white border-red-700 font-bold"
+                          : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                      }`}
+                    >
+                      📁 Closed Leads
+                    </button>
                   </div>
 
                   {/* Status Checkbox List */}
@@ -818,6 +836,39 @@ function EnquiriesContent() {
                 </div>
               )}
             </div>
+
+            {/* Quick Button to see Closed Inquiries */}
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedStatuses.length === 1 && selectedStatuses[0] === "closed") {
+                  setSelectedStatuses([]);
+                } else {
+                  setSelectedStatuses(["closed"]);
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-all text-xs font-semibold cursor-pointer ${
+                selectedStatuses.length === 1 && selectedStatuses[0] === "closed"
+                  ? "bg-red-600 border-red-700 text-white shadow-xs font-bold ring-2 ring-red-300"
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+              }`}
+              title="Filter to only view closed / dead inquiries"
+            >
+              <Archive
+                size={12}
+                className={
+                  selectedStatuses.length === 1 && selectedStatuses[0] === "closed"
+                    ? "text-white"
+                    : "text-red-500"
+                }
+              />
+              <span>Closed Inquiries</span>
+              {selectedStatuses.length === 1 && selectedStatuses[0] === "closed" && (
+                <span className="text-[10px] bg-red-700 text-white px-1.5 py-0.2 rounded-full font-bold">
+                  Active
+                </span>
+              )}
+            </button>
 
             {/* Collapsible Status Chips Button */}
             <button
@@ -1466,34 +1517,59 @@ function EnquiriesContent() {
               </p>
             </div>
           ) : (
-            enquiries.map((e) => (
-              <div key={e._id} className="flex items-start gap-3">
-                {/* Checkbox */}
-                {!isStaffOnly && (
-                  <button
-                    onClick={() => toggleSelect(e._id)}
-                    className="mt-4 shrink-0 text-slate-400 hover:text-cyan-600"
-                  >
-                    {selected.has(e._id)
-                      ? <CheckSquare size={16} className="text-cyan-600" />
-                      : <Square size={16} />
-                    }
-                  </button>
+            enquiries.map((e, idx) => (
+              <div key={e._id} className="space-y-2">
+                {/* Visual Section Separator before the first Closed Enquiry */}
+                {e.status === "closed" && idx > 0 && enquiries[idx - 1].status !== "closed" && (
+                  <div className="flex items-center gap-3 pt-6 pb-2 my-2">
+                    <div className="h-px bg-red-200 flex-1" />
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200 shadow-2xs">
+                      <Archive size={12} className="text-red-500" />
+                      Closed / Dead Leads ({enquiries.filter((x) => x.status === "closed").length})
+                    </span>
+                    <div className="h-px bg-red-200 flex-1" />
+                  </div>
                 )}
 
-                {/* Card — click to navigate to detail */}
-                <Link
-                  href={`/enquiries/${e._id}`}
-                  className="flex-1 bg-white rounded-xl border border-slate-200 p-5 transition-all hover:shadow-md hover:border-slate-300 block"
-                >
-                  {/* Top row */}
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="text-sm font-semibold text-slate-800">{e.firstName} {e.lastName || ""}</p>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${PRIORITY_COLORS[e.priority] || ""}`}>
-                          {e.priority}
-                        </span>
+                <div className="flex items-start gap-3">
+                  {/* Checkbox */}
+                  {!isStaffOnly && (
+                    <button
+                      onClick={() => toggleSelect(e._id)}
+                      className="mt-4 shrink-0 text-slate-400 hover:text-cyan-600"
+                    >
+                      {selected.has(e._id)
+                        ? <CheckSquare size={16} className="text-cyan-600" />
+                        : <Square size={16} />
+                      }
+                    </button>
+                  )}
+
+                  {/* Card — click to navigate to detail */}
+                  <Link
+                    href={`/enquiries/${e._id}`}
+                    className={`flex-1 rounded-xl border p-5 transition-all block ${
+                      e.status === "closed"
+                        ? "bg-red-50/70 border-red-200 border-l-4 border-l-red-500 hover:bg-red-50 hover:border-red-300 hover:shadow-md hover:shadow-red-500/10"
+                        : "bg-white border-slate-200 hover:shadow-md hover:border-slate-300"
+                    }`}
+                  >
+                    {/* Top row */}
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className={`text-sm font-bold ${e.status === "closed" ? "text-red-950" : "text-slate-800"}`}>
+                            {e.firstName} {e.lastName || ""}
+                          </p>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${e.status === "closed" ? "bg-red-100 text-red-700 border border-red-200" : (PRIORITY_COLORS[e.priority] || "")}`}>
+                            {e.priority}
+                          </span>
+                          {e.status === "closed" && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-300 flex items-center gap-1 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                              Closed (Dead)
+                            </span>
+                          )}
                         {/* DNP badge - only show when client status is currently DNP */}
                         {e.status === "dnp" && (
                           <span className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1613,7 +1689,11 @@ function EnquiriesContent() {
 
                   {/* Message preview */}
                   {e.message && (
-                    <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 mb-2 leading-relaxed line-clamp-2">
+                    <p className={`text-xs rounded-lg px-3 py-2 mb-2 leading-relaxed line-clamp-2 ${
+                      e.status === "closed"
+                        ? "text-red-900 bg-red-100/60 border border-red-200/50"
+                        : "text-slate-500 bg-slate-50"
+                    }`}>
                       {e.message}
                     </p>
                   )}
@@ -1629,7 +1709,8 @@ function EnquiriesContent() {
                   </div>
                 </Link>
               </div>
-            ))
+            </div>
+          ))
           )}
         </div>
       </div>

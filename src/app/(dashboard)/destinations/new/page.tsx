@@ -435,6 +435,9 @@ export default function NewDestinationPage() {
               {whyVisit.length === 0 && (
                 <p className="text-xs text-slate-400 italic">No why-visit cards added yet. Click &quot;Add Card&quot; to highlight features.</p>
               )}
+            </div>
+          </div>
+
           {/* PDF Page (Why Travellers Love Us) */}
           <div className="p-5 bg-gradient-to-br from-cyan-50/50 to-slate-50 border border-cyan-150 rounded-xl space-y-4">
             <div>
