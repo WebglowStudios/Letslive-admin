@@ -78,6 +78,14 @@ export default function NewDestinationPage() {
   const [isActive, setIsActive] = useState(true);
   const [whyVisit, setWhyVisit] = useState<WhyVisitEntry[]>([]);
 
+  // PDF Page (Why Travellers Love Us)
+  const [whyLoveUsTitle, setWhyLoveUsTitle] = useState("Why travellers love us.");
+  const [whyLoveUsImage, setWhyLoveUsImage] = useState("");
+  const [whyLoveUsQuote, setWhyLoveUsQuote] = useState("");
+  const [whyLoveUsDescription, setWhyLoveUsDescription] = useState("");
+  const [whyLoveUsAuthorName, setWhyLoveUsAuthorName] = useState("");
+  const [whyLoveUsAuthorRole, setWhyLoveUsAuthorRole] = useState("");
+
   function addWhyVisit() {
     setWhyVisit([...whyVisit, { icon: "", title: "", description: "" }]);
   }
@@ -113,6 +121,14 @@ export default function NewDestinationPage() {
         isFeatured,
         isActive,
         whyVisit: whyVisit.filter((w) => w.title.trim() || w.icon.trim()),
+        whyTravelersLoveUs: {
+          title: whyLoveUsTitle || undefined,
+          image: whyLoveUsImage || undefined,
+          quote: whyLoveUsQuote || undefined,
+          description: whyLoveUsDescription || undefined,
+          authorName: whyLoveUsAuthorName || undefined,
+          authorRole: whyLoveUsAuthorRole || undefined,
+        },
       };
 
       const res = await api.post("/destinations", payload);
@@ -419,6 +435,85 @@ export default function NewDestinationPage() {
               {whyVisit.length === 0 && (
                 <p className="text-xs text-slate-400 italic">No why-visit cards added yet. Click &quot;Add Card&quot; to highlight features.</p>
               )}
+          {/* PDF Page (Why Travellers Love Us) */}
+          <div className="p-5 bg-gradient-to-br from-cyan-50/50 to-slate-50 border border-cyan-150 rounded-xl space-y-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📄</span>
+                <label className="block text-sm font-semibold text-slate-800">
+                  PDF Page — &quot;Why Travellers Love Us&quot; (2nd-to-Last Page)
+                </label>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configured content will appear as the dedicated full-page community feature in all package itinerary PDFs for this destination.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Page Headline</label>
+              <input
+                type="text"
+                value={whyLoveUsTitle}
+                onChange={(e) => setWhyLoveUsTitle(e.target.value)}
+                placeholder="e.g. Why travellers love us."
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            <div>
+              <ImageUpload
+                value={whyLoveUsImage}
+                onChange={setWhyLoveUsImage}
+                label="Travellers / Community Photo"
+                folder="destinations"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">High-quality photo of travellers/group on trip. Falls back to destination hero photo if empty.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Inspirational Quote</label>
+              <input
+                type="text"
+                value={whyLoveUsQuote}
+                onChange={(e) => setWhyLoveUsQuote(e.target.value)}
+                placeholder='e.g. "The best journeys don&#39;t just change your location—they change your perspective."'
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Description / Travel Story</label>
+              <textarea
+                value={whyLoveUsDescription}
+                onChange={(e) => setWhyLoveUsDescription(e.target.value)}
+                placeholder="Write the inspiring travel story and community experience for this destination... (separate paragraphs with blank lines)"
+                rows={4}
+                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Leave empty to use the default LetsLive Tours group travel philosophy paragraphs.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Author / Sign-off Name</label>
+                <input
+                  type="text"
+                  value={whyLoveUsAuthorName}
+                  onChange={(e) => setWhyLoveUsAuthorName(e.target.value)}
+                  placeholder="e.g. Nitin Khanna"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Author Role / Designation</label>
+                <input
+                  type="text"
+                  value={whyLoveUsAuthorRole}
+                  onChange={(e) => setWhyLoveUsAuthorRole(e.target.value)}
+                  placeholder="e.g. Founder, LetsLive Tours"
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
             </div>
           </div>
 

@@ -128,7 +128,20 @@ interface PackageData {
   trainPrice?: number;
   cruiseIncluded?: boolean;
   cruisePrice?: number;
-  destination?: { name: string; slug?: string; country?: string };
+  destination?: {
+    name?: string;
+    slug?: string;
+    country?: string;
+    region?: string;
+    whyTravelersLoveUs?: {
+      title?: string;
+      image?: string;
+      quote?: string;
+      description?: string;
+      authorName?: string;
+      authorRole?: string;
+    };
+  };
   description?: string; shortDescription?: string;
   duration: { nights: number; days: number };
   travelDates?: { startDate?: string; endDate?: string };
@@ -148,6 +161,7 @@ interface PackageData {
   travellerCount?: string; adultCount?: number; childCount?: number;
   transferSummary?: string;
   partnerLogos?: PartnerItem[];
+  curatedBy?: string;
   preparedBy?: string;
   assignedTo?: { firstName?: string; lastName?: string; name?: string; email?: string } | string;
   createdBy?: { firstName?: string; lastName?: string; name?: string; email?: string } | string;
@@ -798,31 +812,34 @@ const SectionTitle = ({ title }: { title: string }) => (
 const CoverPage = ({ pkg }: { pkg: PackageData }) => {
   const coverImg = pkg.heroImage || (pkg.images && pkg.images.length > 0 ? pkg.images[0] : undefined);
 
-  // Resolve assigned user / handler name
+  // Resolve employee name for curation (no "_Lets Live Tours" suffix)
   const resolveHandlerName = (): string | null => {
-    if (pkg.preparedBy && pkg.preparedBy.trim()) {
-      return pkg.preparedBy.trim();
-    }
-    if (pkg.enquiryId && typeof pkg.enquiryId === "object" && (pkg.enquiryId as any).assignedTo) {
+    let name: string | null = null;
+    if ((pkg as any).curatedBy && (pkg as any).curatedBy.trim()) {
+      name = (pkg as any).curatedBy.trim();
+    } else if (pkg.preparedBy && pkg.preparedBy.trim()) {
+      name = pkg.preparedBy.trim();
+    } else if (pkg.enquiryId && typeof pkg.enquiryId === "object" && (pkg.enquiryId as any).assignedTo) {
       const a = (pkg.enquiryId as any).assignedTo;
-      const n = typeof a === "object" ? `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name : typeof a === "string" ? a : "";
-      if (n) return n;
-    }
-    if (pkg.assignedTo) {
+      name = typeof a === "object" ? `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name : typeof a === "string" ? a : "";
+    } else if (pkg.assignedTo) {
       const a = pkg.assignedTo as any;
-      const n = typeof a === "object" ? `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name : typeof a === "string" ? a : "";
-      if (n) return n;
-    }
-    if (pkg.createdBy) {
+      name = typeof a === "object" ? `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name : typeof a === "string" ? a : "";
+    } else if (pkg.createdBy) {
       const c = pkg.createdBy as any;
-      const n = typeof c === "object" ? `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name : typeof c === "string" ? c : "";
-      if (n) return n;
+      name = typeof c === "object" ? `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name : typeof c === "string" ? c : "";
     }
-    return null;
+    if (!name) return null;
+    // Strip any trailing/internal "_Lets Live Tours", "_letslivetours", etc.
+    const clean = name
+      .replace(/[_-]?\s*lets\s*live\s*tours\b/gi, "")
+      .replace(/[_-]?\s*letslivetours\b/gi, "")
+      .trim();
+    return clean || name;
   };
 
-  const handler = resolveHandlerName();
-  const preparedByBrand = handler ? `${handler}_Lets Live Tours` : "LETS LIVE TOURS";
+  const employeeName = resolveHandlerName();
+  const curatedByText = employeeName || "LETS LIVE TOURS";
 
   // Resolve travellers / adults count
   let travellersCoverText = "";
@@ -878,6 +895,30 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
           paddingTop: 36,
           paddingBottom: 36,
         }}>
+        {/* Custom Itinerary header: visible Curated for */}
+        {(pkg.isCustom || pkg.clientName) && (
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+            <View style={{
+              backgroundColor: "rgba(245, 166, 35, 0.12)",
+              borderWidth: 1,
+              borderColor: C.cu,
+              borderRadius: 20,
+              paddingVertical: 3.5,
+              paddingHorizontal: 11,
+              marginRight: 10,
+            }}>
+              <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.cu, letterSpacing: 1.2 }}>
+                CUSTOM ITINERARY
+              </Text>
+            </View>
+            {pkg.clientName ? (
+              <Text style={{ fontSize: 10.5, color: "rgba(255,255,255,0.85)" }}>
+                Curated for <Text style={{ fontFamily: "Helvetica-Bold", color: C.cu }}>{pkg.clientName}</Text>
+              </Text>
+            ) : null}
+          </View>
+        )}
+
         {/* Title */}
         <Text style={{
           fontSize: 34, fontFamily: "Helvetica-Bold",
@@ -942,9 +983,9 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
           {pkg.isInternational && (
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill={pkg.visaIncluded ? C.gn3 : C.cu} />
+                <Path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.visaIncluded ? C.gn3 : C.cu }}>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
                 {pkg.visaIncluded ? "Visa Included" : "Visa Not Included"}
               </Text>
             </View>
@@ -952,9 +993,9 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
           {pkg.flightsIncluded !== undefined && (
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill={pkg.flightsIncluded ? C.gn3 : C.cu} />
+                <Path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.flightsIncluded ? C.gn3 : C.cu }}>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
                 {pkg.flightsIncluded ? "Flights Included" : "Flights Not Included"}
               </Text>
             </View>
@@ -962,9 +1003,9 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
           {!pkg.hideTrainInfo && pkg.trainsIncluded !== undefined && (!pkg.isInternational || pkg.trainsIncluded) && (
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d={ICONS.train} fill={pkg.trainsIncluded ? C.gn3 : C.cu} />
+                <Path d={ICONS.train} fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: pkg.trainsIncluded ? C.gn3 : C.cu }}>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
                 {pkg.trainsIncluded ? "Trains Included" : "Trains Not Included"}
               </Text>
             </View>
@@ -988,17 +1029,92 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
           </View>
         </View>
 
-        {/* Footer: prepared by */}
-        <View style={{ marginTop: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.gn3 }}>
-          {pkg.isCustom && pkg.clientName ? (
-            <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
-              Specially prepared for <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{pkg.clientName.toUpperCase()}</Text>  ·  Prepared by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{preparedByBrand}</Text>
-            </Text>
-          ) : (
-            <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
-              Prepared by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{preparedByBrand}</Text>
-            </Text>
-          )}
+        {/* Divider above 4-Stat Trust Grid */}
+        <View style={{ height: 1, backgroundColor: "#1e3842", marginTop: 20, marginBottom: 16, width: "100%" }} />
+
+        {/* ── 4-Stat Trust Grid ────────────────────────────────────────────── */}
+        <View style={{
+          flexDirection: "row",
+          marginBottom: 4,
+          gap: 6,
+        }}>
+          {/* Stat 1 — 300k+ Customers */}
+          <View style={{
+            flex: 1,
+            backgroundColor: "rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: "#1e3842",
+            alignItems: "flex-start",
+          }}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+              <Path d={ICONS.people} fill={C.cu} />
+            </Svg>
+            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>300k+</Text>
+            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Happy customers from 70+ countries all around.</Text>
+          </View>
+
+          {/* Stat 2 — 4.8/5 Rating */}
+          <View style={{
+            flex: 1,
+            backgroundColor: "rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: "#1e3842",
+            alignItems: "flex-start",
+          }}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+              <Path d={ICONS.star} fill={C.cu} />
+            </Svg>
+            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>4.8/5</Text>
+            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Rated across Trip Advisor and Google.</Text>
+          </View>
+
+          {/* Stat 3 — 10k+ Followers */}
+          <View style={{
+            flex: 1,
+            backgroundColor: "rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: "#1e3842",
+            alignItems: "flex-start",
+          }}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+              <Path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill={C.cu} />
+            </Svg>
+            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>10k+</Text>
+            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Followers across all platforms.</Text>
+          </View>
+
+          {/* Stat 4 — 24/7 On-trip assistance */}
+          <View style={{
+            flex: 1,
+            backgroundColor: "rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: "#1e3842",
+            alignItems: "flex-start",
+          }}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+              <Path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill={C.cu} />
+            </Svg>
+            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>24/7</Text>
+            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>On-trip assistance. Pre, post and on the trip.</Text>
+          </View>
+        </View>
+
+        {/* Divider above footer */}
+        <View style={{ height: 1, backgroundColor: "#1e3842", marginTop: 18, marginBottom: 14, width: "100%" }} />
+
+        {/* Footer: curated by */}
+        <View>
+          <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
+            Curated by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{curatedByText}</Text>
+          </Text>
         </View>
       </View>
     </View>
@@ -2527,6 +2643,222 @@ const PartnersPage = ({ pkg }: { pkg?: PackageData }) => {
   );
 };
 
+// ─── Why Travellers Love Us Page (2nd-to-Last Page) ───────────────────────────
+const WhyTravelersLoveUsPage = ({ pkg }: { pkg: PackageData }) => {
+  const dest = pkg.destination && typeof pkg.destination === "object" ? pkg.destination : null;
+  const whyLoveUs = dest?.whyTravelersLoveUs;
+
+  const rawTitle = whyLoveUs?.title?.trim() || "Why travellers love us.";
+
+  // Resolve image: custom whyLoveUs image > destinationImages > heroImage > images
+  const displayImage =
+    whyLoveUs?.image?.trim() ||
+    (pkg.destinationImages && pkg.destinationImages.length > 0 ? pkg.destinationImages[0] : null) ||
+    pkg.heroImage ||
+    (pkg.images && pkg.images.length > 0 ? pkg.images[0] : null);
+
+  let quoteText = whyLoveUs?.quote?.trim() || "The best journeys don't just change your location—they change your perspective.";
+  if (!quoteText.startsWith('"') && !quoteText.startsWith('“')) {
+    quoteText = `"${quoteText}"`;
+  }
+
+  const defaultParagraphs = [
+    "Travel is more than reaching a destination it's about the experiences you collect, the people you meet, and the stories you bring back home. At LetsLive Tours, we create unforgettable group travel experiences with expertly curated itineraries, experienced trip captains, hassle-free planning, and a welcoming community of like-minded travellers.",
+    "Whether you're travelling solo or with friends, every trip is designed to help you explore iconic destinations, create lifelong memories, and return with friendships that last beyond the journey.",
+  ];
+
+  const paragraphs = whyLoveUs?.description?.trim()
+    ? whyLoveUs.description.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+    : defaultParagraphs;
+
+  const authorName = whyLoveUs?.authorName?.trim() || "Nitin Khanna";
+  const authorRole = whyLoveUs?.authorRole?.trim() || "Founder, LetsLive Tours";
+  const initials = authorName
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "LL";
+
+  const renderTitle = (titleText: string) => {
+    const trimmed = titleText.trim();
+    const loveUsMatch = trimmed.match(/^(.*?)(\s*love\s+us\.?)$/i);
+    if (loveUsMatch) {
+      return (
+        <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#0e2229", letterSpacing: -0.2 }}>
+          {loveUsMatch[1]} <Text style={{ color: "#00a699" }}>{loveUsMatch[2].trim()}</Text>
+        </Text>
+      );
+    }
+    const words = trimmed.split(" ");
+    if (words.length > 2) {
+      const main = words.slice(0, -2).join(" ");
+      const accent = words.slice(-2).join(" ");
+      return (
+        <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#0e2229", letterSpacing: -0.2 }}>
+          {main} <Text style={{ color: "#00a699" }}>{accent}</Text>
+        </Text>
+      );
+    }
+    return (
+      <Text style={{ fontSize: 22, fontFamily: "Helvetica-Bold", color: "#0e2229", letterSpacing: -0.2 }}>
+        {trimmed}
+      </Text>
+    );
+  };
+
+  return (
+    <Page size="A4" style={[s.page, { paddingBottom: 48, backgroundColor: "#fafdfd" }]}>
+      <PageHeader section="Why Travellers Love Us" />
+
+      {/* Top Brand Header */}
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10, marginTop: 4 }}>
+        <View
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 6,
+            backgroundColor: "#00a699",
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: 8,
+          }}
+        >
+          <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>LT</Text>
+        </View>
+        <View>
+          <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#004d5e", letterSpacing: 1.5 }}>
+            LETSLIVE TOURS
+          </Text>
+          <Text style={{ fontSize: 6.5, color: "#4a7a85", letterSpacing: 0.8 }}>
+            EXPERIENCE THE EXTRAORDINARY
+          </Text>
+        </View>
+      </View>
+
+      {/* Page Title */}
+      <View style={{ marginBottom: 12 }}>
+        {renderTitle(rawTitle)}
+      </View>
+
+      {/* Main Feature Card */}
+      <View
+        style={{
+          backgroundColor: "#ffffff",
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: "#ddecfa",
+          padding: 16,
+          flex: 1,
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Top: Travellers / Community Image */}
+        <View
+          style={{
+            borderRadius: 10,
+            overflow: "hidden",
+            height: 225,
+            width: "100%",
+            backgroundColor: "#e6eff2",
+          }}
+        >
+          {displayImage ? (
+            <Image
+              src={displayImage}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#004d5e" }}>
+              <Text style={{ color: "#ffffff", fontSize: 13, fontFamily: "Helvetica-Bold" }}>
+                LetsLive Community
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Middle: Quote with vertical accent line */}
+        <View style={{ marginTop: 12, flexDirection: "row", alignItems: "stretch" }}>
+          <View
+            style={{
+              width: 3.5,
+              backgroundColor: "#00a699",
+              borderRadius: 2,
+              marginRight: 10,
+            }}
+          />
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            <Text
+              style={{
+                fontSize: 10.5,
+                fontFamily: "Helvetica-BoldOblique",
+                color: "#112228",
+                lineHeight: 1.45,
+              }}
+            >
+              {quoteText}
+            </Text>
+          </View>
+        </View>
+
+        {/* Travel Philosophy Description Paragraphs */}
+        <View style={{ marginTop: 10 }}>
+          {paragraphs.map((p, idx) => (
+            <Text
+              key={idx}
+              style={{
+                fontSize: 8.8,
+                color: "#4a636c",
+                lineHeight: 1.5,
+                marginBottom: idx === paragraphs.length - 1 ? 0 : 7,
+              }}
+            >
+              {p}
+            </Text>
+          ))}
+        </View>
+
+        {/* Solid Divider */}
+        <View style={{ height: 1, backgroundColor: "#e8eff1", marginTop: 12, marginBottom: 10 }} />
+
+        {/* Author / Founder Signature Row */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: "#00a699",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 10,
+            }}
+          >
+            <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
+              {initials}
+            </Text>
+          </View>
+          <View>
+            <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0e2229" }}>
+              {authorName}
+            </Text>
+            <Text style={{ fontSize: 8, color: "#6c848e", marginTop: 1.5 }}>
+              {authorRole}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <PageFooter />
+    </Page>
+  );
+};
+
 // ─── Document ─────────────────────────────────────────────────────────────────
 const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
   <Document
@@ -2558,6 +2890,9 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       
       <PageFooter />
     </Page>
+
+    {/* 2nd Last Page: Why Travellers Love Us */}
+    <WhyTravelersLoveUsPage pkg={pkg} />
 
     {/* Last Page: Our Partners */}
     <PartnersPage pkg={pkg} />
