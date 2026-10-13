@@ -70,7 +70,23 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; isCustom?: boolean; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+
+export const getWebsiteBaseUrl = (brand?: string, bookingId?: string, operationId?: string) => {
+  const isTrippy = brand === "trippy-travellerz" || bookingId?.startsWith("TTZ") || operationId?.startsWith("TTZ");
+  if (isTrippy) {
+    const trippyUrl = process.env.NEXT_PUBLIC_TRIPPY_FRONTEND_URL;
+    if (trippyUrl && !trippyUrl.includes("localhost")) {
+      return trippyUrl.replace(/\/$/, "");
+    }
+    return "https://trippytravellers.com";
+  }
+  const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
+  if (envUrl && !envUrl.includes("localhost")) {
+    return envUrl.replace(/\/$/, "");
+  }
+  return "https://letslivetours.com";
+};
 
 function Inp({ value, onChange, type = "text", placeholder = "" }: { value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full" />;
@@ -421,9 +437,7 @@ export default function OperationDetailPage() {
     setPaymentLinkLoading(cp._id);
     try {
       // Generate the link to our custom website payment page
-      const baseUrl = window.location.hostname.includes("localhost") 
-        ? "http://localhost:3000" 
-        : "https://letslivetours.com";
+      const baseUrl = getWebsiteBaseUrl(op?.booking?.brand, op?.booking?.bookingId, op?.operationId);
       const customLink = `${baseUrl}/pay-installment/${cp._id}`;
       
       const u = [...customerPayments];
@@ -615,34 +629,60 @@ export default function OperationDetailPage() {
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
               <p className="text-sm font-semibold text-slate-800">{op.destination}</p>
               <p className="text-xs text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"} → {op.travelDates?.end ? formatDate(op.travelDates.end) : "—"}</p>
-              {op.booking && (
-                <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-                  <p className="text-xs text-slate-500">Booking: <Link href={`/bookings/${op.booking._id}`} className="font-semibold text-slate-700 hover:text-cyan-600">{op.booking.bookingId}</Link></p>
-                  {op.booking.package && (
-                    op.booking.package.isCustom ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={op.booking.package.name}>Itinerary: {op.booking.package.name}</p>
-                        <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/itinerary/${op.booking.package._id}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          Visit
-                        </a>
-                        <Link href={`/itineraries/${op.booking.package._id}/edit`} className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          Edit
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={op.booking.package.name}>Package: {op.booking.package.name}</p>
-                        <a href={`${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/packages/${op.booking.package.slug}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          Visit
-                        </a>
-                        <Link href={`/packages/${op.booking.package._id}/edit`} className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          Edit
-                        </Link>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
+              {(() => {
+                const websiteBaseUrl = getWebsiteBaseUrl(op.booking?.brand, op.booking?.bookingId, op.operationId);
+                const pkg = op.booking?.package || op.package;
+                if (!op.booking && !pkg) return null;
+
+                return (
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
+                    {op.booking && (
+                      <p className="text-xs text-slate-500">
+                        Booking: <Link href={`/bookings/${op.booking._id}`} className="font-semibold text-slate-700 hover:text-cyan-600">{op.booking.bookingId}</Link>
+                      </p>
+                    )}
+                    {pkg && (
+                      pkg.isCustom ? (
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={pkg.name}>Itinerary: {pkg.name}</p>
+                          <a
+                            href={`${websiteBaseUrl}/itinerary/${pkg._id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1 font-medium"
+                          >
+                            Visit
+                          </a>
+                          <Link
+                            href={`/itineraries/${pkg._id}/edit`}
+                            className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1 font-medium"
+                          >
+                            Edit
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs font-medium text-slate-700 truncate max-w-[200px]" title={pkg.name}>Package: {pkg.name}</p>
+                          <a
+                            href={`${websiteBaseUrl}/packages/${pkg.slug || pkg._id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-emerald-600 hover:underline bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1 font-medium"
+                          >
+                            Visit
+                          </a>
+                          <Link
+                            href={`/packages/${pkg._id}/edit`}
+                            className="text-[10px] text-blue-600 hover:underline bg-blue-50 border border-blue-100 px-2 py-0.5 rounded flex items-center gap-1 font-medium"
+                          >
+                            Edit
+                          </Link>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             
             {/* Assignment Card */}

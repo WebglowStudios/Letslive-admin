@@ -485,12 +485,19 @@ export default function EditCustomItineraryPage() {
     setLoading(true); setError(""); setSuccess("");
     try {
       const payload = {
-        name,
+        name: name.trim(),
         clientName: clientName?.trim() || undefined,
         clientEmail: clientEmail?.trim() || undefined,
         clientPhone: clientPhone?.trim() || undefined,
-        destination: destination || undefined, customDestinationText: (!destination && customDestinationText) ? customDestinationText.trim() : undefined, description, shortDescription,
-        heroImage: heroImage || undefined, images, destinationImages, stayImages, activityImages,
+        destination: destination ? destination : null,
+        customDestinationText: (!destination && customDestinationText) ? customDestinationText.trim() : null,
+        description,
+        shortDescription,
+        heroImage: heroImage || undefined,
+        images,
+        destinationImages,
+        stayImages,
+        activityImages,
         isInternational,
         visaIncluded,
         duration: { nights: Number(durationNights) || 0, days: Number(durationDays) || 0 },
@@ -593,6 +600,52 @@ export default function EditCustomItineraryPage() {
 
       {error && <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
       {success && <div className="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">{success}</div>}
+
+      {/* Primary Identity Card: Title & Destination — Always Visible & Editable */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <span>Itinerary Title</span> <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Bali Romantic Escape 6D5N"
+              required
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-slate-50/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              Destination
+            </label>
+            <select
+              value={destination}
+              onChange={(e) => {
+                setDestination(e.target.value);
+                if (e.target.value) setCustomDestinationText("");
+              }}
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-slate-50/50"
+            >
+              <option value="">No specific destination (Custom / Other)</option>
+              {destinations.map((d) => (
+                <option key={d._id} value={d._id}>{d.name}</option>
+              ))}
+            </select>
+            {!destination && (
+              <input
+                type="text"
+                value={customDestinationText}
+                onChange={(e) => setCustomDestinationText(e.target.value)}
+                placeholder="Type custom destination (e.g. Bali, Kashmir, etc.)"
+                className="w-full mt-2 px-3 py-1.5 border border-cyan-200 bg-cyan-50/30 rounded-lg text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
         {tabs.map((tab) => (

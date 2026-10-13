@@ -620,38 +620,105 @@ function CreateAccountModal({
 }
 
 // ─── Duplicate Itinerary Modal ───────────────────────────────────────────────
-function DuplicateItineraryModal({ enquiryId, onClose }: { enquiryId: string; onClose: () => void }) {
+// ─── Duplicate Itinerary Modal ───────────────────────────────────────────────
+function DuplicateItineraryModal({
+  enquiry,
+  onClose,
+  onSuccess,
+}: {
+  enquiry: Enquiry;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [standardPackages, setStandardPackages] = useState<{ _id: string; name: string }[]>([]);
   const [customPackages, setCustomPackages] = useState<{ _id: string; name: string }[]>([]);
+  const [destinations, setDestinations] = useState<{ _id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [duplicating, setDuplicating] = useState(false);
-  const [activeTab, setActiveTab] = useState<"custom" | "standard">("custom");
+  const [activeTab, setActiveTab] = useState<"standard" | "custom">("standard");
+
+  const clientName = `${enquiry.firstName || ""} ${enquiry.lastName || ""}`.trim();
+  const initialClientDest =
+    enquiry.destination ||
+    (typeof enquiry.package === "object" && (enquiry.package as any)?.destination?.name) ||
+    (typeof enquiry.package === "object" && (enquiry.package as any)?.customDestinationText) ||
+    "";
+  const initialClientPackage =
+    enquiry.packageName ||
+    (typeof enquiry.package === "object" && enquiry.package?.name) ||
+    "";
+
+  // Form states for the new customized itinerary
+  const [itineraryTitle, setItineraryTitle] = useState(
+    initialClientPackage || (initialClientDest ? `${initialClientDest} Tour for ${clientName || "Client"}` : "")
+  );
+  const [targetDestination, setTargetDestination] = useState(initialClientDest || "");
 
   useEffect(() => {
     Promise.all([
       api.get("/packages?admin=true&limit=100"),
-      api.get("/packages/custom")
+      api.get("/packages/custom"),
+      api.get("/destinations?admin=true&limit=100"),
     ])
-      .then(([stdRes, custRes]) => {
+      .then(([stdRes, custRes, destRes]) => {
         const stdData = stdRes?.data?.data || stdRes?.data || [];
         const custData = custRes?.data?.data || custRes?.data || [];
+        const destData = Array.isArray(destRes?.data) ? destRes.data : Array.isArray(destRes) ? destRes : [];
         setStandardPackages(Array.isArray(stdData) ? stdData : []);
         setCustomPackages(Array.isArray(custData) ? custData : []);
+        setDestinations(destData);
       })
       .catch(() => alert("Failed to fetch packages"))
       .finally(() => setLoading(false));
   }, []);
 
+  function handleSelectTemplate(pkgId: string) {
+    setSelectedPackage(pkgId);
+    if (!pkgId) return;
+    const list = activeTab === "standard" ? standardPackages : customPackages;
+    const picked = list.find((p) => p._id === pkgId);
+    if (picked && !itineraryTitle) {
+      if (initialClientPackage) {
+        setItineraryTitle(initialClientPackage);
+      } else if (targetDestination) {
+        setItineraryTitle(`${targetDestination} Tour - for ${clientName || "Client"}`);
+      } else {
+        setItineraryTitle(`${picked.name} - for ${clientName || "Client"}`);
+      }
+    }
+  }
+
   async function handleDuplicate() {
-    if (!selectedPackage) return;
+    if (!selectedPackage) {
+      alert("Please select a base template itinerary to clone.");
+      return;
+    }
+    if (!itineraryTitle.trim()) {
+      alert("Please provide a title for the new itinerary.");
+      return;
+    }
+
     setDuplicating(true);
     try {
-      const res = await api.post(`/packages/${selectedPackage}/duplicate`, { enquiryId });
+      const matchedDest = destinations.find(
+        (d) => d.name.toLowerCase().trim() === targetDestination.toLowerCase().trim()
+      );
+      const destId = matchedDest ? matchedDest._id : undefined;
+      const customDest = !matchedDest && targetDestination.trim() ? targetDestination.trim() : undefined;
+
+      const res = await api.post(`/packages/${selectedPackage}/duplicate`, {
+        enquiryId: enquiry._id,
+        name: itineraryTitle.trim(),
+        destination: destId,
+        customDestinationText: customDest,
+      });
       const newPackage = res?.data?.data || res?.data;
       if (newPackage?._id) {
         onClose();
+        if (onSuccess) onSuccess();
         router.push(`/itineraries/${newPackage._id}/edit`);
       } else {
         onClose();
@@ -663,72 +730,168 @@ function DuplicateItineraryModal({ enquiryId, onClose }: { enquiryId: string; on
     }
   }
 
-  const currentList = activeTab === "custom" ? customPackages : standardPackages;
+  const currentList = (activeTab === "standard" ? standardPackages : customPackages).filter((p) =>
+    searchQuery ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : true
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div>
-            <h3 className="font-bold text-slate-800">Duplicate & Link Itinerary</h3>
-            <p className="text-xs text-slate-400">Clone an existing itinerary and link it to this enquiry</p>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Copy size={16} className="text-cyan-600" /> Duplicate & Customize Itinerary
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Clone an existing itinerary template and set up a customized tour for <span className="font-semibold text-slate-700">{clientName || "the client"}</span>
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
-        </div>
-        
-        {/* Tabs */}
-        <div className="flex border-b border-slate-100 px-6 mt-2">
-          <button
-            onClick={() => { setActiveTab("custom"); setSelectedPackage(""); }}
-            className={`pb-2 px-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "custom" ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Custom Itineraries
-          </button>
-          <button
-            onClick={() => { setActiveTab("standard"); setSelectedPackage(""); }}
-            className={`pb-2 px-2 ml-4 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "standard" ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Standard Packages
-          </button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-lg transition-colors"><X size={18} /></button>
         </div>
 
-        <div className="p-5">
-          {loading ? (
-            <div className="flex justify-center py-6">
-              <div className="w-6 h-6 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
+        {/* Client Inquiry Context Banner */}
+        {(initialClientPackage || initialClientDest) && (
+          <div className="px-6 py-2.5 bg-cyan-50/80 border-b border-cyan-100 text-xs text-cyan-900 flex items-center gap-2 flex-wrap">
+            <span className="font-bold uppercase tracking-wider text-[10px] text-cyan-700 bg-cyan-100 px-1.5 py-0.5 rounded">Client Inquiry</span>
+            {initialClientDest && (
+              <span className="flex items-center gap-1 font-semibold text-cyan-800">
+                <MapPin size={11} className="text-cyan-600" /> Destination: {initialClientDest}
+              </span>
+            )}
+            {initialClientPackage && (
+              <span className="flex items-center gap-1 text-cyan-800">
+                <Package size={11} className="text-cyan-600" /> Package: {initialClientPackage}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          {/* STEP 1: Select Source Template */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                1. Select Base Template to Clone <span className="text-rose-500">*</span>
+              </label>
+              <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("standard"); setSelectedPackage(""); }}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                    activeTab === "standard" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Standard Packages ({standardPackages.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab("custom"); setSelectedPackage(""); }}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                    activeTab === "custom" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Custom Proposals ({customPackages.length})
+                </button>
+              </div>
             </div>
-          ) : currentList.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">No {activeTab} itineraries found.</p>
-          ) : (
-            <div className="space-y-4">
-              <label className="block text-sm font-medium text-slate-700">Select to Duplicate</label>
+
+            {/* Search filter for template */}
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search ${activeTab === "standard" ? "standard packages" : "custom proposals"}...`}
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-6">
+                <div className="w-6 h-6 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : currentList.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-3 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                No matching itineraries found.
+              </p>
+            ) : (
               <select
                 value={selectedPackage}
-                onChange={(e) => setSelectedPackage(e.target.value)}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                onChange={(e) => handleSelectTemplate(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white"
               >
-                <option value="">-- Select --</option>
+                <option value="">-- Choose template itinerary --</option>
                 {currentList.map((p) => (
                   <option key={p._id} value={p._id}>
                     {p.name}
                   </option>
                 ))}
               </select>
+            )}
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* STEP 2: Customized Details for this Client */}
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  2. New Itinerary Title <span className="text-rose-500">*</span>
+                </label>
+                {initialClientPackage && itineraryTitle !== initialClientPackage && (
+                  <button
+                    type="button"
+                    onClick={() => setItineraryTitle(initialClientPackage)}
+                    className="text-[10px] text-cyan-600 hover:underline font-semibold"
+                  >
+                    Reset to inquiry interest
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                value={itineraryTitle}
+                onChange={(e) => setItineraryTitle(e.target.value)}
+                placeholder="e.g. Bali 6D5N Romantic Honeymoon"
+                className="w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-slate-50/50"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                This title will be displayed in the client's proposal and linked directly to this enquiry.
+              </p>
             </div>
-          )}
+
+            <div>
+              <DestinationSelect
+                value={targetDestination}
+                onChange={setTargetDestination}
+                label="Destination"
+                placeholder="Select or enter destination..."
+                suggestedDestination={initialClientDest}
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+            Cancel
+          </button>
           <button
             onClick={handleDuplicate}
-            disabled={!selectedPackage || duplicating}
-            className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40"
+            disabled={!selectedPackage || !itineraryTitle.trim() || duplicating}
+            className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
           >
-            {duplicating ? "Duplicating..." : "Duplicate Itinerary"}
+            {duplicating ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Duplicating...
+              </>
+            ) : (
+              <>
+                <Copy size={16} /> Duplicate & Open Editor
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -2087,6 +2250,21 @@ export default function EnquiryDetailPage() {
     }
   }
 
+  async function handleRenameItinerary(packageId: string, currentTitle: string) {
+    const newTitle = prompt("Enter new title for this itinerary:", currentTitle);
+    if (!newTitle || !newTitle.trim() || newTitle.trim() === currentTitle) return;
+    try {
+      const res = await api.put(`/packages/${packageId}`, { name: newTitle.trim() });
+      if (res?.status === "success" || res?.data) {
+        fetchEnquiry();
+      } else {
+        alert("Failed to update itinerary title.");
+      }
+    } catch {
+      alert("Error updating itinerary title. Please try again.");
+    }
+  }
+
   function handleCopyItineraryLink(packageId: string) {
     const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || "https://letslivetours.com";
     const url = `${frontendUrl.replace(/\/$/, "")}/itinerary/${packageId}`;
@@ -2156,8 +2334,12 @@ export default function EnquiryDetailPage() {
         />
       )}
 
-      {showDuplicateModal && (
-        <DuplicateItineraryModal enquiryId={id} onClose={() => setShowDuplicateModal(false)} />
+      {showDuplicateModal && enquiry && (
+        <DuplicateItineraryModal
+          enquiry={enquiry}
+          onClose={() => setShowDuplicateModal(false)}
+          onSuccess={fetchEnquiry}
+        />
       )}
       {showSendLinkModal && enquiry && (
         <SendBookingLinkModal enquiry={enquiry} onClose={() => setShowSendLinkModal(false)} />
@@ -2525,7 +2707,7 @@ export default function EnquiryDetailPage() {
                               </button>
 
                               {/* Secondary Actions Toolbar */}
-                              <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-slate-200/60">
+                              <div className="grid grid-cols-5 gap-1.5 pt-1.5 border-t border-slate-200/60">
                                 <button
                                   type="button"
                                   onClick={() => handleCopyItineraryLink(pkg._id)}
@@ -2548,6 +2730,15 @@ export default function EnquiryDetailPage() {
                                     <Download size={11} className="text-cyan-600" />
                                   )}
                                   <span className="truncate">{downloadingPdfId === pkg._id ? "PDF..." : "PDF"}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRenameItinerary(pkg._id, pkg.name)}
+                                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-200 text-slate-700 hover:text-amber-700 h-7 rounded-md transition-colors shadow-2xs"
+                                  title="Rename itinerary title"
+                                >
+                                  <Tag size={11} className="text-slate-500" />
+                                  <span className="truncate">Rename</span>
                                 </button>
                                 <Link
                                   href={`/itineraries/${pkg._id}/edit`}
@@ -2576,6 +2767,14 @@ export default function EnquiryDetailPage() {
                           </p>
                           {enquiry.package && typeof enquiry.package === 'object' && '_id' in enquiry.package && (
                             <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleRenameItinerary((enquiry.package as any)._id, enquiry.packageName || "")}
+                                className="text-[11px] bg-amber-50 text-amber-800 px-2 py-1 rounded-md hover:bg-amber-100 transition-colors font-semibold flex items-center gap-1 border border-amber-200"
+                                title="Rename itinerary title"
+                              >
+                                <Tag size={11} /> Rename
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleCopyItineraryLink((enquiry.package as any)._id)}
