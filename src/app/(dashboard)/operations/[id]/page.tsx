@@ -70,7 +70,7 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; isCustom?: boolean; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 export const getWebsiteBaseUrl = (brand?: string, bookingId?: string, operationId?: string) => {
   const isTrippy = brand === "trippy-travellerz" || bookingId?.startsWith("TTZ") || operationId?.startsWith("TTZ");
@@ -150,11 +150,13 @@ export default function OperationDetailPage() {
     return age >= 0 ? age : undefined;
   };
 
-  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", dob: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
+  const [newPassenger, setNewPassenger] = useState({ name: "", age: "", dob: "", gender: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
   const [addPassengerMode, setAddPassengerMode] = useState<"existing" | "new">("existing");
   const [linkedBookingId, setLinkedBookingId] = useState("");
   const [newPassengerEmail, setNewPassengerEmail] = useState("");
   const [newPassengerPhone, setNewPassengerPhone] = useState("");
+  const [billExtra, setBillExtra] = useState(false);
+  const [extraAmount, setExtraAmount] = useState("");
   const [addingPassenger, setAddingPassenger] = useState(false);
   
   const currentRole = useRole();
@@ -495,6 +497,10 @@ export default function OperationDetailPage() {
 
   const handleAddPassenger = async () => {
     if (!newPassenger.name) return alert("Please enter passenger name");
+
+    if (billExtra && (!extraAmount || Number(extraAmount) <= 0)) {
+      return alert("Please enter a valid extra amount to charge for this passenger");
+    }
     
     const isGroupTour = !!(op?.departureId || (op?.bookings && op.bookings.length > 1));
     const modeToUse = isGroupTour ? addPassengerMode : "existing";
@@ -526,12 +532,16 @@ export default function OperationDetailPage() {
         },
         bookingId: modeToUse === "existing" ? targetBookingId : undefined,
         email: modeToUse === "new" ? newPassengerEmail : undefined,
-        phone: modeToUse === "new" ? newPassengerPhone : undefined
+        phone: modeToUse === "new" ? newPassengerPhone : undefined,
+        billExtra: modeToUse === "existing" ? billExtra : false,
+        extraAmount: modeToUse === "existing" && billExtra ? Number(extraAmount) : (modeToUse === "new" && extraAmount ? Number(extraAmount) : undefined),
       });
       setPassengerModalOpen(false);
-      setNewPassenger({ name: "", age: "", dob: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
+      setNewPassenger({ name: "", age: "", dob: "", gender: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
       setNewPassengerEmail("");
       setNewPassengerPhone("");
+      setBillExtra(false);
+      setExtraAmount("");
       fetchAll();
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to add passenger");
@@ -779,7 +789,11 @@ export default function OperationDetailPage() {
                     })()}
                   </p>
                 </div>
-                <button onClick={() => setPassengerModalOpen(true)} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                <button onClick={() => {
+                  setBillExtra(false);
+                  setExtraAmount("");
+                  setPassengerModalOpen(true);
+                }} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
                   <Plus size={14} /> Add Passenger
                 </button>
               </div>
@@ -804,6 +818,11 @@ export default function OperationDetailPage() {
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'child' ? 'bg-emerald-100 text-emerald-700' : t.type === 'infant' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
                         {t.type || 'Adult'}
                       </span>
+                      {t.gender && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200 capitalize">
+                          {t.gender}
+                        </span>
+                      )}
                       <p className="text-sm font-bold text-slate-800">{t.name}</p>
                       {t._isPrimary && <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded-full uppercase">Lead</span>}
                     </div>
@@ -852,6 +871,7 @@ export default function OperationDetailPage() {
                       email: primary.email,
                       phone: primary.phone,
                       type: 'adult',
+                      gender: matchedDetail?.gender || (primary as any).gender,
                       dob: matchedDetail?.dob || (primary as any).dob,
                       age: matchedDetail?.age || (primary as any).age,
                       _isPrimary: true,
@@ -2580,38 +2600,47 @@ export default function OperationDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Date of Birth</label>
-                    {newPassenger.age !== "" && (
-                      <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
-                        {newPassenger.age} yrs
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="date"
-                    max={new Date().toISOString().split("T")[0]}
-                    value={newPassenger.dob || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const calculatedAge = calculateAgeFromDob(val);
-                      let autoType = newPassenger.type;
-                      if (calculatedAge !== undefined) {
-                        if (calculatedAge < 2) autoType = "infant";
-                        else if (calculatedAge < 12) autoType = "child";
-                        else autoType = "adult";
-                      }
-                      setNewPassenger({
-                        ...newPassenger,
-                        dob: val,
-                        age: calculatedAge !== undefined ? String(calculatedAge) : "",
-                        type: autoType,
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  />
-                  <p className="text-[9px] text-slate-400 mt-0.5">Optional · Age is calculated automatically</p>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Gender</label>
+                  <select value={newPassenger.gender || ""} onChange={e => setNewPassenger({...newPassenger, gender: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    <option value="">-- Select Gender --</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Date of Birth</label>
+                  {newPassenger.age !== "" && (
+                    <span className="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
+                      {newPassenger.age} yrs
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  max={new Date().toISOString().split("T")[0]}
+                  value={newPassenger.dob || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const calculatedAge = calculateAgeFromDob(val);
+                    let autoType = newPassenger.type;
+                    if (calculatedAge !== undefined) {
+                      if (calculatedAge < 2) autoType = "infant";
+                      else if (calculatedAge < 12) autoType = "child";
+                      else autoType = "adult";
+                    }
+                    setNewPassenger({
+                      ...newPassenger,
+                      dob: val,
+                      age: calculatedAge !== undefined ? String(calculatedAge) : "",
+                      type: autoType,
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <p className="text-[9px] text-slate-400 mt-0.5">Optional · Age is calculated automatically</p>
               </div>
               <div className="pt-3 border-t border-slate-100">
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Passport Details (Optional)</p>
@@ -2632,6 +2661,60 @@ export default function OperationDetailPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Extra Billing / Group Booking Setting */}
+              {addPassengerMode === "existing" ? (
+                <div className="pt-3 border-t border-slate-100 bg-slate-50/70 -mx-5 px-5 py-3 rounded-b-none">
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={billExtra}
+                      onChange={(e) => setBillExtra(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800">Charge extra for this passenger</span>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                        Keep unchecked if this passenger is already included in the group or package price.
+                      </p>
+                    </div>
+                  </label>
+
+                  {billExtra && (
+                    <div className="mt-3 pl-6">
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">
+                        Extra Amount (₹) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={extraAmount}
+                        onChange={(e) => setExtraAmount(e.target.value)}
+                        placeholder="e.g. 25000"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        This will add an extra installment milestone to the customer payment schedule.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-slate-100">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">
+                    Booking Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={extraAmount}
+                    onChange={(e) => setExtraAmount(e.target.value)}
+                    placeholder={op?.package?.price ? String(op.package.price) : "0"}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Leave blank to use default package price (₹{op?.package?.price?.toLocaleString('en-IN') || 0}).
+                  </p>
+                </div>
+              )}
             </div>
             
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end">

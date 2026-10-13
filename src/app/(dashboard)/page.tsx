@@ -32,10 +32,15 @@ interface DashboardStats {
 interface RecentBooking {
   _id: string;
   bookingId?: string;
-  user: { firstName: string; lastName: string; email: string };
-  package: { name: string };
+  user?: { firstName?: string; lastName?: string; email?: string };
+  primaryTraveller?: { firstName?: string; lastName?: string; email?: string; phone?: string };
+  package?: { name?: string };
+  destination?: { name?: string };
+  packageName?: string;
   totalAmount: number;
-  status: string;
+  bookingStatus?: string;
+  status?: string;
+  paymentStatus?: string;
   createdAt: string;
 }
 
@@ -51,9 +56,9 @@ interface CrmStats {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [crmStats, setCrmStats] = useState<CrmStats | null>(null);
+  const [pipelinePeriod, setPipelinePeriod] = useState<"month" | "all">("month");
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [loading, setLoading] = useState(true);
-
 
   useEffect(() => {
     async function fetchData() {
@@ -65,7 +70,7 @@ export default function DashboardPage() {
         } else {
           // Fallback: fetch individual counts
           const [bookingsRes, packagesRes, destsRes] = await Promise.all([
-            api.get("/bookings?limit=5&sort=-createdAt"),
+            api.get("/bookings/all?limit=1&includeInactive=true"),
             api.get("/packages?limit=1"),
             api.get("/destinations?limit=1"),
           ]);
@@ -81,20 +86,19 @@ export default function DashboardPage() {
           });
         }
 
-        // Fetch recent bookings
-        const bookingsRes = await api.get("/bookings?limit=5&sort=-createdAt");
+        // Fetch recent bookings using admin all-bookings endpoint
+        const bookingsRes = await api.get("/bookings/all?limit=5&includeInactive=true&sort=-createdAt");
         setRecentBookings(bookingsRes?.data?.slice(0, 5) || []);
 
         // Fetch CRM stats (non-blocking)
         try {
-          const crmRes = await api.get("/enquiries/stats");
+          const crmRes = await api.get(`/enquiries/stats?period=${pipelinePeriod}`);
           if (crmRes?.status === "success" && crmRes.data) {
             setCrmStats(crmRes.data);
           }
         } catch {
           // CRM stats are optional — don't block dashboard
         }
-
       } catch {
         // Fallback
       } finally {
@@ -102,7 +106,7 @@ export default function DashboardPage() {
       }
     }
     fetchData();
-  }, []);
+  }, [pipelinePeriod]);
 
   const statCards = [
     { label: "Total Bookings", value: stats?.totalBookings || 0, icon: <CalendarCheck size={22} />, color: "bg-cyan-50 text-cyan-600", href: "/bookings" },
@@ -115,9 +119,22 @@ export default function DashboardPage() {
 
   const statusColors: Record<string, string> = {
     pending: "bg-amber-100 text-amber-700",
+    "staff-confirmed": "bg-blue-100 text-blue-700",
+    "vendor-confirmed": "bg-indigo-100 text-indigo-700",
     confirmed: "bg-cyan-100 text-cyan-700",
+    "in-progress": "bg-purple-100 text-purple-700",
     completed: "bg-emerald-100 text-emerald-700",
-    cancelled: "bg-red-100 text-red-700",
+    cancelled: "bg-rose-100 text-rose-700",
+  };
+
+  const statusLabels: Record<string, string> = {
+    pending: "Pending",
+    "staff-confirmed": "Staff Confirmed",
+    "vendor-confirmed": "Vendor Confirmed",
+    confirmed: "Confirmed",
+    "in-progress": "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
   };
 
   if (loading) {
@@ -149,12 +166,35 @@ export default function DashboardPage() {
 
       {/* CRM Sales Pipeline Widget */}
       {crmStats && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Phone size={16} className="text-cyan-600" />
               <h2 className="text-base font-semibold text-slate-900">Sales Pipeline</h2>
-              <span className="text-xs text-slate-400">This month</span>
+              <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-medium ml-2">
+                <button
+                  type="button"
+                  onClick={() => setPipelinePeriod("month")}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    pipelinePeriod === "month"
+                      ? "bg-white text-slate-900 shadow-sm font-semibold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  This month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPipelinePeriod("all")}
+                  className={`px-2.5 py-1 rounded-md transition-all ${
+                    pipelinePeriod === "all"
+                      ? "bg-white text-slate-900 shadow-sm font-semibold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  All time
+                </button>
+              </div>
             </div>
             <Link href="/enquiries" className="text-sm text-cyan-600 hover:text-cyan-700 font-medium">
               View all →
@@ -164,16 +204,16 @@ export default function DashboardPage() {
             {/* Stage counts */}
             <div className="grid grid-cols-5 gap-3 mb-4">
               {[
-                { key: "new", label: "New", color: "text-blue-600 bg-blue-50" },
-                { key: "in-progress", label: "In Progress", color: "text-amber-600 bg-amber-50" },
-                { key: "follow-up", label: "Follow-Up", color: "text-purple-600 bg-purple-50" },
-                { key: "converted", label: "Converted", color: "text-emerald-600 bg-emerald-50" },
-                { key: "closed", label: "Closed", color: "text-slate-500 bg-slate-50" },
+                { key: "new", label: "New", color: "text-blue-600 bg-blue-50 border border-blue-100/60", href: "/enquiries?status=new" },
+                { key: "in-progress", label: "In Progress", color: "text-amber-600 bg-amber-50 border border-amber-100/60", href: "/enquiries?status=in-progress,assigned,responded,whatsapp-sent,negotiation,ytc" },
+                { key: "follow-up", label: "Follow-Up", color: "text-purple-600 bg-purple-50 border border-purple-100/60", href: "/enquiries?status=follow-up,callback-scheduled,callback-requested,dnp,busy" },
+                { key: "converted", label: "Converted", color: "text-emerald-600 bg-emerald-50 border border-emerald-100/60", href: "/enquiries?status=converted" },
+                { key: "closed", label: "Closed", color: "text-slate-500 bg-slate-50 border border-slate-100/60", href: "/enquiries?status=closed,resolved" },
               ].map((stage) => (
                 <Link
                   key={stage.key}
-                  href={`/enquiries?status=${stage.key}`}
-                  className={`rounded-xl p-3 text-center hover:opacity-80 transition-opacity ${stage.color}`}
+                  href={stage.href}
+                  className={`rounded-xl p-3 text-center hover:opacity-85 hover:shadow-sm transition-all ${stage.color}`}
                 >
                   <p className="text-2xl font-bold">{crmStats.byStatus[stage.key] || 0}</p>
                   <p className="text-[10px] font-semibold mt-0.5 uppercase tracking-wide">{stage.label}</p>
@@ -211,8 +251,7 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Bookings */}
-
-      <div className="bg-white rounded-xl border border-slate-200">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900">Recent Bookings</h2>
           <Link href="/bookings" className="text-sm text-cyan-600 hover:text-cyan-700 font-medium">
@@ -222,7 +261,7 @@ export default function DashboardPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider bg-slate-50/60">
                 <th className="px-6 py-3">Customer</th>
                 <th className="px-6 py-3">Package</th>
                 <th className="px-6 py-3">Amount</th>
@@ -238,30 +277,58 @@ export default function DashboardPage() {
                   </td>
                 </tr>
               ) : (
-                recentBookings.map((booking) => (
-                  <tr key={booking._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-slate-700">
-                        {booking.user?.firstName} {booking.user?.lastName}
-                      </p>
-                      <p className="text-xs text-slate-400">{booking.user?.email}</p>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate">
-                      {booking.package?.name || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-700">
-                      {formatCurrency(booking.totalAmount)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${statusColors[booking.status] || "bg-slate-100 text-slate-600"}`}>
-                        {booking.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-500">
-                      {formatDate(booking.createdAt)}
-                    </td>
-                  </tr>
-                ))
+                recentBookings.map((booking) => {
+                  const customerName =
+                    [booking.primaryTraveller?.firstName, booking.primaryTraveller?.lastName].filter(Boolean).join(" ") ||
+                    [booking.user?.firstName, booking.user?.lastName].filter(Boolean).join(" ") ||
+                    "Guest Traveller";
+                  const customerEmail =
+                    booking.primaryTraveller?.email || booking.user?.email || "";
+                  const pkgName =
+                    booking.package?.name || booking.packageName || booking.destination?.name || "Custom Tour Package";
+                  const bookingCode =
+                    booking.bookingId || String(booking._id).slice(-6).toUpperCase();
+                  const currentStatus =
+                    booking.bookingStatus || booking.status || "pending";
+
+                  return (
+                    <tr key={booking._id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <Link href={`/bookings?search=${encodeURIComponent(bookingCode)}`} className="block group-hover:text-cyan-600">
+                          <p className="text-sm font-semibold text-slate-800">
+                            {customerName}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[11px] font-mono text-cyan-700 font-semibold bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-100">
+                              #{bookingCode}
+                            </span>
+                            {customerEmail && (
+                              <span className="text-xs text-slate-400 truncate max-w-[180px]">{customerEmail}</span>
+                            )}
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600 max-w-[220px]">
+                        <p className="font-medium text-slate-700 truncate" title={pkgName}>{pkgName}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                        {formatCurrency(booking.totalAmount)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            statusColors[currentStatus] || "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {statusLabels[currentStatus] || currentStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                        {formatDate(booking.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

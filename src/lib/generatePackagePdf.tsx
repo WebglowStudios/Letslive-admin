@@ -1238,15 +1238,15 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         maximumFractionDigits: 2,
       })
     : "0";
-  const flightPriceVal = pkg.flightsIncluded ? (pkg.flightPrice || 0) : 0;
-  const hotelPriceVal = pkg.hotelPrice || 0;
-  const actTransPriceVal = (pkg.activityAndTransportPrice && pkg.activityAndTransportPrice > 0)
+  const flightPriceVal = (pkg.flightsIncluded && typeof pkg.flightPrice === "number" && pkg.flightPrice > 0) ? pkg.flightPrice : 0;
+  const hotelPriceVal = (typeof pkg.hotelPrice === "number" && !isNaN(pkg.hotelPrice) && pkg.hotelPrice > 0) ? pkg.hotelPrice : 0;
+  const actTransPriceVal = (typeof pkg.activityAndTransportPrice === "number" && !isNaN(pkg.activityAndTransportPrice) && pkg.activityAndTransportPrice > 0)
     ? pkg.activityAndTransportPrice
-    : ((pkg.activityPrice || 0) + (pkg.transferPrice || 0));
-  const extraMealsPriceVal = (pkg.isInternational && pkg.extraMealsIncluded && pkg.extraMealsPrice) ? pkg.extraMealsPrice : 0;
-  const visaPriceVal = (pkg.visaIncluded && pkg.visaPrice) ? pkg.visaPrice : 0;
-  const trainPriceVal = (pkg.trainsIncluded && pkg.trainPrice) ? pkg.trainPrice : 0;
-  const cruisePriceVal = (pkg.cruiseIncluded && pkg.cruisePrice) ? pkg.cruisePrice : 0;
+    : 0;
+  const extraMealsPriceVal = (pkg.isInternational && pkg.extraMealsIncluded && typeof pkg.extraMealsPrice === "number" && pkg.extraMealsPrice > 0) ? pkg.extraMealsPrice : 0;
+  const visaPriceVal = (pkg.visaIncluded && typeof pkg.visaPrice === "number" && pkg.visaPrice > 0) ? pkg.visaPrice : 0;
+  const trainPriceVal = (pkg.trainsIncluded && typeof pkg.trainPrice === "number" && pkg.trainPrice > 0) ? pkg.trainPrice : 0;
+  const cruisePriceVal = (pkg.cruiseIncluded && typeof pkg.cruisePrice === "number" && pkg.cruisePrice > 0) ? pkg.cruisePrice : 0;
 
   const itemizedTotal = hotelPriceVal + actTransPriceVal + extraMealsPriceVal + visaPriceVal + trainPriceVal + cruisePriceVal;
   const landCostVal = (pkg.landCost && pkg.landCost > 0)

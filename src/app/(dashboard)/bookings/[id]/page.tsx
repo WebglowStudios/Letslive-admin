@@ -24,7 +24,7 @@ interface BookingDetail {
   travelDate: string;
   returnDate?: string;
   travellers: { adults: number; children: number; infants: number };
-  travellersDetails: { name: string; age?: number; dob?: string | Date; type: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string }[];
+  travellersDetails: { name: string; age?: number; dob?: string | Date; gender?: string; type: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string }[];
   primaryTraveller: { firstName: string; lastName: string; email: string; phone?: string; panCard?: string };
   totalAmount: number;
   paidAmount: number;
@@ -466,6 +466,11 @@ export default function BookingDetailPage() {
                               </span>
                             ) : null;
                           })()}
+                          {t.gender && (
+                            <span className="px-2 py-0.5 rounded-full font-semibold capitalize bg-purple-50 text-purple-700 border border-purple-100">
+                              {t.gender}
+                            </span>
+                          )}
                           <span className={`px-2 py-0.5 rounded-full font-semibold capitalize ${
                             t.type === "adult" ? "bg-slate-100 text-slate-600" :
                             t.type === "child" ? "bg-amber-100 text-amber-700" :
