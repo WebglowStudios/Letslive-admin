@@ -526,7 +526,7 @@ const s = StyleSheet.create({
 
   // ── Itinerary day card ─────────────────────────────────────────────────────
   dayCard: {
-    marginBottom: 11, borderRadius: 8, overflow: "hidden",
+    marginBottom: 11, borderRadius: 8,
     borderWidth: 1, borderColor: C.line,
   },
   dayHeader: {
@@ -534,6 +534,7 @@ const s = StyleSheet.create({
     backgroundColor: C.iv2,
     paddingVertical: 8, paddingHorizontal: 12,
     borderBottomWidth: 1, borderBottomColor: C.line,
+    borderTopLeftRadius: 7, borderTopRightRadius: 7,
   },
   dayBadge: {
     backgroundColor: C.gn,
@@ -550,9 +551,11 @@ const s = StyleSheet.create({
   dayBody: {
     backgroundColor: C.white,
     paddingVertical: 9, paddingHorizontal: 12,
+    borderBottomLeftRadius: 7, borderBottomRightRadius: 7,
   },
   dayDescription: {
-    fontSize: 10, color: C.ink2, lineHeight: 1.55, marginBottom: 8,
+    fontSize: 10, color: C.ink2, lineHeight: 1.45, marginBottom: 8,
+    flexShrink: 0,
   },
   dayActivitiesLabel: {
     fontSize: 8, fontFamily: "Helvetica-Bold",
@@ -576,6 +579,7 @@ const s = StyleSheet.create({
     gap: 7,
     marginTop: 4,
     marginBottom: 8,
+    minHeight: 74,
   },
   dayImgCell: {
     flex: 1,
@@ -1945,8 +1949,8 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
           ? new Date(new Date(pkg.travelDates.startDate).getTime() + (day.day - 1) * 86400000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
           : null;
         return (
-          <View key={day.day} wrap={false} style={s.dayCard}>
-            <View style={s.dayHeader}>
+          <View key={day.day} style={s.dayCard}>
+            <View style={s.dayHeader} wrap={false} minPresenceAhead={90}>
               <View style={s.dayBadge}>
                 <Text style={s.dayBadgeText}>DAY {day.day}</Text>
               </View>
@@ -1959,7 +1963,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
 
               {/* Activities from itinerary data */}
               {day.activities && day.activities.length > 0 && (
-                <View style={{ marginBottom: 6 }}>
+                <View wrap={false} style={{ marginBottom: 6, flexShrink: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
                     <Icon d={ICONS.activity} color={C.gn3} size={11} />
                     <Text style={s.dayActivitiesLabel}>ACTIVITIES</Text>
@@ -1981,7 +1985,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
                 const dayImgs = resolveDayImages(day);
                 if (dayImgs.length === 0) return null;
                 return (
-                  <View style={s.dayImgGrid}>
+                  <View wrap={false} style={[s.dayImgGrid, { flexShrink: 0 }]}>
                     {dayImgs.map((imgItem, imgIdx) => (
                       <View
                         key={imgIdx}
@@ -2006,15 +2010,15 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
 
               {/* Transfers for this day */}
               {dayTransfers.length > 0 && (
-                <View style={{ marginTop: 2, marginBottom: 8 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
+                <View style={{ marginTop: 2, marginBottom: 8, flexShrink: 0 }}>
+                  <View wrap={false} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 5 }}>
                     <Icon d={ICONS.bus} color={C.cu} size={11} />
                     <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink3, letterSpacing: 1 }}>TRANSFERS</Text>
                   </View>
                   {dayTransfers.map((t, i) => {
                     const iconData = getVehicleIcon(t.transferType || t.vehicleType);
                     return (
-                      <View key={i} style={{ marginBottom: 6, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu }}>
+                      <View key={i} wrap={false} style={{ marginBottom: 6, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: C.cu, flexShrink: 0 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
                           <Icon d={iconData} color={C.cu} size={10} />
                           <Text style={{ fontSize: 9.5, fontFamily: "Helvetica-Bold", color: C.gn }}>{t.title}</Text>
@@ -2073,7 +2077,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
 
               {/* Meals & Accommodation footer */}
               {(day.meals?.length > 0 || day.accommodation) && (
-                <View style={s.dayMeta}>
+                <View wrap={false} style={[s.dayMeta, { flexShrink: 0 }]}>
                   {day.meals && day.meals.length > 0 && (
                     <View style={s.dayMetaItem}>
                       <Icon d={ICONS.restaurant} color={C.cu} size={10} />
@@ -2186,10 +2190,12 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
   const renderTable = (entries: Flight[], label: string, colLabels: { airline: string; number: string }) => {
     if (entries.length === 0) return null;
     return (
-      <View wrap={false} style={{ marginBottom: 20 }}>
-        <SectionTitle title={label} />
+      <View style={{ marginBottom: 20 }}>
+        <View wrap={false} minPresenceAhead={100}>
+          <SectionTitle title={label} />
+        </View>
         <View style={s.tableWrap}>
-          <View style={s.tableHead}>
+          <View style={s.tableHead} wrap={false}>
             <View style={[s.tableHeadCol, { width: "8%" }]}>
               <Text style={s.tableHeadCell}>Day</Text>
             </View>
@@ -2270,10 +2276,12 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.stays || pkg.stays.length === 0) return null;
   const hasDateInfo = pkg.stays.some(s => s.checkIn || s.checkOut);
   return (
-    <View wrap={false} style={{ marginBottom: 20 }}>
-      <SectionTitle title="Accommodation" />
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false} minPresenceAhead={120}>
+        <SectionTitle title="Accommodation" />
+      </View>
       <View style={s.tableWrap}>
-        <View style={s.tableHead}>
+        <View style={s.tableHead} wrap={false}>
           <View style={[s.tableHeadCol, { width: hasDateInfo ? "20%" : "28%" }]}>
             <Text style={s.tableHeadCell}>Hotel</Text>
           </View>
@@ -2376,8 +2384,10 @@ const InclusionsExclusionsSection = ({ pkg }: { pkg: PackageData }) => {
   const hasExc = exclusions.length > 0;
   if (!hasInc && !hasExc) return null;
   return (
-    <View wrap={false} style={{ marginBottom: 20 }}>
-      <SectionTitle title="Inclusions & Exclusions" />
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false} minPresenceAhead={100}>
+        <SectionTitle title="Inclusions & Exclusions" />
+      </View>
       <View style={s.incExcRow}>
         {hasInc && (
           <View style={s.incCol}>
@@ -2516,9 +2526,10 @@ const DateChangeNoticeSection = ({ pkg }: { pkg: PackageData }) => {
 const PricingSection = ({ pkg }: { pkg: PackageData }) => {
   const hasBookingMeta = pkg.bookingMeta && pkg.bookingMeta.totalAmount !== undefined;
   return (
-  <View wrap={false} style={{ marginBottom: 20 }}>
-    <SectionTitle title={hasBookingMeta ? "Payment Summary" : "Pricing"} />
-    <View style={s.priceCard}>
+  <View style={{ marginBottom: 20 }}>
+    <View wrap={false} minPresenceAhead={120}>
+      <SectionTitle title={hasBookingMeta ? "Payment Summary" : "Pricing"} />
+      <View style={s.priceCard}>
       {hasBookingMeta ? (
         <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <View style={{ flex: 1, minWidth: "30%" }}>
@@ -2578,9 +2589,10 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
           ) : null}
         </>
       )}
+      </View>
     </View>
 
-    <View style={s.ctaBox}>
+    <View style={s.ctaBox} wrap={false}>
       <Text style={s.ctaTitle}>Ready to Book?</Text>
       <Text style={s.ctaSubtitle}>
         Confirm your trip, pay securely online, or contact us to customize dates and travellers.
