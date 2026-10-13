@@ -2174,14 +2174,22 @@ export default function EnquiryDetailPage() {
 
       <div className="space-y-5 max-w-7xl mx-auto">
         {/* Breadcrumb & Actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => router.push("/enquiries")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
               <ArrowLeft size={15} /> Enquiries
             </button>
             <span className="text-slate-300">/</span>
-            <span className="text-sm text-slate-700 font-medium">{fullName}</span>
-            <span className={`ml-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${STATUS_COLORS[enquiry.status] || ""}`}>
+            <span className="font-mono text-xs font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded shadow-2xs">
+              {enquiry.enquiryId || `ENQ-${String(enquiry._id).slice(-6).toUpperCase()}`}
+            </span>
+            {enquiry.unifiedBookingId && (
+              <span className="font-mono text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded shadow-2xs flex items-center gap-1" title="Master Unified Booking ID">
+                🎫 Unified Trip ID: {enquiry.unifiedBookingId}
+              </span>
+            )}
+            <span className="text-sm text-slate-700 font-semibold">{fullName}</span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${STATUS_COLORS[enquiry.status] || ""}`}>
               {STATUS_LABELS[enquiry.status] || enquiry.status.replace("-", " ")}
             </span>
           </div>

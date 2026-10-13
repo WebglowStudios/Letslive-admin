@@ -179,6 +179,8 @@ export interface Enquiry {
     submittedAt: string;
   };
   externalLeadId?: string;
+  enquiryId?: string;
+  unifiedBookingId?: string;
   source: "website" | "whatsapp" | "phone" | "walk-in" | "instagram" | "facebook" | "google" | "referral" | "other";
   // CRM fields
   dnpCount: number;
