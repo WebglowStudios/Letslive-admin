@@ -147,6 +147,7 @@ interface PackageData {
   travelDates?: { startDate?: string; endDate?: string };
   hotelRating?: string; category?: string;
   price: number; originalPrice?: number; priceUnit?: string; discount?: number; discountType?: "percent" | "amount";
+  gstRate?: number; gstAmount?: number;
   badge?: string; rating?: number; reviewCount?: number;
   highlights?: string[]; keyPoints?: string[];
   itinerary?: ItineraryDay[];
@@ -619,26 +620,41 @@ const s = StyleSheet.create({
   },
   dayMetaValue: { fontSize: 9, color: C.ink2 },
 
-  // ── Stay table ─────────────────────────────────────────────────────────────
+  // ── Stay / Flight table ─────────────────────────────────────────────────────
   tableWrap: {
     borderWidth: 1, borderColor: C.line, borderRadius: 8, overflow: "hidden",
   },
   tableHead: {
     flexDirection: "row",
     backgroundColor: C.gn,
-    paddingVertical: 9, paddingHorizontal: 10,
+  },
+  tableHeadCol: {
+    paddingVertical: 7,
+    paddingHorizontal: 7,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.22)",
+    justifyContent: "center",
   },
   tableHeadCell: {
     fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.white,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 8, paddingHorizontal: 10,
     borderTopWidth: 1, borderTopColor: C.line,
     backgroundColor: C.white,
   },
   tableRowAlt: { backgroundColor: C.iv },
-  tableCell: { fontSize: 9, color: C.ink2 },
+  tableCol: {
+    paddingVertical: 7,
+    paddingHorizontal: 7,
+    borderRightWidth: 1,
+    borderRightColor: C.line,
+    justifyContent: "center",
+  },
+  tableColLast: {
+    borderRightWidth: 0,
+  },
+  tableCell: { fontSize: 8.5, color: C.ink2, lineHeight: 1.25 },
 
   // ── Activity card ──────────────────────────────────────────────────────────
   actCard: {
@@ -1193,6 +1209,35 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
   const priceVal = pkg.price || 0;
   const formattedPrice = priceVal > 0 ? priceVal.toLocaleString("en-IN") : "—";
+  const effectiveGstRate = pkg.gstRate != null && !isNaN(Number(pkg.gstRate)) ? Number(pkg.gstRate) : 5;
+
+  // Formula (Tax-inclusive GST):
+  // Base Price = Total Amount / (1 + (GST Rate / 100))
+  // GST Amount = Total Amount - Base Price
+  let basePriceVal = effectiveGstRate > 0 && priceVal > 0
+    ? (priceVal / (1 + effectiveGstRate / 100))
+    : priceVal;
+  let gstAmountVal = pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0
+    ? Number(pkg.gstAmount)
+    : Math.max(0, priceVal - basePriceVal);
+
+  if (pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0) {
+    basePriceVal = Math.max(0, priceVal - gstAmountVal);
+  }
+
+  const formattedBasePrice = basePriceVal > 0
+    ? basePriceVal.toLocaleString("en-IN", {
+        minimumFractionDigits: basePriceVal % 1 !== 0 ? 2 : 0,
+        maximumFractionDigits: 2,
+      })
+    : "0";
+
+  const formattedGstAmount = gstAmountVal > 0
+    ? gstAmountVal.toLocaleString("en-IN", {
+        minimumFractionDigits: gstAmountVal % 1 !== 0 ? 2 : 0,
+        maximumFractionDigits: 2,
+      })
+    : "0";
   const flightPriceVal = pkg.flightsIncluded ? (pkg.flightPrice || 0) : 0;
   const hotelPriceVal = pkg.hotelPrice || 0;
   const actTransPriceVal = (pkg.activityAndTransportPrice && pkg.activityAndTransportPrice > 0)
@@ -1556,7 +1601,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             TAX POSITION
           </Text>
           <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
-            5% GST Included
+            {effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "GST Exempt"}
           </Text>
           <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
             5% TCS Excluded
@@ -1571,7 +1616,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             Price Quote & Cost Bifurcation
           </Text>
           <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 0.5 }}>
-            5% GST INCLUDED
+            {effectiveGstRate > 0 ? `${effectiveGstRate}% GST INCLUDED` : "GST EXEMPT"}
           </Text>
         </View>
 
@@ -1648,7 +1693,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           <View
             style={{
               flexDirection: "row",
-              paddingVertical: 4.5,
+              paddingVertical: 5,
               paddingHorizontal: 8,
               borderBottomWidth: 1,
               borderBottomColor: "#d4ecf0",
@@ -1659,12 +1704,33 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>
               {bifurcationRows.length + 1}
             </Text>
-            <Text style={{ flex: 1, fontSize: 7.5, color: "#1a3a42", paddingLeft: 6 }}>
-              Goods & Services Tax (GST)
-            </Text>
-            <Text style={{ width: 130, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
-              5% GST Included
-            </Text>
+            <View style={{ flex: 1, paddingLeft: 6 }}>
+              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#1a3a42" }}>
+                Goods & Services Tax (GST {effectiveGstRate}%)
+              </Text>
+              {effectiveGstRate > 0 && priceVal > 0 && (
+                <Text style={{ fontSize: 6.5, color: "#5a7a82", marginTop: 1 }}>
+                  Inclusive in Package Price • Base (Taxable Value): ₹{formattedBasePrice}
+                </Text>
+              )}
+            </View>
+            <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
+              {gstAmountVal > 0 ? (
+                <>
+                  <RupeeIcon color="#00833e" size={7.5} />
+                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e" }}>
+                    {formattedGstAmount}/-
+                  </Text>
+                  <Text style={{ fontSize: 6.8, color: "#00833e", marginLeft: 2.5 }}>
+                    (Included)
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
+                  {effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "Nil / Exempt"}
+                </Text>
+              )}
+            </View>
           </View>
 
           {/* Total Row */}
@@ -1696,7 +1762,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ marginTop: 4, paddingHorizontal: 2 }}>
           <Text style={{ fontSize: 6.8, color: "#5a7a82", lineHeight: 1.35 }}>
             <Text style={{ fontFamily: "Helvetica-Bold", color: "#004d5e" }}>Note: </Text>
-            Government regulations impose flat TCS on overseas tour packages (claimable as tax credit when filing income tax return). All quoted package rates include 5% GST.
+            Government regulations impose flat TCS on overseas tour packages (claimable as tax credit when filing income tax return). All quoted package rates include {effectiveGstRate}% GST.
           </Text>
         </View>
       </View>
@@ -1756,7 +1822,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
             <Text style={{ fontSize: 6.8, color: "#491217", marginRight: 4, lineHeight: 1.3 }}>•</Text>
             <Text style={{ fontSize: 6.8, color: "#491217", lineHeight: 1.3, flex: 1 }}>
-              Total package price includes 5% Goods and Services Tax (GST).
+              Total package price includes {effectiveGstRate}% Goods and Services Tax (GST).
             </Text>
           </View>
         </View>
@@ -2124,23 +2190,51 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
         <SectionTitle title={label} />
         <View style={s.tableWrap}>
           <View style={s.tableHead}>
-            <Text style={[s.tableHeadCell, { width: "8%" }]}>Day</Text>
-            <Text style={[s.tableHeadCell, { width: "18%" }]}>{colLabels.airline}</Text>
-            <Text style={[s.tableHeadCell, { width: "12%" }]}>{colLabels.number}</Text>
-            <Text style={[s.tableHeadCell, { width: "17%" }]}>From</Text>
-            <Text style={[s.tableHeadCell, { width: "17%" }]}>To</Text>
-            <Text style={[s.tableHeadCell, { width: "14%" }]}>Depart</Text>
-            <Text style={[s.tableHeadCell, { width: "14%" }]}>Arrive</Text>
+            <View style={[s.tableHeadCol, { width: "8%" }]}>
+              <Text style={s.tableHeadCell}>Day</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: "18%" }]}>
+              <Text style={s.tableHeadCell}>{colLabels.airline}</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: "12%" }]}>
+              <Text style={s.tableHeadCell}>{colLabels.number}</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: "17%" }]}>
+              <Text style={s.tableHeadCell}>From</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: "17%" }]}>
+              <Text style={s.tableHeadCell}>To</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: "14%" }]}>
+              <Text style={s.tableHeadCell}>Depart</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: "14%" }, s.tableColLast]}>
+              <Text style={s.tableHeadCell}>Arrive</Text>
+            </View>
           </View>
           {entries.map((f, i) => (
             <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-              <Text style={[s.tableCell, { width: "8%" }]}>{f.day || "\u2014"}</Text>
-              <Text style={[s.tableCell, { width: "18%", fontFamily: "Helvetica-Bold" }]}>{f.airline}</Text>
-              <Text style={[s.tableCell, { width: "12%" }]}>{f.flightNumber}</Text>
-              <Text style={[s.tableCell, { width: "17%" }]}>{f.from}</Text>
-              <Text style={[s.tableCell, { width: "17%" }]}>{f.to}</Text>
-              <Text style={[s.tableCell, { width: "14%" }]}>{f.departure}</Text>
-              <Text style={[s.tableCell, { width: "14%" }]}>{f.arrival}</Text>
+              <View style={[s.tableCol, { width: "8%" }]}>
+                <Text style={s.tableCell}>{f.day || "—"}</Text>
+              </View>
+              <View style={[s.tableCol, { width: "18%" }]}>
+                <Text style={[s.tableCell, { fontFamily: "Helvetica-Bold", color: C.ink }]}>{f.airline}</Text>
+              </View>
+              <View style={[s.tableCol, { width: "12%" }]}>
+                <Text style={s.tableCell}>{f.flightNumber}</Text>
+              </View>
+              <View style={[s.tableCol, { width: "17%" }]}>
+                <Text style={s.tableCell}>{f.from}</Text>
+              </View>
+              <View style={[s.tableCol, { width: "17%" }]}>
+                <Text style={s.tableCell}>{f.to}</Text>
+              </View>
+              <View style={[s.tableCol, { width: "14%" }]}>
+                <Text style={s.tableCell}>{f.departure}</Text>
+              </View>
+              <View style={[s.tableCol, { width: "14%" }, s.tableColLast]}>
+                <Text style={s.tableCell}>{f.arrival}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -2152,8 +2246,8 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
                 <Text style={{ fontSize: 8.5, color: C.ink3 }}>
                   {f.airline} {f.flightNumber}:
                   {f.class ? ` ${f.class}` : ""}
-                  {f.pnr ? ` \u00b7 PNR: ${f.pnr}` : ""}
-                  {f.notes ? ` \u00b7 ${f.notes}` : ""}
+                  {f.pnr ? ` · PNR: ${f.pnr}` : ""}
+                  {f.notes ? ` · ${f.notes}` : ""}
                 </Text>
               </View>
             ))}
@@ -2180,23 +2274,59 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
       <SectionTitle title="Accommodation" />
       <View style={s.tableWrap}>
         <View style={s.tableHead}>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "20%" : "25%" }]}>Hotel</Text>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "15%" : "20%" }]}>Location</Text>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "10%" : "12%" }]}>Rating</Text>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "8%" : "10%" }]}>Nights</Text>
-          <Text style={[s.tableHeadCell, { width: hasDateInfo ? "21%" : "33%" }]}>Room Type</Text>
-          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "13%" }]}>Check-in</Text>}
-          {hasDateInfo && <Text style={[s.tableHeadCell, { width: "13%" }]}>Check-out</Text>}
+          <View style={[s.tableHeadCol, { width: hasDateInfo ? "20%" : "28%" }]}>
+            <Text style={s.tableHeadCell}>Hotel</Text>
+          </View>
+          <View style={[s.tableHeadCol, { width: hasDateInfo ? "16%" : "22%" }]}>
+            <Text style={s.tableHeadCell}>Location</Text>
+          </View>
+          <View style={[s.tableHeadCol, { width: hasDateInfo ? "10%" : "12%" }]}>
+            <Text style={s.tableHeadCell}>Rating</Text>
+          </View>
+          <View style={[s.tableHeadCol, { width: hasDateInfo ? "8%" : "10%" }]}>
+            <Text style={s.tableHeadCell}>Nights</Text>
+          </View>
+          <View style={[s.tableHeadCol, { width: hasDateInfo ? "20%" : "28%" }, !hasDateInfo ? s.tableColLast : {}]}>
+            <Text style={s.tableHeadCell}>Room Type</Text>
+          </View>
+          {hasDateInfo && (
+            <View style={[s.tableHeadCol, { width: "13%" }]}>
+              <Text style={s.tableHeadCell}>Check-in</Text>
+            </View>
+          )}
+          {hasDateInfo && (
+            <View style={[s.tableHeadCol, { width: "13%" }, s.tableColLast]}>
+              <Text style={s.tableHeadCell}>Check-out</Text>
+            </View>
+          )}
         </View>
         {pkg.stays.map((stay, i) => (
           <View key={i} style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "20%" : "25%", fontFamily: "Helvetica-Bold" }]}>{stay.name}</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "15%" : "20%" }]}>{stay.address || (stay as any).location || (stay as any).city || "—"}</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "10%" : "12%" }]}>{stay.rating}</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "8%" : "10%" }]}>{stay.nights}N</Text>
-            <Text style={[s.tableCell, { width: hasDateInfo ? "21%" : "33%" }]}>{stay.rooms ? `${stay.rooms}x ` : ''}{stay.roomType}</Text>
-            {hasDateInfo && <Text style={[s.tableCell, { width: "13%" }]}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
-            {hasDateInfo && <Text style={[s.tableCell, { width: "13%" }]}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>}
+            <View style={[s.tableCol, { width: hasDateInfo ? "20%" : "28%" }]}>
+              <Text style={[s.tableCell, { fontFamily: "Helvetica-Bold", color: C.ink }]}>{stay.name}</Text>
+            </View>
+            <View style={[s.tableCol, { width: hasDateInfo ? "16%" : "22%" }]}>
+              <Text style={s.tableCell}>{stay.address || (stay as any).location || (stay as any).city || "—"}</Text>
+            </View>
+            <View style={[s.tableCol, { width: hasDateInfo ? "10%" : "12%" }]}>
+              <Text style={s.tableCell}>{stay.rating || "—"}</Text>
+            </View>
+            <View style={[s.tableCol, { width: hasDateInfo ? "8%" : "10%" }]}>
+              <Text style={s.tableCell}>{stay.nights ? `${stay.nights}N` : "—"}</Text>
+            </View>
+            <View style={[s.tableCol, { width: hasDateInfo ? "20%" : "28%" }, !hasDateInfo ? s.tableColLast : {}]}>
+              <Text style={s.tableCell}>{stay.rooms ? `${stay.rooms}x ` : ""}{stay.roomType || "—"}</Text>
+            </View>
+            {hasDateInfo && (
+              <View style={[s.tableCol, { width: "13%" }]}>
+                <Text style={s.tableCell}>{stay.checkIn ? new Date(stay.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>
+              </View>
+            )}
+            {hasDateInfo && (
+              <View style={[s.tableCol, { width: "13%" }, s.tableColLast]}>
+                <Text style={s.tableCell}>{stay.checkOut ? new Date(stay.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</Text>
+              </View>
+            )}
           </View>
         ))}
       </View>

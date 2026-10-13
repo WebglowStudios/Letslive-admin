@@ -57,6 +57,8 @@ export interface Package {
   category?: string;
   originalPrice?: number;
   price: number;
+  gstRate?: number;
+  gstAmount?: number;
   rating: number;
   reviewCount: number;
   badge?: string;

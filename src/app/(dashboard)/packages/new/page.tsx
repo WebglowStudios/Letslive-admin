@@ -251,6 +251,8 @@ export default function NewPackagePage() {
     if (p.cruisePrice !== undefined) setCruisePrice(p.cruisePrice.toString());
     if (p.landCost) setLandCost(p.landCost.toString());
     if (p.price) setPrice(p.price.toString());
+    if (p.gstRate !== undefined) setGstRate(p.gstRate.toString());
+    if (p.gstAmount !== undefined) setGstAmount(p.gstAmount.toString());
     
     setShowImportModal(false);
     setSuccess("Itinerary template loaded successfully! You can now customize details, stays, and pricing.");
@@ -285,6 +287,18 @@ export default function NewPackagePage() {
   const [childCount, setChildCount] = useState("");
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
+  const [gstRate, setGstRate] = useState("5");
+  const [gstAmount, setGstAmount] = useState("");
+
+  // Formula (Tax-inclusive GST):
+  // Base Price = Total / (1 + Rate / 100)
+  // GST Amount = Total - Base Price
+  const calcInclusiveGst = (total: number, rate: number) => {
+    if (total <= 0 || rate <= 0) return { basePrice: total, gstAmount: 0 };
+    const basePrice = total / (1 + rate / 100);
+    const gst = total - basePrice;
+    return { basePrice, gstAmount: gst };
+  };
 
   const handleHotelPriceChange = (val: string) => { setHotelPrice(val); };
   const handleActivityAndTransportPriceChange = (val: string) => { setActivityAndTransportPrice(val); };
@@ -306,6 +320,41 @@ export default function NewPackagePage() {
   const totalPackagePriceVal = parseFloat(price) || 0;
   const isItemizedCostExceeded = totalPackagePriceVal > 0 && totalItemizedCost > totalPackagePriceVal;
 
+  const currentGstRateNum = parseFloat(gstRate) || 0;
+  const autoGstAmount = totalPackagePriceVal > 0 && currentGstRateNum > 0
+    ? calcInclusiveGst(totalPackagePriceVal, currentGstRateNum).gstAmount
+    : 0;
+  const effectiveGstAmountNum = gstAmount !== "" && !isNaN(parseFloat(gstAmount))
+    ? parseFloat(gstAmount)
+    : autoGstAmount;
+  const effectiveBasePriceNum = totalPackagePriceVal > 0
+    ? Math.max(0, totalPackagePriceVal - effectiveGstAmountNum)
+    : 0;
+
+  const handleGstRateChange = (val: string) => {
+    setGstRate(val);
+    const r = parseFloat(val) || 0;
+    if (totalPackagePriceVal > 0 && r > 0) {
+      const calc = calcInclusiveGst(totalPackagePriceVal, r).gstAmount;
+      setGstAmount(calc > 0 ? (Math.round(calc * 100) / 100).toFixed(2) : "0");
+    } else {
+      setGstAmount("0");
+    }
+  };
+
+  const handleGstRatePreset = (preset: number) => {
+    handleGstRateChange(String(preset));
+  };
+
+  const handleRecalculateGst = () => {
+    if (totalPackagePriceVal > 0 && currentGstRateNum > 0) {
+      const calc = calcInclusiveGst(totalPackagePriceVal, currentGstRateNum).gstAmount;
+      setGstAmount(calc > 0 ? (Math.round(calc * 100) / 100).toFixed(2) : "0");
+    } else {
+      setGstAmount("0");
+    }
+  };
+
   // Departures (Group Tour)
   const [isGroupTour, setIsGroupTour] = useState(false);
   const [departures, setDepartures] = useState<{ _id?: string; startDate: string; endDate: string; totalSlots: number; bookedSlots?: number; status?: string; priceCategory?: string; price: number }[]>([]);
@@ -324,6 +373,10 @@ export default function NewPackagePage() {
     setPrice(val);
     const p = parseFloat(val);
     if (!isNaN(p) && p > 0) {
+      if (gstRate && parseFloat(gstRate) > 0) {
+        const calc = calcInclusiveGst(p, parseFloat(gstRate)).gstAmount;
+        setGstAmount(calc > 0 ? (Math.round(calc * 100) / 100).toFixed(2) : "0");
+      }
       if (originalPrice && parseFloat(originalPrice) > p) {
         const op = parseFloat(originalPrice);
         if (discountType === "percent") {
@@ -622,6 +675,8 @@ export default function NewPackagePage() {
         childCount: childCount ? Number(childCount) : undefined,
         priceUnit,
         extraPersonPrice: extraPersonPrice ? Number(extraPersonPrice) : 0,
+        gstRate: gstRate !== "" ? Number(gstRate) : 5,
+        gstAmount: effectiveGstAmountNum > 0 ? Number(effectiveGstAmountNum.toFixed(2)) : undefined,
         paymentConfig: {
           mode: paymentMode,
           depositType,
@@ -1261,6 +1316,121 @@ export default function NewPackagePage() {
                         : `Total Package Price per ${priceUnit}`}
                     </p>
                   </div>
+                </div>
+
+                {/* Inclusive GST Configuration & Formula Breakdown */}
+                <div className="mt-4 pt-4 border-t border-sky-200/80 bg-white/95 p-4 rounded-xl border border-sky-100 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sky-900 font-bold text-xs uppercase tracking-wider">🧾 Inclusive GST Settings (PDF Summary Table)</span>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                        Inclusive in Package Price
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">Default: 5% GST</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">
+                          GST Rate (%)
+                        </label>
+                        <div className="flex gap-1">
+                          {[0, 5, 12, 18].map((pct) => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => handleGstRatePreset(pct)}
+                              className={`px-1.5 py-0.5 text-[10px] rounded font-semibold border transition-colors ${
+                                parseFloat(gstRate) === pct
+                                  ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-sky-50"
+                              }`}
+                            >
+                              {pct}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={gstRate}
+                          onChange={(e) => handleGstRateChange(e.target.value)}
+                          placeholder="5"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                        />
+                        <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Default value is 5%. Edit this percentage to change the tax slab.
+                      </p>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">
+                          Inclusive GST Amount (₹)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRecalculateGst}
+                          className="text-[10px] text-sky-700 hover:text-sky-900 font-semibold underline"
+                        >
+                          Reset to Formula
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={gstAmount}
+                          onChange={(e) => setGstAmount(e.target.value)}
+                          placeholder={autoGstAmount > 0 ? autoGstAmount.toFixed(2) : "0.00"}
+                          className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-900"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Formula: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">Total - (Total ÷ (1 + {gstRate || 0}/100))</code>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Live formula breakdown preview box */}
+                  {totalPackagePriceVal > 0 && (
+                    <div className="bg-sky-50/80 border border-sky-200/60 rounded-lg p-3 text-xs space-y-1.5 text-slate-700">
+                      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-sky-100 pb-1.5 font-semibold text-sky-950">
+                        <span>Tax Breakdown Preview (Per {priceUnit}):</span>
+                        <span className="text-emerald-700 font-bold">Total (Inclusive): ₹{totalPackagePriceVal.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                        <div>
+                          <span className="text-slate-500 block">Base (Taxable Value):</span>
+                          <strong className="text-slate-800">
+                            ₹{effectiveBasePriceNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Inclusive GST ({gstRate || 0}%):</span>
+                          <strong className="text-emerald-700">
+                            ₹{effectiveGstAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Split (CGST + SGST):</span>
+                          <span className="text-slate-700">
+                            {((parseFloat(gstRate) || 0) / 2).toFixed(1)}% (₹{(effectiveGstAmountNum / 2).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) each
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-slate-500 pt-1">
+                        ✓ This exact GST amount and base price will appear on Page 2 of the Package PDF table.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
