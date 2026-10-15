@@ -279,11 +279,10 @@ export default function NewDestinationPage() {
                       key={t}
                       type="button"
                       onClick={() => toggleTag(t)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
-                        isSelected
+                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${isSelected
                           ? "bg-cyan-50 border-cyan-400 text-cyan-800 font-semibold shadow-xs"
                           : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
-                      }`}
+                        }`}
                     >
                       {isSelected ? "✓ " : "+ "}
                       {t}
@@ -503,7 +502,7 @@ export default function NewDestinationPage() {
                   type="text"
                   value={whyLoveUsAuthorName}
                   onChange={(e) => setWhyLoveUsAuthorName(e.target.value)}
-                  placeholder="e.g. Nitin Khanna"
+                  placeholder="e.g. Shubham Pathak"
                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>

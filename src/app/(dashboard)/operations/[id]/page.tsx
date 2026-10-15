@@ -79,7 +79,7 @@ export const getWebsiteBaseUrl = (brand?: string, bookingId?: string, operationI
     if (trippyUrl && !trippyUrl.includes("localhost")) {
       return trippyUrl.replace(/\/$/, "");
     }
-    return "https://trippytravellers.com";
+    return "https://trippytravelerz.com";
   }
   const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
   if (envUrl && !envUrl.includes("localhost")) {

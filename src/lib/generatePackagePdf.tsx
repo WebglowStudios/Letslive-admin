@@ -18,19 +18,19 @@ Font.registerHyphenationCallback((word: string) => [word]);
 
 // ─── Brand palette (mirrors globals.css tokens) ───────────────────────────────
 const C = {
-  gn:      "#004d5e",   // --gn  (primary dark teal)
-  gn2:     "#007a96",   // --gn2
-  gn3:     "#00AECC",   // --gn3 (accent teal)
-  cu:      "#F5A623",   // --cu  (amber / gold — accent only)
+  gn: "#004d5e",   // --gn  (primary dark teal)
+  gn2: "#007a96",   // --gn2
+  gn3: "#00AECC",   // --gn3 (accent teal)
+  cu: "#F5A623",   // --cu  (amber / gold — accent only)
   cuLight: "#FEF3DC",   // amber tint for backgrounds
-  ink:     "#0a1a1f",   // --ink
-  ink2:    "#1a3a42",   // --ink2
-  ink3:    "#4a7a85",   // --ink3
-  ink4:    "#8ab5be",   // --ink4
-  iv:      "#f0fafa",   // --iv  (page bg tint)
-  iv2:     "#e0f5f7",   // --iv2
-  line:    "#d4ecf0",   // slightly stronger than --line for print
-  white:   "#ffffff",
+  ink: "#0a1a1f",   // --ink
+  ink2: "#1a3a42",   // --ink2
+  ink3: "#4a7a85",   // --ink3
+  ink4: "#8ab5be",   // --ink4
+  iv: "#f0fafa",   // --iv  (page bg tint)
+  iv2: "#e0f5f7",   // --iv2
+  line: "#d4ecf0",   // slightly stronger than --line for print
+  white: "#ffffff",
 };
 
 // ─── SVG Icon Components (Material Icons paths at 24x24 viewBox) ──────────────
@@ -222,8 +222,8 @@ function resolveDayImages(day: ItineraryDay): DayImageDisplay[] {
       const fallbackTitle = typeof day.activities?.[idx] === "string"
         ? (day.activities[idx] as string)
         : typeof day.activities?.[idx] === "object"
-        ? (day.activities[idx] as any)?.title
-        : "";
+          ? (day.activities[idx] as any)?.title
+          : "";
       addImg(img, fallbackTitle);
     });
   }
@@ -915,229 +915,229 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
           paddingTop: 36,
           paddingBottom: 36,
         }}>
-        {/* Custom Itinerary header: visible Curated for */}
-        {(pkg.isCustom || pkg.clientName) && (
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
-            <View style={{
-              backgroundColor: "rgba(245, 166, 35, 0.12)",
-              borderWidth: 1,
-              borderColor: C.cu,
-              borderRadius: 20,
-              paddingVertical: 3.5,
-              paddingHorizontal: 11,
-              marginRight: 10,
-            }}>
-              <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.cu, letterSpacing: 1.2 }}>
-                CUSTOM ITINERARY
-              </Text>
-            </View>
-            {pkg.clientName ? (
-              <Text style={{ fontSize: 10.5, color: "rgba(255,255,255,0.85)" }}>
-                Curated for <Text style={{ fontFamily: "Helvetica-Bold", color: C.cu }}>{pkg.clientName}</Text>
-              </Text>
-            ) : null}
-          </View>
-        )}
-
-        {/* Title */}
-        <Text style={{
-          fontSize: 34, fontFamily: "Helvetica-Bold",
-          color: C.white, lineHeight: 1.2, marginBottom: 8,
-        }}>
-          {pkg.name}
-        </Text>
-
-        {/* Reference (use slug as reference) */}
-        <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginBottom: 14 }}>
-          Reference: <Text style={{ fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.85)" }}>
-            {pkg.slug?.toUpperCase().replace(/-/g, "").slice(0, 8) || "PKG"}
-          </Text>
-        </Text>
-
-        {/* Divider line */}
-        <View style={{ height: 1.5, backgroundColor: C.cu, marginBottom: 16, width: "100%" }} />
-
-        {/* Meta rows with SVG icons */}
-        <View style={{ marginBottom: 6 }}>
-          {pkg.destination?.name && (
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill={C.cu} />
-              </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                {pkg.destination.name}
-                {pkg.destination.country ? `, ${pkg.destination.country}` : ""}
-                {pkg.duration ? ` - ${pkg.duration.nights}N` : ""}
-              </Text>
+          {/* Custom Itinerary header: visible Curated for */}
+          {(pkg.isCustom || pkg.clientName) && (
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+              <View style={{
+                backgroundColor: "rgba(245, 166, 35, 0.12)",
+                borderWidth: 1,
+                borderColor: C.cu,
+                borderRadius: 20,
+                paddingVertical: 3.5,
+                paddingHorizontal: 11,
+                marginRight: 10,
+              }}>
+                <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.cu, letterSpacing: 1.2 }}>
+                  CUSTOM ITINERARY
+                </Text>
+              </View>
+              {pkg.clientName ? (
+                <Text style={{ fontSize: 10.5, color: "rgba(255,255,255,0.85)" }}>
+                  Curated for <Text style={{ fontFamily: "Helvetica-Bold", color: C.cu }}>{pkg.clientName}</Text>
+                </Text>
+              ) : null}
             </View>
           )}
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-            <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-              <Path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" fill={C.cu} />
-            </Svg>
-            <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-              {pkg.duration.nights} nights / {pkg.duration.days} days
-              {pkg.travelDates?.startDate ? ` · ${new Date(pkg.travelDates.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}${pkg.travelDates.endDate ? ` – ${new Date(pkg.travelDates.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}` : ""}
+
+          {/* Title */}
+          <Text style={{
+            fontSize: 34, fontFamily: "Helvetica-Bold",
+            color: C.white, lineHeight: 1.2, marginBottom: 8,
+          }}>
+            {pkg.name}
+          </Text>
+
+          {/* Reference (use slug as reference) */}
+          <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginBottom: 14 }}>
+            Reference: <Text style={{ fontFamily: "Helvetica-Bold", color: "rgba(255,255,255,0.85)" }}>
+              {pkg.slug?.toUpperCase().replace(/-/g, "").slice(0, 8) || "PKG"}
             </Text>
-          </View>
-          {travellersCoverText ? (
+          </Text>
+
+          {/* Divider line */}
+          <View style={{ height: 1.5, backgroundColor: C.cu, marginBottom: 16, width: "100%" }} />
+
+          {/* Meta rows with SVG icons */}
+          <View style={{ marginBottom: 6 }}>
+            {pkg.destination?.name && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                  <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill={C.cu} />
+                </Svg>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                  {pkg.destination.name}
+                  {pkg.destination.country ? `, ${pkg.destination.country}` : ""}
+                  {pkg.duration ? ` - ${pkg.duration.nights}N` : ""}
+                </Text>
+              </View>
+            )}
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
               <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                <Path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z" fill={C.cu} />
+              </Svg>
+              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                {pkg.duration.nights} nights / {pkg.duration.days} days
+                {pkg.travelDates?.startDate ? ` · ${new Date(pkg.travelDates.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}${pkg.travelDates.endDate ? ` – ${new Date(pkg.travelDates.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}` : ""}
+              </Text>
+            </View>
+            {travellersCoverText ? (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                  <Path d={ICONS.people} fill={C.cu} />
+                </Svg>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                  {travellersCoverText}
+                </Text>
+              </View>
+            ) : null}
+            {pkg.hotelRating && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                  <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill={C.cu} />
+                </Svg>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                  {pkg.hotelRating}
+                </Text>
+              </View>
+            )}
+            {pkg.isInternational && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                  <Path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill={C.cu} />
+                </Svg>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                  {pkg.visaIncluded ? "Visa Included" : "Visa Not Included"}
+                </Text>
+              </View>
+            )}
+            {pkg.flightsIncluded !== undefined && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                  <Path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill={C.cu} />
+                </Svg>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                  {pkg.flightsIncluded ? "Flights Included" : "Flights Not Included"}
+                </Text>
+              </View>
+            )}
+            {!pkg.hideTrainInfo && pkg.trainsIncluded !== undefined && (!pkg.isInternational || pkg.trainsIncluded) && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
+                  <Path d={ICONS.train} fill={C.cu} />
+                </Svg>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
+                  {pkg.trainsIncluded ? "Trains Included" : "Trains Not Included"}
+                </Text>
+              </View>
+            )}
+            {/* Price */}
+            <View style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.cu, justifyContent: "center", alignItems: "center", marginRight: 8 }}>
+                  <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink }}>R</Text>
+                </View>
+                <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.cu }}>
+                  INR {pkg.price.toLocaleString("en-IN")}
+                  <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}> / {pkg.priceUnit || "person"}</Text>
+                </Text>
+              </View>
+              {pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost) ? (
+                <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", marginLeft: 22, marginTop: 2 }}>
+                  Flight: INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}  |  Land: INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}  |  Total: INR {pkg.price.toLocaleString("en-IN")}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Divider above 4-Stat Trust Grid */}
+          <View style={{ height: 1, backgroundColor: "#1e3842", marginTop: 20, marginBottom: 16, width: "100%" }} />
+
+          {/* ── 4-Stat Trust Grid ────────────────────────────────────────────── */}
+          <View style={{
+            flexDirection: "row",
+            marginBottom: 4,
+            gap: 6,
+          }}>
+            {/* Stat 1 — 300k+ Customers */}
+            <View style={{
+              flex: 1,
+              backgroundColor: "rgba(255,255,255,0.07)",
+              borderRadius: 8,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#1e3842",
+              alignItems: "flex-start",
+            }}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
                 <Path d={ICONS.people} fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                {travellersCoverText}
-              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>300k+</Text>
+              <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Happy customers from 70+ countries all around.</Text>
             </View>
-          ) : null}
-          {pkg.hotelRating && (
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill={C.cu} />
+
+            {/* Stat 2 — 4.8/5 Rating */}
+            <View style={{
+              flex: 1,
+              backgroundColor: "rgba(255,255,255,0.07)",
+              borderRadius: 8,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#1e3842",
+              alignItems: "flex-start",
+            }}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+                <Path d={ICONS.star} fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                {pkg.hotelRating}
-              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>4.8/5</Text>
+              <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Rated across Trip Advisor and Google.</Text>
             </View>
-          )}
-          {pkg.isInternational && (
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill={C.cu} />
+
+            {/* Stat 3 — 10k+ Followers */}
+            <View style={{
+              flex: 1,
+              backgroundColor: "rgba(255,255,255,0.07)",
+              borderRadius: 8,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#1e3842",
+              alignItems: "flex-start",
+            }}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+                <Path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                {pkg.visaIncluded ? "Visa Included" : "Visa Not Included"}
-              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>10k+</Text>
+              <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Followers across all platforms.</Text>
             </View>
-          )}
-          {pkg.flightsIncluded !== undefined && (
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill={C.cu} />
+
+            {/* Stat 4 — 24/7 On-trip assistance */}
+            <View style={{
+              flex: 1,
+              backgroundColor: "rgba(255,255,255,0.07)",
+              borderRadius: 8,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: "#1e3842",
+              alignItems: "flex-start",
+            }}>
+              <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
+                <Path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill={C.cu} />
               </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                {pkg.flightsIncluded ? "Flights Included" : "Flights Not Included"}
-              </Text>
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>24/7</Text>
+              <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>On-trip assistance. Pre, post and on the trip.</Text>
             </View>
-          )}
-          {!pkg.hideTrainInfo && pkg.trainsIncluded !== undefined && (!pkg.isInternational || pkg.trainsIncluded) && (
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-              <Svg width="14" height="14" viewBox="0 0 24 24" style={{ marginRight: 8 }}>
-                <Path d={ICONS.train} fill={C.cu} />
-              </Svg>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                {pkg.trainsIncluded ? "Trains Included" : "Trains Not Included"}
-              </Text>
-            </View>
-          )}
-          {/* Price */}
-          <View style={{ marginBottom: 8 }}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: C.cu, justifyContent: "center", alignItems: "center", marginRight: 8 }}>
-                <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.ink }}>R</Text>
-              </View>
-              <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.cu }}>
-                INR {pkg.price.toLocaleString("en-IN")}
-                <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}> / {pkg.priceUnit || "person"}</Text>
-              </Text>
-            </View>
-            {pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost) ? (
-              <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", marginLeft: 22, marginTop: 2 }}>
-                Flight: INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}  |  Land: INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}  |  Total: INR {pkg.price.toLocaleString("en-IN")}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Divider above 4-Stat Trust Grid */}
-        <View style={{ height: 1, backgroundColor: "#1e3842", marginTop: 20, marginBottom: 16, width: "100%" }} />
-
-        {/* ── 4-Stat Trust Grid ────────────────────────────────────────────── */}
-        <View style={{
-          flexDirection: "row",
-          marginBottom: 4,
-          gap: 6,
-        }}>
-          {/* Stat 1 — 300k+ Customers */}
-          <View style={{
-            flex: 1,
-            backgroundColor: "rgba(255,255,255,0.07)",
-            borderRadius: 8,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: "#1e3842",
-            alignItems: "flex-start",
-          }}>
-            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
-              <Path d={ICONS.people} fill={C.cu} />
-            </Svg>
-            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>300k+</Text>
-            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Happy customers from 70+ countries all around.</Text>
           </View>
 
-          {/* Stat 2 — 4.8/5 Rating */}
-          <View style={{
-            flex: 1,
-            backgroundColor: "rgba(255,255,255,0.07)",
-            borderRadius: 8,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: "#1e3842",
-            alignItems: "flex-start",
-          }}>
-            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
-              <Path d={ICONS.star} fill={C.cu} />
-            </Svg>
-            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>4.8/5</Text>
-            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Rated across Trip Advisor and Google.</Text>
+          {/* Divider above footer */}
+          <View style={{ height: 1, backgroundColor: "#1e3842", marginTop: 18, marginBottom: 14, width: "100%" }} />
+
+          {/* Footer: curated by */}
+          <View>
+            <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
+              Curated by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{curatedByText}</Text>
+            </Text>
           </View>
-
-          {/* Stat 3 — 10k+ Followers */}
-          <View style={{
-            flex: 1,
-            backgroundColor: "rgba(255,255,255,0.07)",
-            borderRadius: 8,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: "#1e3842",
-            alignItems: "flex-start",
-          }}>
-            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
-              <Path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill={C.cu} />
-            </Svg>
-            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>10k+</Text>
-            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>Followers across all platforms.</Text>
-          </View>
-
-          {/* Stat 4 — 24/7 On-trip assistance */}
-          <View style={{
-            flex: 1,
-            backgroundColor: "rgba(255,255,255,0.07)",
-            borderRadius: 8,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: "#1e3842",
-            alignItems: "flex-start",
-          }}>
-            <Svg width={18} height={18} viewBox="0 0 24 24" style={{ marginBottom: 6 }}>
-              <Path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill={C.cu} />
-            </Svg>
-            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: C.cu, marginBottom: 3 }}>24/7</Text>
-            <Text style={{ fontSize: 7.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.4 }}>On-trip assistance. Pre, post and on the trip.</Text>
-          </View>
-        </View>
-
-        {/* Divider above footer */}
-        <View style={{ height: 1, backgroundColor: "#1e3842", marginTop: 18, marginBottom: 14, width: "100%" }} />
-
-        {/* Footer: curated by */}
-        <View>
-          <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>
-            Curated by <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>{curatedByText}</Text>
-          </Text>
         </View>
       </View>
-    </View>
     </Page>
   );
 };
@@ -1231,16 +1231,16 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
   const formattedBasePrice = basePriceVal > 0
     ? basePriceVal.toLocaleString("en-IN", {
-        minimumFractionDigits: basePriceVal % 1 !== 0 ? 2 : 0,
-        maximumFractionDigits: 2,
-      })
+      minimumFractionDigits: basePriceVal % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2,
+    })
     : "0";
 
   const formattedGstAmount = gstAmountVal > 0
     ? gstAmountVal.toLocaleString("en-IN", {
-        minimumFractionDigits: gstAmountVal % 1 !== 0 ? 2 : 0,
-        maximumFractionDigits: 2,
-      })
+      minimumFractionDigits: gstAmountVal % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2,
+    })
     : "0";
   const flightPriceVal = (pkg.flightsIncluded && typeof pkg.flightPrice === "number" && pkg.flightPrice > 0) ? pkg.flightPrice : 0;
   const hotelPriceVal = (typeof pkg.hotelPrice === "number" && !isNaN(pkg.hotelPrice) && pkg.hotelPrice > 0) ? pkg.hotelPrice : 0;
@@ -2477,8 +2477,8 @@ const ThingsToCarrySection = ({ pkg }: { pkg: PackageData }) => {
 // ─── Important Policies Link ──────────────────────────────────────────────────
 const PoliciesLinkSection = ({ pkg }: { pkg: PackageData }) => {
   const hasPolicies = (pkg.paymentPolicy && pkg.paymentPolicy.length > 0) ||
-                      (pkg.cancellationPolicy && pkg.cancellationPolicy.length > 0) ||
-                      (pkg.flightCancellationPolicy && pkg.flightCancellationPolicy.length > 0);
+    (pkg.cancellationPolicy && pkg.cancellationPolicy.length > 0) ||
+    (pkg.flightCancellationPolicy && pkg.flightCancellationPolicy.length > 0);
   if (!hasPolicies) return null;
 
   const url = `https://letslivetours.com/packages/${pkg.slug}`;
@@ -2526,116 +2526,117 @@ const DateChangeNoticeSection = ({ pkg }: { pkg: PackageData }) => {
 const PricingSection = ({ pkg }: { pkg: PackageData }) => {
   const hasBookingMeta = pkg.bookingMeta && pkg.bookingMeta.totalAmount !== undefined;
   return (
-  <View style={{ marginBottom: 20 }}>
-    <View wrap={false} minPresenceAhead={120}>
-      <SectionTitle title={hasBookingMeta ? "Payment Summary" : "Pricing"} />
-      <View style={s.priceCard}>
-      {hasBookingMeta ? (
-        <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-          <View style={{ flex: 1, minWidth: "30%" }}>
-            <Text style={s.priceCardLabel}>TOTAL AMOUNT</Text>
-            <Text style={s.priceCardAmount}>INR {pkg.bookingMeta!.totalAmount!.toLocaleString("en-IN")}</Text>
-          </View>
-          <View style={{ flex: 1, minWidth: "30%" }}>
-            <Text style={s.priceCardLabel}>PAID AMOUNT</Text>
-            <Text style={[s.priceCardAmount, { color: C.gn2 }]}>INR {(pkg.bookingMeta!.paidAmount || 0).toLocaleString("en-IN")}</Text>
-          </View>
-          <View style={{ flex: 1, minWidth: "30%" }}>
-            <Text style={s.priceCardLabel}>PAYMENT STATUS</Text>
-            <Text style={[s.priceCardAmount, { color: pkg.bookingMeta!.paymentStatus === "paid" || pkg.bookingMeta!.paymentStatus === "full" ? C.gn : (pkg.bookingMeta!.paymentStatus === "partial" ? C.cu : "#dc3545"), fontSize: 14 }]}>
-              {pkg.bookingMeta!.paymentStatus === "paid" || pkg.bookingMeta!.paymentStatus === "full" ? "FULLY PAID" : (pkg.bookingMeta!.paymentStatus || "PENDING").toUpperCase()}
-            </Text>
-          </View>
-          {pkg.bookingMeta!.paymentStatus === "partial" && (
-            <View style={{ flex: 1, minWidth: "30%" }}>
-              <Text style={s.priceCardLabel}>PENDING AMOUNT</Text>
-              <Text style={[s.priceCardAmount, { color: C.cu }]}>INR {(pkg.bookingMeta!.totalAmount! - (pkg.bookingMeta!.paidAmount || 0)).toLocaleString("en-IN")}</Text>
+    <View style={{ marginBottom: 20 }}>
+      <View wrap={false} minPresenceAhead={120}>
+        <SectionTitle title={hasBookingMeta ? "Payment Summary" : "Pricing"} />
+        <View style={s.priceCard}>
+          {hasBookingMeta ? (
+            <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <View style={{ flex: 1, minWidth: "30%" }}>
+                <Text style={s.priceCardLabel}>TOTAL AMOUNT</Text>
+                <Text style={s.priceCardAmount}>INR {pkg.bookingMeta!.totalAmount!.toLocaleString("en-IN")}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: "30%" }}>
+                <Text style={s.priceCardLabel}>PAID AMOUNT</Text>
+                <Text style={[s.priceCardAmount, { color: C.gn2 }]}>INR {(pkg.bookingMeta!.paidAmount || 0).toLocaleString("en-IN")}</Text>
+              </View>
+              <View style={{ flex: 1, minWidth: "30%" }}>
+                <Text style={s.priceCardLabel}>PAYMENT STATUS</Text>
+                <Text style={[s.priceCardAmount, { color: pkg.bookingMeta!.paymentStatus === "paid" || pkg.bookingMeta!.paymentStatus === "full" ? C.gn : (pkg.bookingMeta!.paymentStatus === "partial" ? C.cu : "#dc3545"), fontSize: 14 }]}>
+                  {pkg.bookingMeta!.paymentStatus === "paid" || pkg.bookingMeta!.paymentStatus === "full" ? "FULLY PAID" : (pkg.bookingMeta!.paymentStatus || "PENDING").toUpperCase()}
+                </Text>
+              </View>
+              {pkg.bookingMeta!.paymentStatus === "partial" && (
+                <View style={{ flex: 1, minWidth: "30%" }}>
+                  <Text style={s.priceCardLabel}>PENDING AMOUNT</Text>
+                  <Text style={[s.priceCardAmount, { color: C.cu }]}>INR {(pkg.bookingMeta!.totalAmount! - (pkg.bookingMeta!.paidAmount || 0)).toLocaleString("en-IN")}</Text>
+                </View>
+              )}
             </View>
+          ) : (
+            <>
+              <View style={s.priceCardTop}>
+                <Text style={s.priceCardLabel}>PACKAGE PRICE</Text>
+                {pkg.originalPrice && pkg.originalPrice > pkg.price ? (
+                  <Text style={s.priceCardOriginal}>INR {pkg.originalPrice.toLocaleString("en-IN")}</Text>
+                ) : null}
+                <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
+                <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"}</Text>
+                {(pkg.flightPrice || pkg.landCost) ? (
+                  <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" }}>
+                    <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+                      Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
+                    <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+                      Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
+                    <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
+                      Total: <Text style={{ fontFamily: "Helvetica-Bold", color: C.cu }}>INR {pkg.price.toLocaleString("en-IN")}</Text>
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              {pkg.discount && pkg.discount > 0 ? (
+                <View style={s.priceCardBottom}>
+                  <View style={s.priceCardSavings}>
+                    <Text style={s.priceCardSavingsText}>
+                      You save {pkg.discountType === "percent" || !pkg.discountType ? `${pkg.discount}%` : `INR ${pkg.discount?.toLocaleString("en-IN")}`} on this package
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </>
           )}
         </View>
-      ) : (
-        <>
-          <View style={s.priceCardTop}>
-            <Text style={s.priceCardLabel}>PACKAGE PRICE</Text>
-            {pkg.originalPrice && pkg.originalPrice > pkg.price ? (
-              <Text style={s.priceCardOriginal}>INR {pkg.originalPrice.toLocaleString("en-IN")}</Text>
-            ) : null}
-            <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
-            <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"}</Text>
-            {(pkg.flightPrice || pkg.landCost) ? (
-              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" }}>
-                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
-                  Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}</Text>
+      </View>
+
+      <View style={s.ctaBox} wrap={false}>
+        <Text style={s.ctaTitle}>Ready to Book?</Text>
+        <Text style={s.ctaSubtitle}>
+          Confirm your trip, pay securely online, or contact us to customize dates and travellers.
+        </Text>
+        {pkg.slug && (() => {
+          const enquiryIdStr = pkg.enquiryId ? (typeof pkg.enquiryId === "object" ? (pkg.enquiryId as any)._id : pkg.enquiryId) : "";
+          const payUrl = `https://letslivetours.com/book/${pkg.slug}${enquiryIdStr ? `?enquiryId=${enquiryIdStr}` : ""}`;
+          const viewUrl = `https://letslivetours.com/packages/${pkg.slug}`;
+          return (
+            <View style={{ alignItems: "center", marginTop: 8, marginBottom: 10 }}>
+              {/* Direct Online Payment Button */}
+              <Link
+                src={payUrl}
+                style={{
+                  backgroundColor: C.gn,
+                  borderRadius: 20,
+                  paddingVertical: 8,
+                  paddingHorizontal: 22,
+                  textDecoration: "none",
+                  marginBottom: 6,
+                }}
+              >
+                <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: C.white, textAlign: "center" }}>
+                  Pay & Book Online →
                 </Text>
-                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
-                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
-                  Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}</Text>
-                </Text>
-                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
-                <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
-                  Total: <Text style={{ fontFamily: "Helvetica-Bold", color: C.cu }}>INR {pkg.price.toLocaleString("en-IN")}</Text>
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          {pkg.discount && pkg.discount > 0 ? (
-            <View style={s.priceCardBottom}>
-              <View style={s.priceCardSavings}>
-                <Text style={s.priceCardSavingsText}>
-                  You save {pkg.discountType === "percent" || !pkg.discountType ? `${pkg.discount}%` : `INR ${pkg.discount?.toLocaleString("en-IN")}`} on this package
-                </Text>
-              </View>
+              </Link>
+
+              {/* Clickable Payment URL & Itinerary link */}
+              <Text style={{ fontSize: 8.5, color: C.ink3, textAlign: "center", marginBottom: 4 }}>
+                Payment Link: <Link src={payUrl} style={{ color: C.gn2, textDecoration: "underline", fontFamily: "Helvetica-Bold" }}>{payUrl}</Link>
+              </Text>
+              <Text style={{ fontSize: 9, color: C.gn3, textAlign: "center" }}>
+                <Link src={viewUrl} style={{ color: C.gn3, textDecoration: "underline" }}>
+                  View Full Itinerary Online
+                </Link>
+              </Text>
             </View>
-          ) : null}
-        </>
-      )}
+          );
+        })()}
+        <Text style={s.ctaContact}>+91 77700 88466  ·  info@letslivetours.com</Text>
       </View>
     </View>
-
-    <View style={s.ctaBox} wrap={false}>
-      <Text style={s.ctaTitle}>Ready to Book?</Text>
-      <Text style={s.ctaSubtitle}>
-        Confirm your trip, pay securely online, or contact us to customize dates and travellers.
-      </Text>
-      {pkg.slug && (() => {
-        const enquiryIdStr = pkg.enquiryId ? (typeof pkg.enquiryId === "object" ? (pkg.enquiryId as any)._id : pkg.enquiryId) : "";
-        const payUrl = `https://letslivetours.com/book/${pkg.slug}${enquiryIdStr ? `?enquiryId=${enquiryIdStr}` : ""}`;
-        const viewUrl = `https://letslivetours.com/packages/${pkg.slug}`;
-        return (
-          <View style={{ alignItems: "center", marginTop: 8, marginBottom: 10 }}>
-            {/* Direct Online Payment Button */}
-            <Link
-              src={payUrl}
-              style={{
-                backgroundColor: C.gn,
-                borderRadius: 20,
-                paddingVertical: 8,
-                paddingHorizontal: 22,
-                textDecoration: "none",
-                marginBottom: 6,
-              }}
-            >
-              <Text style={{ fontSize: 10.5, fontFamily: "Helvetica-Bold", color: C.white, textAlign: "center" }}>
-                Pay & Book Online →
-              </Text>
-            </Link>
-
-            {/* Clickable Payment URL & Itinerary link */}
-            <Text style={{ fontSize: 8.5, color: C.ink3, textAlign: "center", marginBottom: 4 }}>
-              Payment Link: <Link src={payUrl} style={{ color: C.gn2, textDecoration: "underline", fontFamily: "Helvetica-Bold" }}>{payUrl}</Link>
-            </Text>
-            <Text style={{ fontSize: 9, color: C.gn3, textAlign: "center" }}>
-              <Link src={viewUrl} style={{ color: C.gn3, textDecoration: "underline" }}>
-                View Full Itinerary Online
-              </Link>
-            </Text>
-          </View>
-        );
-      })()}
-      <Text style={s.ctaContact}>+91 77700 88466  ·  info@letslivetours.com</Text>
-    </View>
-  </View>
-)};
+  )
+};
 
 // ─── Default Partner Logos (Procured brand assets) ───────────────────────────
 const getBrandImg = (file: string) => {
@@ -2813,7 +2814,7 @@ const WhyTravelersLoveUsPage = ({ pkg }: { pkg: PackageData }) => {
     ? whyLoveUs.description.split(/\n+/).map((p) => p.trim()).filter(Boolean)
     : defaultParagraphs;
 
-  const authorName = whyLoveUs?.authorName?.trim() || "Nitin Khanna";
+  const authorName = whyLoveUs?.authorName?.trim() || "Shubham Pathak";
   const authorRole = whyLoveUs?.authorRole?.trim() || "Founder, LetsLive Tours";
   const initials = authorName
     .split(/\s+/)
@@ -3017,7 +3018,7 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
     {/* Page 3+: Detailed Itinerary & Logistics */}
     <Page size="A4" style={s.page}>
       <PageHeader section="Package Details & Itinerary" />
-      
+
       <OverviewSection pkg={pkg} />
       <FlightsSection pkg={pkg} />
       <TransferSummarySection pkg={pkg} />
@@ -3029,7 +3030,7 @@ const PackagePdfDocument = ({ pkg }: { pkg: PackageData }) => (
       <DateChangeNoticeSection pkg={pkg} />
       <PoliciesLinkSection pkg={pkg} />
       <PricingSection pkg={pkg} />
-      
+
       <PageFooter />
     </Page>
 

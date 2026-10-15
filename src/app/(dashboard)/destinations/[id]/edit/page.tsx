@@ -148,27 +148,27 @@ export default function EditDestinationPage() {
         setWhyVisit(
           d.whyVisit && d.whyVisit.length > 0
             ? d.whyVisit.map((w: { icon?: string; title?: string; description?: string }) => ({
-                icon: w.icon || "",
-                title: w.title || "",
-                description: w.description || "",
-              }))
+              icon: w.icon || "",
+              title: w.title || "",
+              description: w.description || "",
+            }))
             : []
         );
         setTravelTips(
           d.travelTips && d.travelTips.length > 0
             ? d.travelTips.map((t: { question?: string; answer?: string }) => ({
-                question: t.question || "",
-                answer: t.answer || "",
-              }))
+              question: t.question || "",
+              answer: t.answer || "",
+            }))
             : []
         );
         setPartners(d.partners || []);
         setPhotoGallery(
           d.photoGallery && d.photoGallery.length > 0
             ? d.photoGallery.map((p: { image?: string; label?: string }) => ({
-                image: p.image || "",
-                label: p.label || "",
-              }))
+              image: p.image || "",
+              label: p.label || "",
+            }))
             : []
         );
         setGroupDeal({
@@ -399,11 +399,10 @@ export default function EditDestinationPage() {
                           key={t}
                           type="button"
                           onClick={() => toggleTag(t)}
-                          className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${
-                            isSelected
+                          className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-all ${isSelected
                               ? "bg-cyan-50 border-cyan-400 text-cyan-800 font-semibold shadow-xs"
                               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
-                          }`}
+                            }`}
                         >
                           {isSelected ? "✓ " : "+ "}
                           {t}
@@ -686,7 +685,7 @@ export default function EditDestinationPage() {
                     type="text"
                     value={whyLoveUsAuthorName}
                     onChange={(e) => setWhyLoveUsAuthorName(e.target.value)}
-                    placeholder="e.g. Nitin Khanna"
+                    placeholder="e.g. Shubham Pathak"
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
