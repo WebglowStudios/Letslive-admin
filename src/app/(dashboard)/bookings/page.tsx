@@ -178,7 +178,6 @@ export default function BookingsPage() {
                   >
                     <option value="all">All Brands</option>
                     <option value="letslivetours">LetsLive Tours</option>
-                    <option value="trippy-travellerz">Trippy Travellerz</option>
                   </select>
                 </div>
 
@@ -347,15 +346,9 @@ export default function BookingsPage() {
                                 #{b.bookingId}
                               </span>
                             )}
-                            {b.brand === "trippy-travellerz" ? (
-                              <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-1.5 py-0.5 rounded">
-                                ✦ Trippy Travellerz
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-medium text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">
-                                LetsLive Tours
-                              </span>
-                            )}
+                            <span className="text-[10px] font-medium text-teal-800 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">
+                              LetsLive Tours
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600 max-w-[180px] truncate">{pkg?.name || "—"}</td>

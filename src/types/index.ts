@@ -84,7 +84,7 @@ export interface Booking {
   bookingStatus?: "pending" | "confirmed" | "staff-confirmed" | "vendor-confirmed" | "in-progress" | "completed" | "cancelled";
   paymentStatus?: string;
   specialRequests?: string;
-  brand?: "letslivetours" | "trippy-travellerz";
+  brand?: "letslivetours";
   createdAt: string;
 }
 
@@ -199,7 +199,7 @@ export interface Enquiry {
   budget?: number;
   tags: string[];
   channel?: string;
-  brand?: "letslivetours" | "trippy-travellerz";
+  brand?: "letslivetours";
   callLog: CallLogEntry[];
   lastContactedAt?: string;
   createdAt: string;
