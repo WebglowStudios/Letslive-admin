@@ -109,7 +109,14 @@ export function ImportModal({ open, onClose, onImport }: Props) {
                     </div>
                   </div>
                 </div>
-                <button className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold group-hover:border-indigo-300 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onImport(item);
+                  }}
+                  className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold group-hover:border-indigo-300 group-hover:bg-indigo-600 group-hover:text-white transition-colors"
+                >
                   Import
                 </button>
               </div>

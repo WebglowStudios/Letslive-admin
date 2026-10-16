@@ -114,184 +114,259 @@ export default function NewCustomItineraryPage() {
   const [showImportModal, setShowImportModal] = useState(false);
 
   const handleImportData = (p: any) => {
-    // Intentionally omit client info if it exists, since this is usually for a new client
-    if (p.name) setName(name.trim() ? name : p.name);
-    if (p.destination?._id) setDestination(p.destination._id);
-    else if (p.destination) setDestination(p.destination);
-    if (p.description) setDescription(p.description);
-    if (p.shortDescription) setShortDescription(p.shortDescription);
-    if (p.duration) {
-      setDurationNights(p.duration.nights?.toString() || "");
-      setDurationDays(p.duration.days?.toString() || "");
-    }
-    if (p.hotelRating) setHotelRating(p.hotelRating);
-    if (p.category) setCategory(p.category);
-    if (p.price) setPrice(p.price.toString());
-    if (p.flightPrice) setFlightPrice(p.flightPrice.toString());
-    if (p.landCost) setLandCost(p.landCost.toString());
-    if (p.hotelPrice) setHotelPrice(p.hotelPrice.toString());
-    if (p.activityPrice) setActivityPrice(p.activityPrice.toString());
-    if (p.transferPrice) setTransferPrice(p.transferPrice.toString());
-    if (p.activityAndTransportPrice) setActivityAndTransportPrice(p.activityAndTransportPrice.toString());
-    else if (p.activityPrice || p.transferPrice) setActivityAndTransportPrice(((p.activityPrice || 0) + (p.transferPrice || 0)).toString());
-    if (p.extraMealsIncluded !== undefined) setExtraMealsIncluded(p.extraMealsIncluded);
-    if (p.extraMealsCount !== undefined) setExtraMealsCount(p.extraMealsCount.toString());
-    if (p.extraMealsPrice !== undefined) setExtraMealsPrice(p.extraMealsPrice.toString());
-    if (p.visaIncluded !== undefined) setVisaIncluded(p.visaIncluded);
-    if (p.visaPrice !== undefined) setVisaPrice(p.visaPrice.toString());
-    if (p.flightsIncluded !== undefined) setFlightsIncluded(p.flightsIncluded);
-    if (p.trainsIncluded !== undefined) setTrainsIncluded(p.trainsIncluded);
-    if (p.trainPrice !== undefined) setTrainPrice(p.trainPrice.toString());
-    if (p.cruiseIncluded !== undefined) setCruiseIncluded(p.cruiseIncluded);
-    if (p.cruisePrice !== undefined) setCruisePrice(p.cruisePrice.toString());
-    if (p.gstRate !== undefined) setGstRate(p.gstRate.toString());
-    if (p.gstAmount !== undefined) setGstAmount(p.gstAmount.toString());
-    if (p.originalPrice) setOriginalPrice(p.originalPrice.toString());
-    if (p.discount) setDiscount(p.discount.toString());
-    if (p.discountType) setDiscountType(p.discountType);
-    if (p.isFeatured !== undefined) setIsFeatured(p.isFeatured);
-    if (p.isActive !== undefined) setIsActive(p.isActive);
-    if (p.isGroupTour !== undefined) setIsGroupTour(p.isGroupTour);
-    if (p.departures) setDepartures(p.departures.map((d: any) => ({ ...d, startDate: d.startDate ? new Date(d.startDate).toISOString().split('T')[0] : '', endDate: d.endDate ? new Date(d.endDate).toISOString().split('T')[0] : '' })));
-    if (p.travellerCount) setTravellerCount(p.travellerCount.toString());
-    if (p.adultCount) setAdultCount(p.adultCount.toString());
-    if (p.childCount) setChildCount(p.childCount.toString());
-    if (p.priceUnit) setPriceUnit(p.priceUnit);
-    if (p.extraPersonPrice) setExtraPersonPrice(p.extraPersonPrice.toString());
-    if (p.heroImage) setHeroImage(p.heroImage);
-    if (p.destinationImages) setDestinationImages(p.destinationImages);
-    if (p.stayImages) setStayImages(p.stayImages);
-    if (p.activityImages) setActivityImages(p.activityImages);
-    if (p.images) setImages(p.images);
-    if (p.itinerary && p.itinerary.length > 0) {
-      setItinerary(
-        p.itinerary.map((day: any, i: number) => ({
-          day: day.day || i + 1,
-          title: day.title || "",
-          description: day.description || "",
-          activities: (day.activities || []).map((a: any) => {
-            if (typeof a === "string") {
-              return { title: a, description: "", image: "", images: [] };
-            }
-            const img = a.image || (a.images && a.images[0]) || "";
-            return {
-              title: a.title || a.name || "",
-              description: a.description || "",
-              image: img,
-              images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
-            };
-          }),
-          recommendations: (day.recommendations || []).map((a: any) => {
-            if (typeof a === "string") {
-              return { title: a, description: "", image: "", images: [] };
-            }
-            const img = a.image || (a.images && a.images[0]) || "";
-            return {
-              title: a.title || a.name || "",
-              description: a.description || "",
-              image: img,
-              images: a.images && a.images.length > 0 ? a.images : (img ? [img] : []),
-            };
-          }),
-          meals: day.meals || [],
-          accommodation: day.accommodation || "",
-          images: day.images || [],
-          _key: Date.now() + i + Math.random(),
-        }))
-      );
-    }
-    if (p.stays && p.stays.length > 0) {
-      setStays(
-        p.stays.map((s: any, i: number) => ({
-          _key: Date.now() + i + 1000,
-          name: s.name || "",
-          rating: s.rating || "",
-          nights: s.nights || 0,
-          roomType: s.roomType || "",
-          rooms: s.rooms || 0,
-          amenities: s.amenities || [],
-          checkIn: s.checkIn || "",
-          checkOut: s.checkOut || "",
-          address: s.address || s.location || s.city || "",
-          confirmationNo: s.confirmationNo || "",
-          remark: s.remark || s.remarks || "",
-          showRemarkToCustomer: s.showRemarkToCustomer ?? false,
-        }))
-      );
-    }
-    if (p.transfers && p.transfers.length > 0) {
-      setTransfers(
-        p.transfers.map((t: any, i: number) => ({
-          _key: Date.now() + i + 2000,
-          title: t.title || "",
-          description: t.description || "",
-          transferType: t.transferType || "Shared Transfer",
-          vehicleType: t.vehicleType || "",
-          from: t.from || "",
-          to: t.to || "",
-          stops: t.stops || [],
-          legs: t.legs && t.legs.length > 0
-            ? t.legs.map((l: any) => ({
-                from: l.from || "",
-                to: l.to || "",
-                stops: l.stops || [],
-                transferType: l.transferType || "Shared Transfer",
-                vehicleType: l.vehicleType || "",
-              }))
-            : [{
-                from: t.from || "",
-                to: t.to || "",
-                stops: t.stops || [],
+    if (!p) return;
+    try {
+      // Intentionally omit client info if it exists, since this is usually for a new client
+      if (p.name) setName(p.name);
+      if (p.destination?._id) {
+        setDestination(p.destination._id);
+        setCustomDestinationText("");
+      } else if (typeof p.destination === "string" && p.destination.trim()) {
+        setDestination(p.destination.trim());
+        setCustomDestinationText("");
+      } else if (p.customDestinationText) {
+        setDestination("");
+        setCustomDestinationText(p.customDestinationText);
+      }
+      if (p.description) setDescription(p.description);
+      if (p.shortDescription) setShortDescription(p.shortDescription);
+      if (p.duration) {
+        setDurationNights(p.duration.nights != null ? p.duration.nights.toString() : "");
+        setDurationDays(p.duration.days != null ? p.duration.days.toString() : "");
+      }
+      if (p.hotelRating) setHotelRating(p.hotelRating);
+      if (p.category) setCategory(p.category);
+      if (p.customCategory) setCustomCategory(p.customCategory);
+      if (p.price != null) setPrice(p.price.toString());
+      if (p.flightPrice != null) setFlightPrice(p.flightPrice.toString());
+      if (p.landCost != null) setLandCost(p.landCost.toString());
+      if (p.hotelPrice != null) setHotelPrice(p.hotelPrice.toString());
+      if (p.activityPrice != null) setActivityPrice(p.activityPrice.toString());
+      if (p.transferPrice != null) setTransferPrice(p.transferPrice.toString());
+      if (p.activityAndTransportPrice != null) setActivityAndTransportPrice(p.activityAndTransportPrice.toString());
+      else if (p.activityPrice != null || p.transferPrice != null) {
+        setActivityAndTransportPrice(((Number(p.activityPrice) || 0) + (Number(p.transferPrice) || 0)).toString());
+      }
+      if (p.extraMealsIncluded !== undefined) setExtraMealsIncluded(Boolean(p.extraMealsIncluded));
+      if (p.extraMealsCount != null) setExtraMealsCount(p.extraMealsCount.toString());
+      if (p.extraMealsPrice != null) setExtraMealsPrice(p.extraMealsPrice.toString());
+      if (p.visaIncluded !== undefined) setVisaIncluded(Boolean(p.visaIncluded));
+      if (p.visaPrice != null) setVisaPrice(p.visaPrice.toString());
+      if (p.flightsIncluded !== undefined) setFlightsIncluded(Boolean(p.flightsIncluded));
+      if (p.trainsIncluded !== undefined) setTrainsIncluded(Boolean(p.trainsIncluded));
+      if (p.trainPrice != null) setTrainPrice(p.trainPrice.toString());
+      if (p.cruiseIncluded !== undefined) setCruiseIncluded(Boolean(p.cruiseIncluded));
+      if (p.cruisePrice != null) setCruisePrice(p.cruisePrice.toString());
+      if (p.isInternational !== undefined) setIsInternational(Boolean(p.isInternational));
+      if (p.showOnDestination !== undefined) setShowOnDestination(Boolean(p.showOnDestination));
+      if (p.gstRate !== undefined && p.gstRate !== null) setGstRate(p.gstRate.toString());
+      if (p.gstAmount !== undefined && p.gstAmount !== null) setGstAmount(p.gstAmount.toString());
+      if (p.originalPrice != null) setOriginalPrice(p.originalPrice.toString());
+      if (p.discount != null) setDiscount(p.discount.toString());
+      if (p.discountType) setDiscountType(p.discountType);
+      if (p.isFeatured !== undefined) setIsFeatured(Boolean(p.isFeatured));
+      if (p.isActive !== undefined) setIsActive(Boolean(p.isActive));
+      if (p.isGroupTour !== undefined) setIsGroupTour(Boolean(p.isGroupTour));
+
+      if (Array.isArray(p.departures) && p.departures.length > 0) {
+        setDepartures(
+          p.departures
+            .filter((d: any) => d && typeof d === "object")
+            .map((d: any) => {
+              let sDate = "";
+              let eDate = "";
+              try {
+                if (d.startDate) {
+                  const parsed = new Date(d.startDate);
+                  if (!isNaN(parsed.getTime())) sDate = parsed.toISOString().split("T")[0];
+                }
+                if (d.endDate) {
+                  const parsed = new Date(d.endDate);
+                  if (!isNaN(parsed.getTime())) eDate = parsed.toISOString().split("T")[0];
+                }
+              } catch {
+                sDate = "";
+                eDate = "";
+              }
+              return {
+                ...d,
+                startDate: sDate,
+                endDate: eDate,
+                totalSlots: Number(d.totalSlots) || 0,
+                bookedSlots: Number(d.bookedSlots) || 0,
+                price: Number(d.price) || 0,
+                status: d.status || "available",
+              };
+            })
+        );
+      }
+
+      if (p.travellerCount) setTravellerCount(p.travellerCount.toString());
+      if (p.adultCount != null) setAdultCount(p.adultCount.toString());
+      if (p.childCount != null) setChildCount(p.childCount.toString());
+      if (p.priceUnit) setPriceUnit(p.priceUnit);
+      if (p.extraPersonPrice != null) setExtraPersonPrice(p.extraPersonPrice.toString());
+      if (p.heroImage) setHeroImage(p.heroImage);
+      if (Array.isArray(p.destinationImages)) setDestinationImages(p.destinationImages.filter(Boolean));
+      if (Array.isArray(p.stayImages)) setStayImages(p.stayImages.filter(Boolean));
+      if (Array.isArray(p.activityImages)) setActivityImages(p.activityImages.filter(Boolean));
+      if (Array.isArray(p.images)) setImages(p.images.filter(Boolean));
+
+      if (Array.isArray(p.itinerary) && p.itinerary.length > 0) {
+        setItinerary(
+          p.itinerary
+            .filter((day: any) => day && typeof day === "object")
+            .map((day: any, i: number) => ({
+              day: day.day || i + 1,
+              title: day.title || "",
+              description: day.description || "",
+              activities: (Array.isArray(day.activities) ? day.activities : []).map((a: any) => {
+                if (!a) return { title: "", description: "", image: "", images: [] };
+                if (typeof a === "string") {
+                  return { title: a, description: "", image: "", images: [] };
+                }
+                const img = a.image || (Array.isArray(a.images) && a.images[0]) || "";
+                return {
+                  title: a.title || a.name || "",
+                  description: a.description || "",
+                  image: img,
+                  images: Array.isArray(a.images) && a.images.length > 0 ? a.images : (img ? [img] : []),
+                };
+              }),
+              recommendations: (Array.isArray(day.recommendations) ? day.recommendations : []).map((a: any) => {
+                if (!a) return { title: "", description: "", image: "", images: [] };
+                if (typeof a === "string") {
+                  return { title: a, description: "", image: "", images: [] };
+                }
+                const img = a.image || (Array.isArray(a.images) && a.images[0]) || "";
+                return {
+                  title: a.title || a.name || "",
+                  description: a.description || "",
+                  image: img,
+                  images: Array.isArray(a.images) && a.images.length > 0 ? a.images : (img ? [img] : []),
+                };
+              }),
+              meals: Array.isArray(day.meals) ? day.meals.filter(Boolean) : [],
+              accommodation: day.accommodation || "",
+              images: Array.isArray(day.images) ? day.images.filter(Boolean) : [],
+              _key: Date.now() + i + Math.random(),
+            }))
+        );
+      }
+
+      if (Array.isArray(p.stays) && p.stays.length > 0) {
+        setStays(
+          p.stays
+            .filter((s: any) => s && typeof s === "object")
+            .map((s: any, i: number) => ({
+              _key: Date.now() + i + 1000,
+              name: s.name || "",
+              rating: s.rating || "",
+              nights: Number(s.nights) || 0,
+              roomType: s.roomType || "",
+              rooms: Number(s.rooms) || 0,
+              amenities: Array.isArray(s.amenities) ? s.amenities : [],
+              checkIn: s.checkIn || "",
+              checkOut: s.checkOut || "",
+              address: s.address || s.location || s.city || "",
+              confirmationNo: s.confirmationNo || "",
+              remark: s.remark || s.remarks || "",
+              showRemarkToCustomer: s.showRemarkToCustomer ?? false,
+            }))
+        );
+      }
+
+      if (Array.isArray(p.transfers) && p.transfers.length > 0) {
+        setTransfers(
+          p.transfers
+            .filter((t: any) => t && typeof t === "object")
+            .map((t: any, i: number) => {
+              const legs = Array.isArray(t.legs) && t.legs.length > 0
+                ? t.legs.map((l: any) => ({
+                    from: l?.from || "",
+                    to: l?.to || "",
+                    stops: Array.isArray(l?.stops) ? l.stops : [],
+                    transferType: l?.transferType || "Shared Transfer",
+                    vehicleType: l?.vehicleType || "",
+                  }))
+                : [{
+                    from: t.from || "",
+                    to: t.to || "",
+                    stops: Array.isArray(t.stops) ? t.stops : [],
+                    transferType: t.transferType || "Shared Transfer",
+                    vehicleType: t.vehicleType || "",
+                  }];
+              return {
+                _key: Date.now() + i + 2000,
+                title: t.title || "",
+                description: t.description || "",
                 transferType: t.transferType || "Shared Transfer",
                 vehicleType: t.vehicleType || "",
-              }],
-          day: t.day || 0,
-          details: t.details || [],
-          images: t.images || [],
-        }))
-      );
+                from: t.from || legs[0]?.from || "",
+                to: t.to || legs[legs.length - 1]?.to || "",
+                stops: Array.isArray(t.stops) ? t.stops : [],
+                legs,
+                day: Number(t.day) || 0,
+                details: Array.isArray(t.details) ? t.details : [],
+                images: Array.isArray(t.images) ? t.images : [],
+              };
+            })
+        );
+      }
+
+      if (Array.isArray(p.flights) && p.flights.length > 0) {
+        setFlights(
+          p.flights
+            .filter((f: any) => f && typeof f === "object")
+            .map((f: any, i: number) => ({
+              _key: Date.now() + i + 5000,
+              day: Number(f.day) || 0,
+              airline: f.airline || "",
+              flightNumber: f.flightNumber || "",
+              type: (f.type as "flight" | "train") || "flight",
+              from: f.from || "",
+              to: f.to || "",
+              departure: f.departure || "",
+              arrival: f.arrival || "",
+              pnr: f.pnr || "",
+              class: f.class || "",
+              notes: f.notes || "",
+            }))
+        );
+      }
+
+      if (Array.isArray(p.keyPoints)) setKeyPoints(p.keyPoints.filter(Boolean));
+      if (Array.isArray(p.highlights)) setHighlights(p.highlights.filter(Boolean));
+      if (Array.isArray(p.inclusions)) setInclusions(p.inclusions.filter(Boolean));
+      if (Array.isArray(p.exclusions)) setExclusions(p.exclusions.filter(Boolean));
+      if (Array.isArray(p.knowBeforeYouGo)) setKnowBeforeYouGo(p.knowBeforeYouGo.filter(Boolean));
+      if (Array.isArray(p.thingsToCarry)) setThingsToCarry(p.thingsToCarry.filter(Boolean));
+      if (p.transferSummary) {
+        setTransferSummary(p.transferSummary);
+        if (!p.transfers || p.transfers.length === 0) setTransferMode("summary");
+      }
+      if (Array.isArray(p.paymentPolicy)) setPaymentPolicy(p.paymentPolicy.filter(Boolean));
+      if (Array.isArray(p.cancellationPolicy)) setCancellationPolicy(p.cancellationPolicy.filter(Boolean));
+      if (Array.isArray(p.flightCancellationPolicy)) setFlightCancellationPolicy(p.flightCancellationPolicy.filter(Boolean));
+      if (p.paymentConfig && typeof p.paymentConfig === "object") {
+        if (p.paymentConfig.mode) setPaymentMode(p.paymentConfig.mode);
+        if (p.paymentConfig.depositType) setDepositType(p.paymentConfig.depositType);
+        if (p.paymentConfig.depositValue != null) setDepositValue(p.paymentConfig.depositValue.toString());
+        if (p.paymentConfig.balanceDueDays != null) setBalanceDueDays(p.paymentConfig.balanceDueDays.toString());
+      }
+
+      // Switch tab to basic so user can immediately review loaded information
+      setActiveTab("basic");
+
+      setSuccess("Itinerary template loaded successfully! You can now customize details, stays, and pricing.");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      console.error("Failed to import template:", err);
+      setError("Failed to import some fields from the selected template. Other fields were loaded.");
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setShowImportModal(false);
     }
-    if (p.flights && p.flights.length > 0) {
-      setFlights(
-        p.flights.map((f: any, i: number) => ({
-          _key: Date.now() + i + 5000,
-          day: f.day || 0,
-          airline: f.airline || "",
-          flightNumber: f.flightNumber || "",
-          type: (f.type as "flight" | "train") || "flight",
-          from: f.from || "",
-          to: f.to || "",
-          departure: f.departure || "",
-          arrival: f.arrival || "",
-          pnr: f.pnr || "",
-          class: f.class || "",
-          notes: f.notes || "",
-        }))
-      );
-    }
-    if (p.keyPoints) setKeyPoints(p.keyPoints);
-    if (p.highlights) setHighlights(p.highlights);
-    if (p.inclusions) setInclusions(p.inclusions);
-    if (p.exclusions) setExclusions(p.exclusions);
-    if (p.knowBeforeYouGo) setKnowBeforeYouGo(p.knowBeforeYouGo);
-    if (p.thingsToCarry) setThingsToCarry(p.thingsToCarry);
-    if (p.transferSummary) {
-      setTransferSummary(p.transferSummary);
-      if (!p.transfers || p.transfers.length === 0) setTransferMode("summary");
-    }
-    if (p.paymentPolicy) setPaymentPolicy(p.paymentPolicy);
-    if (p.cancellationPolicy) setCancellationPolicy(p.cancellationPolicy);
-    if (p.flightCancellationPolicy) setFlightCancellationPolicy(p.flightCancellationPolicy);
-    if (p.paymentConfig) {
-      if (p.paymentConfig.mode) setPaymentMode(p.paymentConfig.mode);
-      if (p.paymentConfig.depositType) setDepositType(p.paymentConfig.depositType);
-      if (p.paymentConfig.depositValue) setDepositValue(p.paymentConfig.depositValue.toString());
-      if (p.paymentConfig.balanceDueDays) setBalanceDueDays(p.paymentConfig.balanceDueDays.toString());
-    }
-    
-    setShowImportModal(false);
-    setSuccess("Itinerary template loaded successfully! You can now customize details, stays, and pricing.");
-    setTimeout(() => setSuccess(""), 4000);
   };
 
   // Departures (Group Tour)

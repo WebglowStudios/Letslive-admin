@@ -627,10 +627,10 @@ export default function EditDestinationPage() {
             <>
               <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4 mb-2">
                 <p className="text-xs font-semibold text-cyan-900 mb-1">
-                  📄 2nd-to-Last Page in Package PDF (&quot;Why Travellers Love Us&quot;)
+                  📄 Page 3 in Package PDF (&quot;Why Travellers Love Us&quot;)
                 </p>
                 <p className="text-xs text-cyan-800 leading-relaxed">
-                  The content configured here will automatically render as the full-page community feature on the 2nd-to-last page of all itinerary PDFs booked for <strong>{name || "this destination"}</strong>.
+                  The content configured here will automatically render as the full-page community feature on Page 3 of all itinerary PDFs booked for <strong>{name || "this destination"}</strong>.
                 </p>
               </div>
 

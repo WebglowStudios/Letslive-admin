@@ -443,7 +443,7 @@ export default function NewDestinationPage() {
               <div className="flex items-center gap-2">
                 <span className="text-lg">📄</span>
                 <label className="block text-sm font-semibold text-slate-800">
-                  PDF Page — &quot;Why Travellers Love Us&quot; (2nd-to-Last Page)
+                  PDF Page — &quot;Why Travellers Love Us&quot; (Page 3)
                 </label>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">

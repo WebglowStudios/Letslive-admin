@@ -25,7 +25,18 @@ interface BookingDetail {
   returnDate?: string;
   travellers: { adults: number; children: number; infants: number };
   travellersDetails: { name: string; age?: number; dob?: string | Date; gender?: string; type: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string }[];
-  primaryTraveller: { firstName: string; lastName: string; email: string; phone?: string; panCard?: string };
+  primaryTraveller: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    panCard?: string;
+    passportNumber?: string;
+    passportExpiry?: string;
+    issuingCountry?: string;
+    dob?: string;
+    gender?: string;
+  };
   totalAmount: number;
   paidAmount: number;
   paymentStatus: string;
@@ -431,6 +442,19 @@ export default function BookingDetailPage() {
                 {booking.primaryTraveller?.panCard && (
                   <div className="flex items-center gap-2 text-sm text-slate-600 mt-2 p-2 bg-slate-50 border border-slate-100 rounded">
                     <span className="font-semibold">PAN:</span> {booking.primaryTraveller.panCard}
+                  </div>
+                )}
+                {booking.primaryTraveller?.passportNumber && (
+                  <div className="text-sm text-slate-600 mt-2 p-2 bg-slate-50 border border-slate-100 rounded space-y-1">
+                    <p><span className="font-semibold">Passport:</span> {booking.primaryTraveller.passportNumber}</p>
+                    <div className="flex gap-4 text-xs text-slate-500">
+                      {booking.primaryTraveller.passportExpiry && (
+                        <span>Exp: {formatDate(booking.primaryTraveller.passportExpiry)}</span>
+                      )}
+                      {booking.primaryTraveller.issuingCountry && (
+                        <span>Country: {booking.primaryTraveller.issuingCountry}</span>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -469,12 +469,25 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
             <View style={s.cardRow}>
               <View style={s.cardCol}>
                 <Text style={s.cardLabel}>LEAD GUEST</Text>
-                <Text style={s.cardValue}>{customerName}</Text>
+                <Text style={s.cardValue}>{customerName || "Valued Guest"}</Text>
               </View>
               <View style={s.cardCol}>
                 <Text style={s.cardLabel}>PERSONS</Text>
                 <Text style={s.cardValue}>
-                  {adults || children ? `${adults || 0}A${children ? ` / ${children}C` : ''}` : pax}
+                  {(() => {
+                    const hasAdults = adults !== undefined && adults !== null && adults > 0;
+                    const hasChildren = children !== undefined && children !== null && children > 0;
+                    if (hasAdults && hasChildren) {
+                      return `${adults} Adult${adults > 1 ? "s" : ""}, ${children} Child${children > 1 ? "ren" : ""}`;
+                    }
+                    if (hasAdults) {
+                      return `${adults} Adult${adults > 1 ? "s" : ""}`;
+                    }
+                    if (hasChildren) {
+                      return `${children} Child${children > 1 ? "ren" : ""}`;
+                    }
+                    return `${pax || 1} Person${(pax || 1) > 1 ? "s" : ""}`;
+                  })()}
                 </Text>
               </View>
               <View style={s.cardCol}>

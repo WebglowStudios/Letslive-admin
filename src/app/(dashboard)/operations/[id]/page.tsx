@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2, RefreshCw, List } from "lucide-react";
 import Link from "next/link";
 import { useRole } from "@/hooks/usePermission";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
@@ -17,6 +17,7 @@ interface Transport {
   vendorContact: string;
   vendorEmail: string;
   vendorCost: number;
+  paidAmount?: number;
   sellingPrice: number;
   paymentStatus: string;
   paymentDueDate: string;
@@ -27,7 +28,7 @@ interface Transport {
   groupId?: string;
   linkedBooking?: string;
 }
-interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
+interface Accommodation { _id: string; type: string; name: string; area: string; roomCategory: string; rooms: number; mealPlan: string; checkIn: string; checkOut: string; nights: number; confirmationNumber: string; tripDay: string; vendorName: string; vendorCost: number; paidAmount?: number; sellingPrice: number; paymentStatus: string; remarks: string; isGroupMaster?: boolean; groupId?: string; linkedBooking?: string; }
 interface ActivityTransfer {
   _id?: string;
   title?: string;
@@ -45,6 +46,7 @@ interface ActivityTransfer {
   vendorName?: string;
   vendorContact?: string;
   vendorCost?: number;
+  paidAmount?: number;
   sellingPrice?: number;
   paymentStatus?: string;
 }
@@ -60,6 +62,7 @@ interface Activity {
   vendorContact?: string;
   vendorEmail?: string;
   vendorCost: number;
+  paidAmount?: number;
   sellingPrice: number;
   paymentStatus: string;
   paymentDueDate?: string;
@@ -70,7 +73,7 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 export const getWebsiteBaseUrl = (_brand?: string, _bookingId?: string, _operationId?: string) => {
   const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -86,9 +89,135 @@ function Inp({ value, onChange, type = "text", placeholder = "" }: { value: stri
 function Sel({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { v: string; l: string }[] }) {
   return <select value={value} onChange={(e) => onChange(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full">{options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>;
 }
-function VendorPick({ value, onChange, vendors, filterType }: { value: string; onChange: (v: string) => void; vendors: { _id: string; name: string; type: string }[]; filterType?: string }) {
-  const filtered = filterType ? vendors.filter((v) => v.type === filterType || v.type === "mixed") : vendors;
-  return <select value={value} onChange={(e) => onChange(e.target.value)} className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full"><option value="">-- Select vendor --</option>{filtered.map((v) => <option key={v._id} value={v.name}>{v.name}</option>)}<option value="__custom">+ Enter manually</option></select>;
+type VendorItem = {
+  _id: string;
+  name: string;
+  type: string;
+  phone?: string;
+  contactPhone?: string;
+  mobile?: string;
+  email?: string;
+  contactEmail?: string;
+  contactPerson?: string;
+};
+
+function VendorPick({
+  value,
+  onChange,
+  vendors = [],
+  filterType,
+  placeholder = "e.g. Vendor Name",
+  onSelectVendor,
+}: {
+  value: string;
+  onChange: (v: string, matchedVendor?: VendorItem) => void;
+  vendors: VendorItem[];
+  filterType?: string;
+  placeholder?: string;
+  onSelectVendor?: (vendor: VendorItem) => void;
+}) {
+  const primary = filterType ? vendors.filter((v) => v.type === filterType || v.type === "mixed") : vendors;
+  const secondary = filterType ? vendors.filter((v) => v.type !== filterType && v.type !== "mixed") : [];
+  const isRegistered = vendors.some((v) => (v.name || "").trim().toLowerCase() === (value || "").trim().toLowerCase());
+  const [isManual, setIsManual] = useState<boolean>(Boolean(value && !isRegistered));
+
+  useEffect(() => {
+    if (isRegistered) {
+      setIsManual(false);
+    }
+  }, [value, isRegistered]);
+
+  const datalistId = `vendor-dl-${filterType || "all"}`;
+
+  if (isManual || vendors.length === 0) {
+    return (
+      <div className="relative flex items-center w-full">
+        <input
+          type="text"
+          value={value || ""}
+          list={datalistId}
+          onChange={(e) => {
+            const val = e.target.value;
+            const matched = vendors.find(
+              (v) => (v.name || "").trim().toLowerCase() === val.trim().toLowerCase()
+            );
+            onChange(val, matched);
+            if (onSelectVendor && matched) onSelectVendor(matched);
+          }}
+          placeholder={placeholder}
+          autoFocus={isManual && !value}
+          className="px-2 py-1.5 border border-cyan-400 bg-cyan-50/20 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full pr-7"
+        />
+        <datalist id={datalistId}>
+          {vendors.map((v) => (
+            <option key={v._id} value={v.name}>
+              {[v.type, v.phone || v.contactPhone].filter(Boolean).join(" • ")}
+            </option>
+          ))}
+        </datalist>
+        {vendors.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsManual(false);
+              onChange("");
+            }}
+            className="absolute right-1 text-slate-400 hover:text-cyan-600 p-1 rounded hover:bg-slate-100 transition-colors"
+            title="Choose from registered vendors list"
+          >
+            <List size={13} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={isRegistered ? value : ""}
+      onChange={(e) => {
+        const val = e.target.value;
+        if (val === "__custom") {
+          setIsManual(true);
+          onChange("");
+        } else {
+          const matched = vendors.find(
+            (v) => (v.name || "").trim().toLowerCase() === (val || "").trim().toLowerCase()
+          );
+          onChange(val, matched);
+          if (onSelectVendor && matched) onSelectVendor(matched);
+        }
+      }}
+      className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full bg-white text-slate-800"
+    >
+      <option value="">-- Select vendor --</option>
+      {secondary.length > 0 ? (
+        <>
+          <optgroup label={`${filterType ? filterType.toUpperCase() : "RECOMMENDED"} VENDORS`}>
+            {primary.map((v) => (
+              <option key={v._id} value={v.name}>
+                {v.name} {v.phone || v.contactPhone ? `(${v.phone || v.contactPhone})` : ""}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="OTHER REGISTERED VENDORS">
+            {secondary.map((v) => (
+              <option key={v._id} value={v.name}>
+                {v.name} ({v.type}) {v.phone || v.contactPhone ? `(${v.phone || v.contactPhone})` : ""}
+              </option>
+            ))}
+          </optgroup>
+        </>
+      ) : (
+        primary.map((v) => (
+          <option key={v._id} value={v.name}>
+            {v.name} {v.phone || v.contactPhone ? `(${v.phone || v.contactPhone})` : ""}
+          </option>
+        ))
+      )}
+      <option value="__custom">+ Enter manually</option>
+    </select>
+  );
 }
 
 const ACCOMMODATION_TYPES = [
@@ -101,6 +230,59 @@ const TRANSPORT_TYPES = [
 ];
 const PAY_OPTS = [{ v: "pending", l: "Pending" }, { v: "partial", l: "Partial" }, { v: "paid", l: "Paid" }];
 
+function PartialPaymentFields({
+  vendorCost,
+  paidAmount,
+  onChangePaidAmount,
+}: {
+  vendorCost: number;
+  paidAmount?: number;
+  onChangePaidAmount: (val: number) => void;
+}) {
+  const cost = Number(vendorCost) || 0;
+  const paid = paidAmount !== undefined && paidAmount !== null ? Number(paidAmount) : 0;
+  const remaining = Math.max(0, cost - paid);
+  const percentage = cost > 0 ? Math.round((remaining / cost) * 100) : 0;
+
+  return (
+    <div className="mt-2.5 p-3.5 bg-amber-50/80 border border-amber-200/90 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+      <div>
+        <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1 flex items-center justify-between">
+          <span>Total Amount (₹)</span>
+          <span className="text-[8px] font-medium text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded">Vendor Cost</span>
+        </label>
+        <div className="px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-slate-800 shadow-sm flex items-center h-[30px]">
+          <span>₹{cost.toLocaleString("en-IN")}</span>
+        </div>
+      </div>
+      <div>
+        <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1 flex items-center justify-between">
+          <span>Paid Amount (₹)</span>
+          <span className="text-[8px] font-normal text-amber-600">Advance paid</span>
+        </label>
+        <Inp
+          type="number"
+          value={paidAmount !== undefined && paidAmount !== null ? paidAmount : ""}
+          onChange={(v) => onChangePaidAmount(Number(v))}
+          placeholder="e.g. 10000"
+        />
+      </div>
+      <div>
+        <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1 flex items-center justify-between">
+          <span>Remaining Amount (₹)</span>
+          <span className="text-[8px] font-medium text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded">Auto-calc</span>
+        </label>
+        <div className="px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-950 flex items-center justify-between shadow-sm h-[30px]">
+          <span>₹{remaining.toLocaleString("en-IN")}</span>
+          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+            {cost > 0 ? `${percentage}% due` : "0%"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export default function OperationDetailPage() {
   const params = useParams();
@@ -112,13 +294,43 @@ export default function OperationDetailPage() {
   // Modals
   const [passengerModalOpen, setPassengerModalOpen] = useState(false);
   const [editCustomerModalOpen, setEditCustomerModalOpen] = useState(false);
-  const [editCustomerData, setEditCustomerData] = useState<{ bookingId: string, firstName: string, lastName: string, email: string, phone: string, panCard: string } | null>(null);
+  const [editCustomerData, setEditCustomerData] = useState<{
+    bookingId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    panCard: string;
+    passportNumber?: string;
+    passportExpiry?: string;
+    issuingCountry?: string;
+    dob?: string;
+    gender?: string;
+    age?: string;
+  } | null>(null);
+  const [editPassengerModalOpen, setEditPassengerModalOpen] = useState(false);
+  const [editPassengerData, setEditPassengerData] = useState<{
+    bookingId: string;
+    detailsIndex: number;
+    name: string;
+    type: string;
+    gender: string;
+    dob: string;
+    age: string;
+    email: string;
+    phone: string;
+    passportNumber: string;
+    passportExpiry: string;
+    issuingCountry: string;
+    panCard: string;
+  } | null>(null);
+  const [savingPassenger, setSavingPassenger] = useState(false);
   
   const [transports, setTransports] = useState<Transport[]>([]);
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [customerPayments, setCustomerPayments] = useState<CPayment[]>([]);
-  const [vendorList, setVendorList] = useState<{ _id: string; name: string; type: string }[]>([]);
+  const [vendorList, setVendorList] = useState<VendorItem[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
   const [selectedTransports, setSelectedTransports] = useState<Set<string>>(new Set());
   const [selectedAccommodations, setSelectedAccommodations] = useState<Set<string>>(new Set());
@@ -237,14 +449,31 @@ export default function OperationDetailPage() {
     }
   }
 
-  function openEditCustomerModal(bookingId: string, currentPrimary: any) {
+  function openEditCustomerModal(bookingId: string, currentPrimary: any, currentPassenger?: any) {
+    const dobVal = (currentPrimary?.dob || currentPassenger?.dob)
+      ? new Date(currentPrimary?.dob || currentPassenger?.dob).toISOString().split("T")[0]
+      : "";
+    const expiryVal = (currentPrimary?.passportExpiry || currentPassenger?.passportExpiry)
+      ? new Date(currentPrimary?.passportExpiry || currentPassenger?.passportExpiry).toISOString().split("T")[0]
+      : "";
+
     setEditCustomerData({
       bookingId,
       firstName: currentPrimary?.firstName || "",
       lastName: currentPrimary?.lastName || "",
-      email: currentPrimary?.email || "",
-      phone: currentPrimary?.phone || "",
-      panCard: currentPrimary?.panCard || ""
+      email: currentPrimary?.email || currentPassenger?.email || "",
+      phone: currentPrimary?.phone || currentPassenger?.phone || "",
+      panCard: currentPrimary?.panCard || currentPassenger?.panCard || "",
+      passportNumber: currentPrimary?.passportNumber || currentPassenger?.passportNumber || "",
+      passportExpiry: expiryVal,
+      issuingCountry: currentPrimary?.issuingCountry || currentPassenger?.issuingCountry || "",
+      dob: dobVal,
+      gender: currentPrimary?.gender || currentPassenger?.gender || "",
+      age: (currentPrimary?.age !== undefined && currentPrimary?.age !== null && currentPrimary?.age !== "")
+        ? String(currentPrimary.age)
+        : (currentPassenger?.age !== undefined && currentPassenger?.age !== null && currentPassenger?.age !== "")
+          ? String(currentPassenger.age)
+          : (dobVal ? String(calculateAgeFromDob(dobVal) || "") : ""),
     });
     setEditCustomerModalOpen(true);
   }
@@ -257,6 +486,87 @@ export default function OperationDetailPage() {
       fetchAll();
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to update customer details");
+    }
+  }
+
+  function openEditPassengerModal(bookingId: string, detailsIndex: number, currentPassenger: any) {
+    const dobVal = currentPassenger.dob
+      ? new Date(currentPassenger.dob).toISOString().split("T")[0]
+      : "";
+    const expiryVal = currentPassenger.passportExpiry
+      ? new Date(currentPassenger.passportExpiry).toISOString().split("T")[0]
+      : "";
+
+    setEditPassengerData({
+      bookingId,
+      detailsIndex,
+      name: currentPassenger.name || "",
+      type: currentPassenger.type || "adult",
+      gender: currentPassenger.gender || "",
+      dob: dobVal,
+      age: (currentPassenger.age !== undefined && currentPassenger.age !== null && currentPassenger.age !== "")
+        ? String(currentPassenger.age)
+        : (dobVal ? String(calculateAgeFromDob(dobVal) || "") : ""),
+      email: currentPassenger.email || "",
+      phone: currentPassenger.phone || "",
+      passportNumber: currentPassenger.passportNumber || "",
+      passportExpiry: expiryVal,
+      issuingCountry: currentPassenger.issuingCountry || "",
+      panCard: currentPassenger.panCard || "",
+    });
+    setEditPassengerModalOpen(true);
+  }
+
+  async function savePassengerDetails() {
+    if (!editPassengerData || !editPassengerData.name?.trim()) {
+      alert("Passenger name is required");
+      return;
+    }
+    setSavingPassenger(true);
+    try {
+      const targetBooking =
+        op?.bookings?.find((b: any) => b._id === editPassengerData.bookingId) || op?.booking;
+      if (!targetBooking) {
+        alert("Target booking not found");
+        return;
+      }
+      const updatedTravellers = [...(targetBooking.travellersDetails || [])];
+      const idx = editPassengerData.detailsIndex;
+      if (idx < 0 || idx >= updatedTravellers.length) {
+        alert("Passenger index not found");
+        return;
+      }
+
+      const calculatedAge =
+        editPassengerData.age !== "" && !isNaN(Number(editPassengerData.age))
+          ? Number(editPassengerData.age)
+          : calculateAgeFromDob(editPassengerData.dob);
+
+      updatedTravellers[idx] = {
+        ...updatedTravellers[idx],
+        name: editPassengerData.name.trim(),
+        type: editPassengerData.type || "adult",
+        gender: editPassengerData.gender || undefined,
+        dob: editPassengerData.dob ? new Date(editPassengerData.dob) : undefined,
+        age: calculatedAge !== undefined ? calculatedAge : undefined,
+        email: editPassengerData.email || undefined,
+        phone: editPassengerData.phone || undefined,
+        passportNumber: editPassengerData.passportNumber || undefined,
+        passportExpiry: editPassengerData.passportExpiry ? new Date(editPassengerData.passportExpiry) : undefined,
+        issuingCountry: editPassengerData.issuingCountry || undefined,
+        panCard: editPassengerData.panCard || undefined,
+      };
+
+      await api.put(`/bookings/${targetBooking._id}/passengers`, {
+        travellersDetails: updatedTravellers,
+      });
+      setEditPassengerModalOpen(false);
+      setEditPassengerData(null);
+      fetchAll();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to update passenger details");
+    } finally {
+      setSavingPassenger(false);
     }
   }
 
@@ -377,13 +687,48 @@ export default function OperationDetailPage() {
       // Road-only transports (exclude flights and trains)
       const pdfTransports = transports.filter(t => t.type !== 'flight' && t.type !== 'train');
 
+      // Multi-layer fallback for Lead Guest Name & Travellers
+      const leadCust = (op?.customer?.name && op.customer.name.trim()) 
+        ? op.customer 
+        : (op?.customers && op.customers.length > 0 && op.customers[0]?.name ? op.customers[0] : null);
+
+      const bkg = op?.booking || (op?.bookings && op.bookings[0]) || null;
+      const bkgPrimary = bkg?.primaryTraveller;
+      const primaryName = bkgPrimary?.firstName ? `${bkgPrimary.firstName} ${bkgPrimary.lastName || ""}`.trim() : "";
+      const firstTravellerName = (bkg?.travellersDetails && bkg.travellersDetails[0]?.name) || "";
+
+      const voucherCustomerName = leadCust?.name || primaryName || firstTravellerName || "Valued Guest";
+
+      const bkgTravellers = bkg?.travellers;
+      const bkgDetails = bkg?.travellersDetails || [];
+      const adultsFromDetails = bkgDetails.filter((t: any) => t.type === 'adult').length;
+      const childrenFromDetails = bkgDetails.filter((t: any) => t.type === 'child').length;
+
+      const voucherAdults = leadCust?.adults 
+        ?? bkgTravellers?.adults 
+        ?? (adultsFromDetails > 0 ? adultsFromDetails : undefined) 
+        ?? op?.package?.adultCount 
+        ?? bkg?.package?.adultCount;
+
+      const voucherChildren = leadCust?.children 
+        ?? bkgTravellers?.children 
+        ?? (childrenFromDetails > 0 ? childrenFromDetails : undefined) 
+        ?? op?.package?.childCount 
+        ?? bkg?.package?.childCount;
+
+      const voucherPax = leadCust?.pax 
+        ?? ((voucherAdults !== undefined || voucherChildren !== undefined) ? ((voucherAdults || 0) + (voucherChildren || 0)) : undefined)
+        ?? (bkgTravellers ? (bkgTravellers.adults || 0) + (bkgTravellers.children || 0) : undefined)
+        ?? (bkgDetails.length > 0 ? bkgDetails.length : undefined)
+        ?? 1;
+
       await generateVoucherPdf({
         operationId: op?.operationId || "",
         destination: op?.destination || "",
-        customerName: op?.customer?.name || "",
-        pax: op?.customer?.pax || 1,
-        adults: op?.customer?.adults,
-        children: op?.customer?.children,
+        customerName: voucherCustomerName,
+        pax: voucherPax,
+        adults: voucherAdults,
+        children: voucherChildren,
         paymentStatus: op?.booking?.paymentStatus || "pending",
         totalAmount: op?.booking?.totalAmount,
         paidAmount: op?.booking?.paidAmount,
@@ -796,12 +1141,12 @@ export default function OperationDetailPage() {
                   <div className="p-3 border border-slate-100 bg-white shadow-sm rounded-lg relative group">
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1">
                       {onEdit && (
-                        <button onClick={onEdit} className="text-slate-400 hover:text-cyan-600 p-1" title="Edit Contact Details">
+                        <button onClick={onEdit} className="text-slate-400 hover:text-cyan-600 p-1 rounded hover:bg-slate-100 transition" title="Edit Passenger Details">
                           <Edit2 size={12} />
                         </button>
                       )}
                       {onRemove && (
-                        <button onClick={onRemove} className="text-red-400 hover:text-red-600 p-1" title="Remove">
+                        <button onClick={onRemove} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition" title="Remove">
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -815,7 +1160,13 @@ export default function OperationDetailPage() {
                           {t.gender}
                         </span>
                       )}
-                      <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                      <p
+                        onClick={onEdit}
+                        className={`text-sm font-bold text-slate-800 ${onEdit ? "cursor-pointer hover:text-cyan-700 transition" : ""}`}
+                        title={onEdit ? "Click to edit passenger" : undefined}
+                      >
+                        {t.name}
+                      </p>
                       {t._isPrimary && <span className="text-[9px] font-bold text-cyan-700 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded-full uppercase">Lead</span>}
                     </div>
                     {/* Both DOB and Age clearly displayed together */}
@@ -863,16 +1214,20 @@ export default function OperationDetailPage() {
                       email: primary.email,
                       phone: primary.phone,
                       type: 'adult',
-                      gender: matchedDetail?.gender || (primary as any).gender,
-                      dob: matchedDetail?.dob || (primary as any).dob,
-                      age: matchedDetail?.age || (primary as any).age,
+                      gender: (primary as any).gender || matchedDetail?.gender,
+                      dob: (primary as any).dob || matchedDetail?.dob,
+                      age: (primary as any).age !== undefined ? (primary as any).age : matchedDetail?.age,
+                      passportNumber: (primary as any).passportNumber || matchedDetail?.passportNumber,
+                      passportExpiry: (primary as any).passportExpiry || matchedDetail?.passportExpiry,
+                      issuingCountry: (primary as any).issuingCountry || matchedDetail?.issuingCountry,
+                      panCard: primary.panCard || matchedDetail?.panCard,
                       _isPrimary: true,
                     });
                   }
                   // Add travellersDetails, skipping if name matches primary (dedup)
-                  details.forEach(d => {
+                  details.forEach((d, dIdx) => {
                     const isDuplicate = primary?.firstName && d.name?.toLowerCase() === `${primary.firstName} ${primary.lastName || ''}`.trim().toLowerCase();
-                    if (!isDuplicate) list.push(d);
+                    if (!isDuplicate) list.push({ ...d, _detailsIndex: dIdx });
                   });
                   return { list, details };
                 };
@@ -897,18 +1252,25 @@ export default function OperationDetailPage() {
                             </div>
                             <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                               {list.length === 0 && <p className="text-xs text-slate-400 p-2 col-span-2">No passenger details on this booking yet.</p>}
-                              {list.map((t: any, idx: number) => (
-                                <PassengerCard
-                                  key={idx}
-                                  t={t}
-                                  onEdit={t._isPrimary ? () => openEditCustomerModal(b._id, b.primaryTraveller) : undefined}
-                                  onRemove={t._isPrimary ? undefined : () => {
-                                    // idx in details = idx - 1 (accounting for primary card at top)
-                                    const detailsIdx = idx - (b.primaryTraveller?.firstName ? 1 : 0);
-                                    handleRemovePassenger(b._id, detailsIdx);
-                                  }}
-                                />
-                              ))}
+                              {list.map((t: any, idx: number) => {
+                                const detailsIdx = t._detailsIndex !== undefined ? t._detailsIndex : (idx - (b.primaryTraveller?.firstName ? 1 : 0));
+                                return (
+                                  <PassengerCard
+                                    key={idx}
+                                    t={t}
+                                    onEdit={
+                                      t._isPrimary
+                                        ? () => openEditCustomerModal(b._id, b.primaryTraveller, t)
+                                        : () => openEditPassengerModal(b._id, detailsIdx, t)
+                                    }
+                                    onRemove={
+                                      t._isPrimary
+                                        ? undefined
+                                        : () => handleRemovePassenger(b._id, detailsIdx)
+                                    }
+                                  />
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -940,17 +1302,25 @@ export default function OperationDetailPage() {
                   }
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {fallbackList.map((t: any, idx: number) => (
-                        <PassengerCard
-                          key={idx}
-                          t={t}
-                          onEdit={t._isPrimary ? () => openEditCustomerModal(singleBooking._id, singleBooking.primaryTraveller || { firstName: op.customer?.name?.split(' ')?.[0] || '', lastName: op.customer?.name?.split(' ').slice(1).join(' ') || '', email: op.customer?.email || '', phone: op.customer?.phone || '', panCard: '' }) : undefined}
-                          onRemove={t._isPrimary ? undefined : () => {
-                            const detailsIdx = idx - (singleBooking.primaryTraveller?.firstName ? 1 : 0);
-                            handleRemovePassenger(singleBooking._id, detailsIdx);
-                          }}
-                        />
-                      ))}
+                      {fallbackList.map((t: any, idx: number) => {
+                        const detailsIdx = t._detailsIndex !== undefined ? t._detailsIndex : (idx - (singleBooking.primaryTraveller?.firstName ? 1 : 0));
+                        return (
+                          <PassengerCard
+                            key={idx}
+                            t={t}
+                            onEdit={
+                              t._isPrimary
+                                ? () => openEditCustomerModal(singleBooking._id, singleBooking.primaryTraveller || { firstName: op.customer?.name?.split(' ')?.[0] || '', lastName: op.customer?.name?.split(' ').slice(1).join(' ') || '', email: op.customer?.email || '', phone: op.customer?.phone || '', panCard: '' }, t)
+                                : () => openEditPassengerModal(singleBooking._id, detailsIdx, t)
+                            }
+                            onRemove={
+                              t._isPrimary
+                                ? undefined
+                                : () => handleRemovePassenger(singleBooking._id, detailsIdx)
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   );
                 }
@@ -1117,19 +1487,94 @@ export default function OperationDetailPage() {
                     <div>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Company Name</label><Inp value={t.vendorName} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorName: v }; setTransports(u); }} placeholder="e.g. Ravi Travels, IndiGo..." /></div>
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label><Inp value={t.vendorContact} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorContact: v }; setTransports(u); }} placeholder="+91 98765 43210" /></div>
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label><Inp value={t.vendorEmail} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorEmail: v }; setTransports(u); }} placeholder="vendor@email.com" /></div>
+                        <div>
+                          <label className="text-[9px] text-slate-400 uppercase block mb-1">Company / Operator Name</label>
+                          <VendorPick
+                            value={t.vendorName || ""}
+                            onChange={(val, matched) => {
+                              setTransports((prev) => {
+                                const u = [...prev];
+                                if (!u[idx]) return prev;
+                                const vContact = matched ? (matched.phone || matched.contactPhone || matched.mobile || "") : u[idx].vendorContact;
+                                const vEmail = matched ? (matched.email || matched.contactEmail || "") : u[idx].vendorEmail;
+                                u[idx] = {
+                                  ...u[idx],
+                                  vendorName: val,
+                                  vendorContact: vContact !== undefined ? vContact : (u[idx].vendorContact || ""),
+                                  vendorEmail: vEmail !== undefined ? vEmail : (u[idx].vendorEmail || ""),
+                                };
+                                return u;
+                              });
+                            }}
+                            onSelectVendor={(v) => {
+                              setTransports((prev) => {
+                                const u = [...prev];
+                                if (!u[idx]) return prev;
+                                u[idx] = {
+                                  ...u[idx],
+                                  vendorName: v.name,
+                                  vendorContact: v.phone || v.contactPhone || v.mobile || u[idx].vendorContact || "",
+                                  vendorEmail: v.email || v.contactEmail || u[idx].vendorEmail || "",
+                                };
+                                return u;
+                              });
+                            }}
+                            vendors={vendorList}
+                            filterType="flight"
+                            placeholder="e.g. IndiGo, Ravi Travels..."
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label>
+                          <Inp
+                            value={t.vendorContact || ""}
+                            onChange={(v) => {
+                              setTransports((prev) => {
+                                const u = [...prev];
+                                if (u[idx]) u[idx] = { ...u[idx], vendorContact: v };
+                                return u;
+                              });
+                            }}
+                            placeholder="+91 98765 43210"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label>
+                          <Inp
+                            value={t.vendorEmail || ""}
+                            onChange={(v) => {
+                              setTransports((prev) => {
+                                const u = [...prev];
+                                if (u[idx]) u[idx] = { ...u[idx], vendorEmail: v };
+                                return u;
+                              });
+                            }}
+                            placeholder="vendor@email.com"
+                          />
+                        </div>
                       </div>
                     </div>
                     <div>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment</p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label><Inp type="number" value={t.vendorCost} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorCost: Number(v) }; setTransports(u); }} placeholder="0" /></div>
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label><Inp type="number" value={t.sellingPrice} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], sellingPrice: Number(v) }; setTransports(u); }} placeholder="0" /></div>
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentDueDate: v }; setTransports(u); }} /></div>
-                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentStatus: v }; setTransports(u); }} options={PAY_OPTS} /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label><Inp type="number" value={t.vendorCost} onChange={(v) => { setTransports((prev) => { const u = [...prev]; if (u[idx]) u[idx] = { ...u[idx], vendorCost: Number(v) }; return u; }); }} placeholder="0" /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label><Inp type="number" value={t.sellingPrice} onChange={(v) => { setTransports((prev) => { const u = [...prev]; if (u[idx]) u[idx] = { ...u[idx], sellingPrice: Number(v) }; return u; }); }} placeholder="0" /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { setTransports((prev) => { const u = [...prev]; if (u[idx]) u[idx] = { ...u[idx], paymentDueDate: v }; return u; }); }} /></div>
+                        <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus || "pending"} onChange={(v) => { setTransports((prev) => { const u = [...prev]; if (u[idx]) u[idx] = { ...u[idx], paymentStatus: v }; return u; }); }} options={PAY_OPTS} /></div>
                       </div>
+                      {(t.paymentStatus?.toLowerCase() === "partial") && (
+                        <PartialPaymentFields
+                          vendorCost={t.vendorCost}
+                          paidAmount={t.paidAmount}
+                          onChangePaidAmount={(val) => {
+                            setTransports((prev) => {
+                              const u = [...prev];
+                              if (u[idx]) u[idx] = { ...u[idx], paidAmount: val };
+                              return u;
+                            });
+                          }}
+                        />
+                      )}
                     </div>
                     <div>
                       <label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks / Notes</label>
@@ -1263,36 +1708,125 @@ export default function OperationDetailPage() {
                     <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
-                        <button onClick={() => saveItem("transports", g.masterInfo.item._id, transports[g.masterInfo.i])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
+                        <button onClick={() => {
+                          const masterId = g.masterInfo.item._id;
+                          const currentItem = transports.find(item => item._id === masterId) || transports[g.masterInfo.i] || g.masterInfo.item;
+                          saveItem("transports", masterId, currentItem);
+                        }} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
                           <Check size={10} /> Save Group
                         </button>
                       </div>
                       
                       {(() => {
-                        const t = g.masterInfo.item;
-                        const idx = g.masterInfo.i;
+                        const masterId = g.masterInfo.item?._id;
+                        const actualIdx = transports.findIndex((item: any) => item._id === masterId);
+                        const t = actualIdx !== -1 ? transports[actualIdx] : (transports[g.masterInfo.i] || g.masterInfo.item);
+                        const idx = actualIdx !== -1 ? actualIdx : g.masterInfo.i;
                         return (
                           <>
                             <div className="mb-4">
                               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Name / Company</label><Inp value={t.vendorName} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorName: v }; setTransports(u); }} placeholder="e.g. Ravi Travels, IndiGo..." /></div>
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label><Inp value={t.vendorContact} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorContact: v }; setTransports(u); }} placeholder="+91 98765 43210" /></div>
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label><Inp value={t.vendorEmail} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorEmail: v }; setTransports(u); }} placeholder="vendor@email.com" /></div>
+                                <div>
+                                  <label className="text-[9px] text-slate-400 uppercase block mb-1">Name / Company</label>
+                                  <VendorPick
+                                    value={t.vendorName || ""}
+                                    onChange={(val, matched) => {
+                                      setTransports((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        const vContact = matched ? (matched.phone || matched.contactPhone || matched.mobile || "") : u[targetIdx].vendorContact;
+                                        const vEmail = matched ? (matched.email || matched.contactEmail || "") : u[targetIdx].vendorEmail;
+                                        u[targetIdx] = {
+                                          ...u[targetIdx],
+                                          vendorName: val,
+                                          vendorContact: vContact !== undefined ? vContact : (u[targetIdx].vendorContact || ""),
+                                          vendorEmail: vEmail !== undefined ? vEmail : (u[targetIdx].vendorEmail || ""),
+                                        };
+                                        return u;
+                                      });
+                                    }}
+                                    onSelectVendor={(v) => {
+                                      setTransports((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = {
+                                          ...u[targetIdx],
+                                          vendorName: v.name,
+                                          vendorContact: v.phone || v.contactPhone || v.mobile || u[targetIdx].vendorContact || "",
+                                          vendorEmail: v.email || v.contactEmail || u[targetIdx].vendorEmail || "",
+                                        };
+                                        return u;
+                                      });
+                                    }}
+                                    vendors={vendorList}
+                                    filterType="flight"
+                                    placeholder="e.g. Ravi Travels, IndiGo..."
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label>
+                                  <Inp
+                                    value={t.vendorContact || ""}
+                                    onChange={(v) => {
+                                      setTransports((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], vendorContact: v };
+                                        return u;
+                                      });
+                                    }}
+                                    placeholder="+91 98765 43210"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] text-slate-400 uppercase block mb-1">Email (optional)</label>
+                                  <Inp
+                                    value={t.vendorEmail || ""}
+                                    onChange={(v) => {
+                                      setTransports((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], vendorEmail: v };
+                                        return u;
+                                      });
+                                    }}
+                                    placeholder="vendor@email.com"
+                                  />
+                                </div>
                               </div>
                             </div>
                             <div className="mb-4">
                               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Payment</p>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label><Inp type="number" value={t.vendorCost} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], vendorCost: Number(v) }; setTransports(u); }} placeholder="0" /></div>
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label><Inp type="number" value={t.sellingPrice} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], sellingPrice: Number(v) }; setTransports(u); }} placeholder="0" /></div>
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentDueDate: v }; setTransports(u); }} /></div>
-                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], paymentStatus: v }; setTransports(u); }} options={PAY_OPTS} /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost (₹)</label><Inp type="number" value={t.vendorCost} onChange={(v) => { setTransports((prev) => { const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if (targetIdx === -1) return prev; const u = [...prev]; u[targetIdx] = { ...u[targetIdx], vendorCost: Number(v) }; return u; }); }} placeholder="0" /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price (₹)</label><Inp type="number" value={t.sellingPrice} onChange={(v) => { setTransports((prev) => { const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if (targetIdx === -1) return prev; const u = [...prev]; u[targetIdx] = { ...u[targetIdx], sellingPrice: Number(v) }; return u; }); }} placeholder="0" /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment Due</label><Inp type="date" value={t.paymentDueDate?.split("T")[0] || ""} onChange={(v) => { setTransports((prev) => { const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if (targetIdx === -1) return prev; const u = [...prev]; u[targetIdx] = { ...u[targetIdx], paymentDueDate: v }; return u; }); }} /></div>
+                                <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Status</label><Sel value={t.paymentStatus || "pending"} onChange={(v) => { setTransports((prev) => { const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if (targetIdx === -1) return prev; const u = [...prev]; u[targetIdx] = { ...u[targetIdx], paymentStatus: v }; return u; }); }} options={PAY_OPTS} /></div>
                               </div>
+                              {(t.paymentStatus?.toLowerCase() === "partial") && (
+                                <PartialPaymentFields
+                                  vendorCost={t.vendorCost}
+                                  paidAmount={t.paidAmount}
+                                  onChangePaidAmount={(val) => {
+                                    setTransports((prev) => {
+                                      const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                      if (targetIdx === -1) return prev;
+                                      const u = [...prev];
+                                      u[targetIdx] = { ...u[targetIdx], paidAmount: val };
+                                      return u;
+                                    });
+                                  }}
+                                />
+                              )}
                             </div>
                             <div>
                               <label className="text-[9px] text-slate-400 uppercase block mb-1">Remarks / Notes</label>
-                              <Inp value={t.remarks || ""} onChange={(v) => { const u = [...transports]; u[idx] = { ...u[idx], remarks: v }; setTransports(u); }} placeholder="e.g. Night transfers included, toll charges extra..." />
+                              <Inp value={t.remarks || ""} onChange={(v) => { setTransports((prev) => { const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if (targetIdx === -1) return prev; const u = [...prev]; u[targetIdx] = { ...u[targetIdx], remarks: v }; return u; }); }} placeholder="e.g. Night transfers included, toll charges extra..." />
                             </div>
                           </>
                         );
@@ -1393,10 +1927,40 @@ export default function OperationDetailPage() {
                       <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Conf #</label><Inp value={a.confirmationNumber} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],confirmationNumber:v};setAccommodations(u);}} /></div>
                       <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Trip Day</label><Inp value={a.tripDay} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],tripDay:v};setAccommodations(u);}} placeholder="Day 1-3" /></div>
                       
-                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setAccommodations(u);}} vendors={vendorList} filterType="hotel" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v};setAccommodations(u);}} />}</div>
-                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorCost:Number(v)};setAccommodations(u);}} /></div>
-                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],sellingPrice:Number(v)};setAccommodations(u);}} /></div>
-                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],paymentStatus:v};setAccommodations(u);}} options={PAY_OPTS} /></div>
+                      <div>
+                        <label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>
+                        <VendorPick
+                          value={a.vendorName || ""}
+                          onChange={(v) => {
+                            setAccommodations((prev) => {
+                              const u = [...prev];
+                              if (u[idx]) u[idx] = { ...u[idx], vendorName: v };
+                              return u;
+                            });
+                          }}
+                          vendors={vendorList}
+                          filterType="hotel"
+                          placeholder="e.g. Hotel / Vendor Name"
+                        />
+                      </div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{setAccommodations((prev)=>{const u=[...prev];if(u[idx]) u[idx]={...u[idx],vendorCost:Number(v)};return u;});}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{setAccommodations((prev)=>{const u=[...prev];if(u[idx]) u[idx]={...u[idx],sellingPrice:Number(v)};return u;});}} /></div>
+                      <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus || "pending"} onChange={(v)=>{setAccommodations((prev)=>{const u=[...prev];if(u[idx]) u[idx]={...u[idx],paymentStatus:v};return u;});}} options={PAY_OPTS} /></div>
+                      {(a.paymentStatus?.toLowerCase() === "partial") && (
+                        <div className="col-span-2 md:col-span-5">
+                          <PartialPaymentFields
+                            vendorCost={a.vendorCost}
+                            paidAmount={a.paidAmount}
+                            onChangePaidAmount={(val) => {
+                              setAccommodations((prev) => {
+                                const u = [...prev];
+                                if (u[idx]) u[idx] = { ...u[idx], paidAmount: val };
+                                return u;
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1434,24 +1998,69 @@ export default function OperationDetailPage() {
                     <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
-                        <button onClick={() => saveItem("accommodations", g.masterInfo.item._id, accommodations[g.masterInfo.i])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
+                        <button onClick={() => {
+                          const masterId = g.masterInfo.item._id;
+                          const currentItem = accommodations.find(item => item._id === masterId) || accommodations[g.masterInfo.i] || g.masterInfo.item;
+                          saveItem("accommodations", masterId, currentItem);
+                        }} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
                           <Check size={10} /> Save Group
                         </button>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {(() => {
-                          const a = g.masterInfo.item;
-                          const idx = g.masterInfo.i;
+                          const masterId = g.masterInfo.item?._id;
+                          const actualIdx = accommodations.findIndex((item: any) => item._id === masterId);
+                          const a = actualIdx !== -1 ? accommodations[actualIdx] : (accommodations[g.masterInfo.i] || g.masterInfo.item);
+                          const idx = actualIdx !== -1 ? actualIdx : g.masterInfo.i;
                           return (
                             <>
-                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>{vendorList.length>0&&!a.vendorName?<VendorPick value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v==="__custom"?"":v};setAccommodations(u);}} vendors={vendorList} filterType="hotel" />:<Inp value={a.vendorName} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorName:v};setAccommodations(u);}} />}</div>
-                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],vendorCost:Number(v)};setAccommodations(u);}} /></div>
-                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],sellingPrice:Number(v)};setAccommodations(u);}} /></div>
-                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus} onChange={(v)=>{const u=[...accommodations];u[idx]={...u[idx],paymentStatus:v};setAccommodations(u);}} options={PAY_OPTS} /></div>
+                              <div>
+                                <label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor</label>
+                                <VendorPick
+                                  value={a.vendorName || ""}
+                                  onChange={(v) => {
+                                    setAccommodations((prev) => {
+                                      const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                      if (targetIdx === -1) return prev;
+                                      const u = [...prev];
+                                      u[targetIdx] = { ...u[targetIdx], vendorName: v };
+                                      return u;
+                                    });
+                                  }}
+                                  vendors={vendorList}
+                                  filterType="hotel"
+                                  placeholder="e.g. Hotel / Vendor Name"
+                                />
+                              </div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Cost</label><Inp type="number" value={a.vendorCost} onChange={(v)=>{setAccommodations((prev)=>{const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if(targetIdx === -1) return prev; const u=[...prev]; u[targetIdx]={...u[targetIdx],vendorCost:Number(v)}; return u;});}} /></div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Selling Price</label><Inp type="number" value={a.sellingPrice} onChange={(v)=>{setAccommodations((prev)=>{const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if(targetIdx === -1) return prev; const u=[...prev]; u[targetIdx]={...u[targetIdx],sellingPrice:Number(v)}; return u;});}} /></div>
+                              <div><label className="text-[9px] text-slate-400 uppercase block mb-1">Payment</label><Sel value={a.paymentStatus || "pending"} onChange={(v)=>{setAccommodations((prev)=>{const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx; if(targetIdx === -1) return prev; const u=[...prev]; u[targetIdx]={...u[targetIdx],paymentStatus:v}; return u;});}} options={PAY_OPTS} /></div>
                             </>
                           );
                         })()}
                       </div>
+                      {(() => {
+                        const masterId = g.masterInfo.item?._id;
+                        const actualIdx = accommodations.findIndex((item: any) => item._id === masterId);
+                        const a = actualIdx !== -1 ? accommodations[actualIdx] : (accommodations[g.masterInfo.i] || g.masterInfo.item);
+                        const idx = actualIdx !== -1 ? actualIdx : g.masterInfo.i;
+                        if (a.paymentStatus?.toLowerCase() !== "partial") return null;
+                        return (
+                          <PartialPaymentFields
+                            vendorCost={a.vendorCost}
+                            paidAmount={a.paidAmount}
+                            onChangePaidAmount={(val) => {
+                              setAccommodations((prev) => {
+                                const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                if (targetIdx === -1) return prev;
+                                const u = [...prev];
+                                u[targetIdx] = { ...u[targetIdx], paidAmount: val };
+                                return u;
+                              });
+                            }}
+                          />
+                        );
+                      })()}
                     </div>
                   </div>
                 );
@@ -1908,15 +2517,21 @@ export default function OperationDetailPage() {
                               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-white p-2.5 rounded-lg border border-slate-200 mt-1">
                                 <div className="col-span-1 md:col-span-2">
                                   <label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor / Transporter Name</label>
-                                  <Inp
+                                  <VendorPick
                                     value={tr.vendorName || ""}
-                                    onChange={(v) => {
-                                      const u = [...activities];
-                                      const currentTransfers = [...(u[idx].transfers || [])];
-                                      currentTransfers[li] = { ...currentTransfers[li], vendorName: v };
-                                      u[idx] = { ...u[idx], transfers: currentTransfers };
-                                      setActivities(u);
+                                    onChange={(val) => {
+                                      setActivities((prev) => {
+                                        const u = [...prev];
+                                        if (!u[idx]) return prev;
+                                        const currentTransfers = [...(u[idx].transfers || [])];
+                                        if (!currentTransfers[li]) return prev;
+                                        currentTransfers[li] = { ...currentTransfers[li], vendorName: val };
+                                        u[idx] = { ...u[idx], transfers: currentTransfers };
+                                        return u;
+                                      });
                                     }}
+                                    vendors={vendorList}
+                                    filterType="vehicle"
                                     placeholder="e.g. Kashmir Cab Association"
                                   />
                                 </div>
@@ -1955,15 +2570,36 @@ export default function OperationDetailPage() {
                                   <Sel
                                     value={tr.paymentStatus || "pending"}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      const currentTransfers = [...(u[idx].transfers || [])];
-                                      currentTransfers[li] = { ...currentTransfers[li], paymentStatus: v as any };
-                                      u[idx] = { ...u[idx], transfers: currentTransfers };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const u = [...prev];
+                                        if (!u[idx]) return prev;
+                                        const currentTransfers = [...(u[idx].transfers || [])];
+                                        currentTransfers[li] = { ...currentTransfers[li], paymentStatus: v as any };
+                                        u[idx] = { ...u[idx], transfers: currentTransfers };
+                                        return u;
+                                      });
                                     }}
                                     options={PAY_OPTS}
                                   />
                                 </div>
+                                {tr.hasPricing && (tr.paymentStatus?.toLowerCase() === "partial") && (
+                                  <div className="col-span-2 md:col-span-5">
+                                    <PartialPaymentFields
+                                      vendorCost={tr.vendorCost || 0}
+                                      paidAmount={tr.paidAmount}
+                                      onChangePaidAmount={(val) => {
+                                        setActivities((prev) => {
+                                          const u = [...prev];
+                                          if (!u[idx]) return prev;
+                                          const currentTransfers = [...(u[idx].transfers || [])];
+                                          currentTransfers[li] = { ...currentTransfers[li], paidAmount: val };
+                                          u[idx] = { ...u[idx], transfers: currentTransfers };
+                                          return u;
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1980,37 +2616,51 @@ export default function OperationDetailPage() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <div>
                           <label className="text-[9px] text-slate-400 uppercase block mb-1">Vendor Name</label>
-                          {vendorList.length > 0 && !a.vendorName ? (
-                            <VendorPick
-                              value={a.vendorName}
-                              onChange={(v) => {
-                                const u = [...activities];
-                                u[idx] = { ...u[idx], vendorName: v === "__custom" ? "" : v };
-                                setActivities(u);
-                              }}
-                              vendors={vendorList}
-                              filterType="activity"
-                            />
-                          ) : (
-                            <Inp
-                              value={a.vendorName || ""}
-                              onChange={(v) => {
-                                const u = [...activities];
-                                u[idx] = { ...u[idx], vendorName: v };
-                                setActivities(u);
-                              }}
-                              placeholder="e.g. Local Guide Co."
-                            />
-                          )}
+                          <VendorPick
+                            value={a.vendorName || ""}
+                            onChange={(val, matched) => {
+                              setActivities((prev) => {
+                                const u = [...prev];
+                                if (!u[idx]) return prev;
+                                const vContact = matched ? (matched.phone || matched.contactPhone || matched.mobile || "") : u[idx].vendorContact;
+                                const vEmail = matched ? (matched.email || matched.contactEmail || "") : u[idx].vendorEmail;
+                                u[idx] = {
+                                  ...u[idx],
+                                  vendorName: val,
+                                  vendorContact: vContact !== undefined ? vContact : (u[idx].vendorContact || ""),
+                                  vendorEmail: vEmail !== undefined ? vEmail : (u[idx].vendorEmail || ""),
+                                };
+                                return u;
+                              });
+                            }}
+                            onSelectVendor={(v) => {
+                              setActivities((prev) => {
+                                const u = [...prev];
+                                if (!u[idx]) return prev;
+                                u[idx] = {
+                                  ...u[idx],
+                                  vendorName: v.name,
+                                  vendorContact: v.phone || v.contactPhone || v.mobile || u[idx].vendorContact || "",
+                                  vendorEmail: v.email || v.contactEmail || u[idx].vendorEmail || "",
+                                };
+                                return u;
+                              });
+                            }}
+                            vendors={vendorList}
+                            filterType="activity"
+                            placeholder="e.g. Local Guide Co."
+                          />
                         </div>
                         <div>
                           <label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label>
                           <Inp
                             value={a.vendorContact || ""}
                             onChange={(v) => {
-                              const u = [...activities];
-                              u[idx] = { ...u[idx], vendorContact: v };
-                              setActivities(u);
+                              setActivities((prev) => {
+                                const u = [...prev];
+                                if (u[idx]) u[idx] = { ...u[idx], vendorContact: v };
+                                return u;
+                              });
                             }}
                             placeholder="+91 98765 43210"
                           />
@@ -2020,9 +2670,11 @@ export default function OperationDetailPage() {
                           <Inp
                             value={a.vendorEmail || ""}
                             onChange={(v) => {
-                              const u = [...activities];
-                              u[idx] = { ...u[idx], vendorEmail: v };
-                              setActivities(u);
+                              setActivities((prev) => {
+                                const u = [...prev];
+                                if (u[idx]) u[idx] = { ...u[idx], vendorEmail: v };
+                                return u;
+                              });
                             }}
                             placeholder="vendor@email.com"
                           />
@@ -2076,14 +2728,29 @@ export default function OperationDetailPage() {
                           <Sel
                             value={a.paymentStatus || "pending"}
                             onChange={(v) => {
-                              const u = [...activities];
-                              u[idx] = { ...u[idx], paymentStatus: v };
-                              setActivities(u);
+                              setActivities((prev) => {
+                                const u = [...prev];
+                                if (u[idx]) u[idx] = { ...u[idx], paymentStatus: v };
+                                return u;
+                              });
                             }}
                             options={PAY_OPTS}
                           />
                         </div>
                       </div>
+                      {(a.paymentStatus?.toLowerCase() === "partial") && (
+                        <PartialPaymentFields
+                          vendorCost={a.vendorCost}
+                          paidAmount={a.paidAmount}
+                          onChangePaidAmount={(val) => {
+                            setActivities((prev) => {
+                              const u = [...prev];
+                              if (u[idx]) u[idx] = { ...u[idx], paidAmount: val };
+                              return u;
+                            });
+                          }}
+                        />
+                      )}
                     </div>
 
                     <div>
@@ -2135,7 +2802,11 @@ export default function OperationDetailPage() {
                           <p className="text-[9px] text-slate-400">Common / aggregate expense for these {g.items.length} days</p>
                         </div>
                         <button
-                          onClick={() => saveItem("activities", g.masterInfo.item._id, activities[g.masterInfo.i])}
+                          onClick={() => {
+                            const masterId = g.masterInfo.item._id;
+                            const currentItem = activities.find(item => item._id === masterId) || activities[g.masterInfo.i] || g.masterInfo.item;
+                            saveItem("activities", masterId, currentItem);
+                          }}
                           className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
                         >
                           {saving === g.masterInfo.item._id ? "..." : <><Check size={10} /> Save Group Pricing</>}
@@ -2143,8 +2814,10 @@ export default function OperationDetailPage() {
                       </div>
 
                       {(() => {
-                        const a = activities[g.masterInfo.i] || g.masterInfo.item;
-                        const idx = g.masterInfo.i;
+                        const masterId = g.masterInfo.item?._id;
+                        const actualIdx = activities.findIndex((item: any) => item._id === masterId);
+                        const a = actualIdx !== -1 ? activities[actualIdx] : (activities[g.masterInfo.i] || g.masterInfo.item);
+                        const idx = actualIdx !== -1 ? actualIdx : g.masterInfo.i;
                         return (
                           <>
                             <div className="mb-4">
@@ -2152,37 +2825,55 @@ export default function OperationDetailPage() {
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 <div>
                                   <label className="text-[9px] text-slate-400 uppercase block mb-1">Company / Guide Name</label>
-                                  {vendorList.length > 0 && !a.vendorName ? (
-                                    <VendorPick
-                                      value={a.vendorName}
-                                      onChange={(v) => {
-                                        const u = [...activities];
-                                        u[idx] = { ...u[idx], vendorName: v === "__custom" ? "" : v };
-                                        setActivities(u);
-                                      }}
-                                      vendors={vendorList}
-                                      filterType="activity"
-                                    />
-                                  ) : (
-                                    <Inp
-                                      value={a.vendorName || ""}
-                                      onChange={(v) => {
-                                        const u = [...activities];
-                                        u[idx] = { ...u[idx], vendorName: v };
-                                        setActivities(u);
-                                      }}
-                                      placeholder="e.g. Kashmir Tours & Guide Services"
-                                    />
-                                  )}
+                                  <VendorPick
+                                    value={a.vendorName || ""}
+                                    onChange={(val, matched) => {
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        const vContact = matched ? (matched.phone || matched.contactPhone || matched.mobile || "") : u[targetIdx].vendorContact;
+                                        const vEmail = matched ? (matched.email || matched.contactEmail || "") : u[targetIdx].vendorEmail;
+                                        u[targetIdx] = {
+                                          ...u[targetIdx],
+                                          vendorName: val,
+                                          vendorContact: vContact !== undefined ? vContact : (u[targetIdx].vendorContact || ""),
+                                          vendorEmail: vEmail !== undefined ? vEmail : (u[targetIdx].vendorEmail || ""),
+                                        };
+                                        return u;
+                                      });
+                                    }}
+                                    onSelectVendor={(v) => {
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = {
+                                          ...u[targetIdx],
+                                          vendorName: v.name,
+                                          vendorContact: v.phone || v.contactPhone || v.mobile || u[targetIdx].vendorContact || "",
+                                          vendorEmail: v.email || v.contactEmail || u[targetIdx].vendorEmail || "",
+                                        };
+                                        return u;
+                                      });
+                                    }}
+                                    vendors={vendorList}
+                                    filterType="activity"
+                                    placeholder="e.g. Kashmir Tours & Guide Services"
+                                  />
                                 </div>
                                 <div>
                                   <label className="text-[9px] text-slate-400 uppercase block mb-1">Contact (Phone)</label>
                                   <Inp
                                     value={a.vendorContact || ""}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      u[idx] = { ...u[idx], vendorContact: v };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], vendorContact: v };
+                                        return u;
+                                      });
                                     }}
                                     placeholder="+91 98765 43210"
                                   />
@@ -2192,9 +2883,13 @@ export default function OperationDetailPage() {
                                   <Inp
                                     value={a.vendorEmail || ""}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      u[idx] = { ...u[idx], vendorEmail: v };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], vendorEmail: v };
+                                        return u;
+                                      });
                                     }}
                                     placeholder="vendor@email.com"
                                   />
@@ -2211,9 +2906,13 @@ export default function OperationDetailPage() {
                                     type="number"
                                     value={a.vendorCost}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      u[idx] = { ...u[idx], vendorCost: Number(v) };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], vendorCost: Number(v) };
+                                        return u;
+                                      });
                                     }}
                                     placeholder="0"
                                   />
@@ -2224,9 +2923,13 @@ export default function OperationDetailPage() {
                                     type="number"
                                     value={a.sellingPrice}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      u[idx] = { ...u[idx], sellingPrice: Number(v) };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], sellingPrice: Number(v) };
+                                        return u;
+                                      });
                                     }}
                                     placeholder="0"
                                   />
@@ -2237,9 +2940,13 @@ export default function OperationDetailPage() {
                                     type="date"
                                     value={a.paymentDueDate?.split("T")[0] || ""}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      u[idx] = { ...u[idx], paymentDueDate: v };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], paymentDueDate: v };
+                                        return u;
+                                      });
                                     }}
                                   />
                                 </div>
@@ -2248,14 +2955,33 @@ export default function OperationDetailPage() {
                                   <Sel
                                     value={a.paymentStatus || "pending"}
                                     onChange={(v) => {
-                                      const u = [...activities];
-                                      u[idx] = { ...u[idx], paymentStatus: v };
-                                      setActivities(u);
+                                      setActivities((prev) => {
+                                        const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                        if (targetIdx === -1) return prev;
+                                        const u = [...prev];
+                                        u[targetIdx] = { ...u[targetIdx], paymentStatus: v };
+                                        return u;
+                                      });
                                     }}
                                     options={PAY_OPTS}
                                   />
                                 </div>
                               </div>
+                              {(a.paymentStatus?.toLowerCase() === "partial") && (
+                                <PartialPaymentFields
+                                  vendorCost={a.vendorCost}
+                                  paidAmount={a.paidAmount}
+                                  onChangePaidAmount={(val) => {
+                                    setActivities((prev) => {
+                                      const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                      if (targetIdx === -1) return prev;
+                                      const u = [...prev];
+                                      u[targetIdx] = { ...u[targetIdx], paidAmount: val };
+                                      return u;
+                                    });
+                                  }}
+                                />
+                              )}
                             </div>
 
                             <div>
@@ -2263,9 +2989,13 @@ export default function OperationDetailPage() {
                               <Inp
                                 value={a.remarks || ""}
                                 onChange={(v) => {
-                                  const u = [...activities];
-                                  u[idx] = { ...u[idx], remarks: v };
-                                  setActivities(u);
+                                  setActivities((prev) => {
+                                    const targetIdx = masterId ? prev.findIndex((item: any) => item._id === masterId) : idx;
+                                    if (targetIdx === -1) return prev;
+                                    const u = [...prev];
+                                    u[targetIdx] = { ...u[targetIdx], remarks: v };
+                                    return u;
+                                  });
                                 }}
                                 placeholder="e.g. Combined expense covering guide and entrance passes for all grouped days..."
                               />
@@ -2442,11 +3172,11 @@ export default function OperationDetailPage() {
         const profit = op.sellingPrice - total;
         const margin = op.sellingPrice>0?Math.round((profit/op.sellingPrice)*100):0;
         const custRcvd = customerPayments.reduce((s,p)=>s+(p.paidAmount||0),0);
-        const tPaid = transports.filter(t=>t.paymentStatus==="paid").reduce((s,t)=>s+t.vendorCost,0);
-        const aPaid = accommodations.filter(a=>a.paymentStatus==="paid").reduce((s,a)=>s+a.vendorCost,0);
+        const tPaid = transports.reduce((s, t) => s + (t.paymentStatus?.toLowerCase() === "paid" ? (t.vendorCost || 0) : t.paymentStatus?.toLowerCase() === "partial" ? (t.paidAmount || 0) : 0), 0);
+        const aPaid = accommodations.reduce((s, a) => s + (a.paymentStatus?.toLowerCase() === "paid" ? (a.vendorCost || 0) : a.paymentStatus?.toLowerCase() === "partial" ? (a.paidAmount || 0) : 0), 0);
         const actPaid = activities.reduce((s, a) => {
-          const basePaid = a.paymentStatus === "paid" ? (a.vendorCost || 0) : 0;
-          const transferPaid = (a.transfers || []).reduce((ts, tr) => ts + (tr.hasPricing && tr.paymentStatus === "paid" ? (tr.vendorCost || 0) : 0), 0);
+          const basePaid = a.paymentStatus?.toLowerCase() === "paid" ? (a.vendorCost || 0) : a.paymentStatus?.toLowerCase() === "partial" ? (a.paidAmount || 0) : 0;
+          const transferPaid = (a.transfers || []).reduce((ts, tr) => ts + (tr.hasPricing ? (tr.paymentStatus?.toLowerCase() === "paid" ? (tr.vendorCost || 0) : tr.paymentStatus?.toLowerCase() === "partial" ? (tr.paidAmount || 0) : 0) : 0), 0);
           return s + basePaid + transferPaid;
         }, 0);
         const vendorPaid = tPaid+aPaid+actPaid;
@@ -2730,7 +3460,7 @@ export default function OperationDetailPage() {
                 <X size={20} />
               </button>
             </div>
-            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[75vh]">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">First Name</label>
@@ -2751,9 +3481,82 @@ export default function OperationDetailPage() {
                   <Inp value={editCustomerData.phone} onChange={(v) => setEditCustomerData({ ...editCustomerData, phone: v })} placeholder="Phone Number" />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                  <select
+                    value={editCustomerData.gender || ""}
+                    onChange={(e) => setEditCustomerData({ ...editCustomerData, gender: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  >
+                    <option value="">-- Select Gender --</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={editCustomerData.dob || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const calculatedAge = calculateAgeFromDob(val);
+                      setEditCustomerData({
+                        ...editCustomerData,
+                        dob: val,
+                        age: calculatedAge !== undefined ? String(calculatedAge) : editCustomerData.age,
+                      });
+                    }}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">PAN Card (Optional)</label>
-                <Inp value={editCustomerData.panCard} onChange={(v) => setEditCustomerData({ ...editCustomerData, panCard: v })} placeholder="PAN Number" />
+                <Inp value={editCustomerData.panCard || ""} onChange={(v) => setEditCustomerData({ ...editCustomerData, panCard: v.toUpperCase() })} placeholder="PAN Number" />
+              </div>
+
+              {/* Passport Details (Important for International Trips) */}
+              <div className="pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">
+                    Passport Details {op?.package?.isInternational ? <span className="text-amber-600 font-semibold">(International Trip)</span> : "(Optional)"}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Passport Number</label>
+                    <Inp
+                      value={editCustomerData.passportNumber || ""}
+                      onChange={(v) => setEditCustomerData({ ...editCustomerData, passportNumber: v.toUpperCase() })}
+                      placeholder="e.g. Z1234567"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date</label>
+                      <input
+                        type="date"
+                        value={editCustomerData.passportExpiry || ""}
+                        onChange={(e) => setEditCustomerData({ ...editCustomerData, passportExpiry: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Issuing Country</label>
+                      <Inp
+                        value={editCustomerData.issuingCountry || ""}
+                        onChange={(v) => setEditCustomerData({ ...editCustomerData, issuingCountry: v })}
+                        placeholder="e.g. India"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 mt-auto">
@@ -2762,6 +3565,183 @@ export default function OperationDetailPage() {
               </button>
               <button onClick={saveCustomerDetails} className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-cyan-600 hover:bg-cyan-700 text-white transition-colors flex items-center gap-2">
                 <Save size={16} /> Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Passenger Details Modal */}
+      {editPassengerModalOpen && editPassengerData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">Edit Passenger Details</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Update passenger name, demographic, and document details.</p>
+              </div>
+              <button
+                onClick={() => setEditPassengerModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <Inp
+                  value={editPassengerData.name}
+                  onChange={(v) => setEditPassengerData({ ...editPassengerData, name: v })}
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Type</label>
+                  <select
+                    value={editPassengerData.type}
+                    onChange={(e) => setEditPassengerData({ ...editPassengerData, type: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  >
+                    <option value="adult">Adult</option>
+                    <option value="child">Child</option>
+                    <option value="infant">Infant</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Gender</label>
+                  <select
+                    value={editPassengerData.gender}
+                    onChange={(e) => setEditPassengerData({ ...editPassengerData, gender: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  >
+                    <option value="">-- Select Gender --</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={editPassengerData.dob}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const calculatedAge = calculateAgeFromDob(val);
+                      let autoType = editPassengerData.type;
+                      if (calculatedAge !== undefined) {
+                        if (calculatedAge < 2) autoType = "infant";
+                        else if (calculatedAge < 12) autoType = "child";
+                        else autoType = "adult";
+                      }
+                      setEditPassengerData({
+                        ...editPassengerData,
+                        dob: val,
+                        age: calculatedAge !== undefined ? String(calculatedAge) : editPassengerData.age,
+                        type: autoType,
+                      });
+                    }}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Age (Years)</label>
+                  <Inp
+                    type="number"
+                    value={editPassengerData.age}
+                    onChange={(v) => setEditPassengerData({ ...editPassengerData, age: v })}
+                    placeholder="e.g. 35"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email (Optional)</label>
+                  <Inp
+                    type="email"
+                    value={editPassengerData.email || ""}
+                    onChange={(v) => setEditPassengerData({ ...editPassengerData, email: v })}
+                    placeholder="passenger@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone (Optional)</label>
+                  <Inp
+                    value={editPassengerData.phone || ""}
+                    onChange={(v) => setEditPassengerData({ ...editPassengerData, phone: v })}
+                    placeholder="+91 9876543210"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Passport Details (Optional)</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Passport Number</label>
+                    <Inp
+                      value={editPassengerData.passportNumber || ""}
+                      onChange={(v) => setEditPassengerData({ ...editPassengerData, passportNumber: v })}
+                      placeholder="e.g. Z1234567"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date</label>
+                      <input
+                        type="date"
+                        value={editPassengerData.passportExpiry || ""}
+                        onChange={(e) => setEditPassengerData({ ...editPassengerData, passportExpiry: e.target.value })}
+                        className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Issuing Country</label>
+                      <Inp
+                        value={editPassengerData.issuingCountry || ""}
+                        onChange={(v) => setEditPassengerData({ ...editPassengerData, issuingCountry: v })}
+                        placeholder="e.g. India"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">PAN Card (Optional)</label>
+                <Inp
+                  value={editPassengerData.panCard || ""}
+                  onChange={(v) => setEditPassengerData({ ...editPassengerData, panCard: v.toUpperCase() })}
+                  placeholder="e.g. ABCDE1234F"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2.5">
+              <button
+                onClick={() => setEditPassengerModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePassengerDetails}
+                disabled={savingPassenger}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-700 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+              >
+                <Save size={14} />
+                {savingPassenger ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
