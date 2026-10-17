@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import SubmitReviewModal from "@/components/reviews/SubmitReviewModal";
 
 interface TargetSummary {
   exists: boolean;
@@ -45,6 +46,14 @@ interface TargetSummary {
   revenueAchieved: number;
   isRevenueAchieved: boolean | null;
   revenueProgressPercent: number;
+  grossProfitTarget?: number;
+  grossProfitAchieved?: number;
+  isGrossProfitAchieved?: boolean | null;
+  grossProfitProgressPercent?: number;
+  netProfitTarget?: number;
+  netProfitAchieved?: number;
+  isNetProfitAchieved?: boolean | null;
+  netProfitProgressPercent?: number;
   reviewTarget: number;
   reviewAchieved: number;
   isReviewAchieved: boolean | null;
@@ -79,6 +88,8 @@ interface PerformanceData {
   clientsHandled: number;
   revenueGenerated: number;
   profitGenerated: number;
+  grossProfit?: number;
+  netProfit?: number;
   incentivesEarned: number;
   pendingIncentives: number;
   totalReviewsEntered: number;
@@ -152,6 +163,8 @@ export default function PerformancePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [showSubmitReviewModal, setShowSubmitReviewModal] = useState(false);
+
   // Target modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [savingTarget, setSavingTarget] = useState(false);
@@ -164,6 +177,8 @@ export default function PerformancePage() {
     quarter: currentQuarter,
     salesTarget: 0,
     revenueTarget: 0,
+    grossProfitTarget: 0,
+    netProfitTarget: 0,
     reviewTarget: 0,
     packageId: "",
     notes: "",
@@ -241,6 +256,8 @@ export default function PerformancePage() {
         quarter: data.target.quarter || selectedQuarter,
         salesTarget: data.target.salesTarget || 0,
         revenueTarget: data.target.revenueTarget || 0,
+        grossProfitTarget: data.target.grossProfitTarget || 0,
+        netProfitTarget: data.target.netProfitTarget || 0,
         reviewTarget: data.target.reviewTarget || 0,
         packageId: data.target.targetPackageId || "",
         notes: data.target.notes || "",
@@ -254,6 +271,8 @@ export default function PerformancePage() {
         quarter: selectedQuarter,
         salesTarget: 0,
         revenueTarget: 0,
+        grossProfitTarget: 0,
+        netProfitTarget: 0,
         reviewTarget: 0,
         packageId: "",
         notes: "",
@@ -280,6 +299,8 @@ export default function PerformancePage() {
         quarter: targetForm.periodType === "quarterly" ? targetForm.quarter : undefined,
         salesTarget: Number(targetForm.salesTarget) || 0,
         revenueTarget: Number(targetForm.revenueTarget) || 0,
+        grossProfitTarget: Number(targetForm.grossProfitTarget) || 0,
+        netProfitTarget: Number(targetForm.netProfitTarget) || 0,
         reviewTarget: Number(targetForm.reviewTarget) || 0,
         package: targetForm.packageId || undefined,
         notes: targetForm.notes || undefined,
@@ -640,8 +661,8 @@ export default function PerformancePage() {
             </div>
           )}
 
-          {/* Three Core Target Milestone Progress Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Target Milestone Progress Cards */}
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${(target?.grossProfitTarget || target?.netProfitTarget) ? "lg:grid-cols-3 xl:grid-cols-4" : "md:grid-cols-3"} gap-5`}>
             {/* 1. Sales Target Card */}
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
               <div className="flex items-center justify-between mb-3">
@@ -881,11 +902,147 @@ export default function PerformancePage() {
                 )}
               </div>
             </div>
+
+            {/* 4. Gross Profit Target Card (if configured) */}
+            {target?.grossProfitTarget && target.grossProfitTarget > 0 ? (
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600">
+                      <Briefcase size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Gross Profit Target</h3>
+                      <p className="text-[11px] text-slate-400">Total Margin (Pre-incentives)</p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      target.isGrossProfitAchieved
+                        ? "bg-emerald-100 text-emerald-700"
+                        : target.overallStatus === "missed"
+                        ? "bg-rose-100 text-rose-700"
+                        : "bg-indigo-100 text-indigo-700"
+                    }`}
+                  >
+                    {target.isGrossProfitAchieved ? "✓ Met" : target.overallStatus === "missed" ? "✕ Missed" : "In Progress"}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-baseline justify-between">
+                  <div>
+                    <span className="text-2xl font-extrabold text-slate-800">
+                      {formatCurrency(target?.grossProfitAchieved ?? data?.grossProfit ?? 0)}
+                    </span>
+                    <span className="text-slate-400 text-xs ml-1 block mt-0.5">
+                      Target: {formatCurrency(target.grossProfitTarget)}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-600">
+                    {target.grossProfitProgressPercent ?? Math.min(Math.round(((target.grossProfitAchieved || 0) / target.grossProfitTarget) * 100), 100)}%
+                  </span>
+                </div>
+
+                <div className="mt-3 w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-2.5 rounded-full transition-all duration-500 ${
+                      target.isGrossProfitAchieved
+                        ? "bg-emerald-500"
+                        : target.overallStatus === "missed"
+                        ? "bg-rose-500"
+                        : "bg-indigo-500"
+                    }`}
+                    style={{ width: `${target.grossProfitProgressPercent || 0}%` }}
+                  ></div>
+                </div>
+
+                <p className="mt-3 text-[11px] text-slate-500">
+                  {(target.grossProfitAchieved || 0) >= target.grossProfitTarget ? (
+                    <span className="text-emerald-600 font-semibold">
+                      🎉 Gross profit target met (+{formatCurrency((target.grossProfitAchieved || 0) - target.grossProfitTarget)})
+                    </span>
+                  ) : (
+                    <span>
+                      Remaining: <strong>{formatCurrency(target.grossProfitTarget - (target.grossProfitAchieved || 0))}</strong>
+                    </span>
+                  )}
+                </p>
+              </div>
+            ) : null}
+
+            {/* 5. Net Profit Target Card (if configured) */}
+            {target?.netProfitTarget && target.netProfitTarget > 0 ? (
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+                      <Sparkles size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Net Profit Target</h3>
+                      <p className="text-[11px] text-slate-400">After Deducting Incentives</p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      target.isNetProfitAchieved
+                        ? "bg-emerald-100 text-emerald-700"
+                        : target.overallStatus === "missed"
+                        ? "bg-rose-100 text-rose-700"
+                        : "bg-emerald-100 text-emerald-700"
+                    }`}
+                  >
+                    {target.isNetProfitAchieved ? "✓ Met" : target.overallStatus === "missed" ? "✕ Missed" : "In Progress"}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-baseline justify-between">
+                  <div>
+                    <span className="text-2xl font-extrabold text-slate-800">
+                      {formatCurrency(target?.netProfitAchieved ?? data?.netProfit ?? 0)}
+                    </span>
+                    <span className="text-slate-400 text-xs ml-1 block mt-0.5">
+                      Target: {formatCurrency(target.netProfitTarget)}
+                    </span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-600">
+                    {target.netProfitProgressPercent ?? Math.min(Math.round(((target.netProfitAchieved || 0) / target.netProfitTarget) * 100), 100)}%
+                  </span>
+                </div>
+
+                <div className="mt-3 w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-2.5 rounded-full transition-all duration-500 ${
+                      target.isNetProfitAchieved
+                        ? "bg-emerald-500"
+                        : target.overallStatus === "missed"
+                        ? "bg-rose-500"
+                        : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${target.netProfitProgressPercent || 0}%` }}
+                  ></div>
+                </div>
+
+                <p className="mt-3 text-[11px] text-slate-500">
+                  {(target.netProfitAchieved || 0) >= target.netProfitTarget ? (
+                    <span className="text-emerald-600 font-semibold">
+                      🎉 Net profit target met (+{formatCurrency((target.netProfitAchieved || 0) - target.netProfitTarget)})
+                    </span>
+                  ) : (
+                    <span>
+                      Remaining: <strong>{formatCurrency(target.netProfitTarget - (target.netProfitAchieved || 0))}</strong>
+                    </span>
+                  )}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {/* Package Reviews Breakdown Section */}
           <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
                   <MessageSquare size={18} className="text-amber-500" />
@@ -894,16 +1051,24 @@ export default function PerformancePage() {
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Reviews entered into the system by this employee during {getTimeframeLabel()}.
+                  Approved customer reviews credited to this employee during {getTimeframeLabel()}.
                 </p>
               </div>
 
-              <Link
-                href="/reviews"
-                className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 hover:underline flex items-center gap-1 self-start"
-              >
-                View all reviews →
-              </Link>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  onClick={() => setShowSubmitReviewModal(true)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-sm shadow-amber-200 flex items-center gap-1.5 transition-colors"
+                >
+                  <Plus size={14} /> Log Customer Review
+                </button>
+                <Link
+                  href="/reviews"
+                  className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 hover:underline flex items-center gap-1"
+                >
+                  View all reviews →
+                </Link>
+              </div>
             </div>
 
             {data?.reviewsByPackage && data.reviewsByPackage.length > 0 ? (
@@ -960,7 +1125,7 @@ export default function PerformancePage() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">
               Performance & Operational KPIs
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
                   <Activity size={24} />
@@ -1017,19 +1182,35 @@ export default function PerformancePage() {
                 </div>
               </div>
 
+              {/* Gross Profit Generated */}
               <div className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-indigo-50 text-indigo-600">
                   <Briefcase size={24} />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500 font-medium">Gross Profit Generated</p>
-                  <h3 className="text-2xl font-bold text-emerald-600">
-                    +{formatCurrency(data?.profitGenerated || 0)}
+                  <p className="text-sm text-slate-500 font-medium">Gross Profit</p>
+                  <h3 className="text-2xl font-bold text-indigo-600">
+                    +{formatCurrency(data?.grossProfit ?? data?.profitGenerated ?? 0)}
                   </h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5">After all vendor costs</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Selling price − vendor cost</p>
                 </div>
               </div>
 
+              {/* Net Profit Generated */}
+              <div className="p-4 rounded-xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/40 shadow-sm flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-emerald-100 text-emerald-700">
+                  <Sparkles size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-emerald-800 font-medium">Net Profit</p>
+                  <h3 className="text-2xl font-bold text-emerald-700">
+                    +{formatCurrency(data?.netProfit ?? ((data?.grossProfit ?? data?.profitGenerated ?? 0) - (data?.incentivesEarned ?? 0)))}
+                  </h3>
+                  <p className="text-[10px] text-emerald-600/80 mt-0.5 font-medium">Gross profit − incentives</p>
+                </div>
+              </div>
+
+              {/* Incentives Earned */}
               <div className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm flex items-center gap-4">
                 <div className="p-3 rounded-lg bg-amber-50 text-amber-600">
                   <DollarSign size={24} />
@@ -1046,6 +1227,20 @@ export default function PerformancePage() {
                   ) : (
                     <p className="text-[10px] text-slate-400 mt-0.5">Approved bonuses</p>
                   )}
+                </div>
+              </div>
+
+              {/* Customer Reviews Credited */}
+              <div className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-amber-50 text-amber-600">
+                  <Star size={24} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 font-medium">Reviews Credited</p>
+                  <h3 className="text-2xl font-bold text-slate-800">
+                    {data?.totalReviewsEntered || 0}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Approved customer reviews</p>
                 </div>
               </div>
             </div>
@@ -1315,6 +1510,43 @@ export default function PerformancePage() {
                 </div>
               </div>
 
+              {/* Profit Targets: Gross Profit & Net Profit */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Gross Profit Target (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 150000"
+                    value={targetForm.grossProfitTarget || ""}
+                    onChange={(e) =>
+                      setTargetForm({ ...targetForm, grossProfitTarget: Number(e.target.value) })
+                    }
+                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Selling price minus vendor cost ₹</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Net Profit Target (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 100000"
+                    value={targetForm.netProfitTarget || ""}
+                    onChange={(e) =>
+                      setTargetForm({ ...targetForm, netProfitTarget: Number(e.target.value) })
+                    }
+                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Gross profit minus employee incentives ₹</span>
+                </div>
+              </div>
+
               {/* Optional Package for Review Target */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
@@ -1388,6 +1620,13 @@ export default function PerformancePage() {
           </div>
         </div>
       )}
+
+      {/* Employee Customer Review Submission Modal */}
+      <SubmitReviewModal
+        open={showSubmitReviewModal}
+        onClose={() => setShowSubmitReviewModal(false)}
+        onSuccess={() => fetchPerformance(true)}
+      />
     </div>
   );
 }

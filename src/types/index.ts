@@ -102,6 +102,9 @@ export interface Review {
   title?: string;
   text: string;
   tripType?: string;
+  platform?: string;
+  reviewDate?: string;
+  reviewUrl?: string;
   isApproved: boolean;
   isVerified: boolean;
   createdAt: string;

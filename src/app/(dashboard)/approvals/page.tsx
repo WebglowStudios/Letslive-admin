@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { useRole } from "@/hooks/usePermission";
-import { Check, X, Eye, MapPin, Package } from "lucide-react";
+import { Check, X, Eye, MapPin, Package, Star, ExternalLink } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface ApprovalRequest {
@@ -18,6 +18,90 @@ interface ApprovalRequest {
 }
 
 const DiffViewer = ({ approval }: { approval: ApprovalRequest }) => {
+  if (approval.entityType === 'Review') {
+    const payload = approval.payload || {};
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-white text-amber-900 px-5 py-3 font-semibold border-b border-amber-200/60 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Star size={18} className="fill-amber-500 text-amber-500" />
+            <span>Customer Review Submitted for Verification</span>
+          </div>
+          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+            {payload.platform || 'Google'}
+          </span>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-bold text-slate-800">
+                {payload.reviewerName || 'Anonymous Customer'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Target Tour: <strong className="text-slate-700">{payload.packageName || 'Selected Package'}</strong>
+                {payload.tripType && (
+                  <span className="ml-2 px-2 py-0.5 rounded bg-slate-100 text-slate-600 capitalize">
+                    {payload.tripType}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:items-end">
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star
+                    key={i}
+                    size={16}
+                    className={i < (payload.rating || 5) ? "fill-amber-400 text-amber-400" : "text-slate-200"}
+                  />
+                ))}
+                <span className="font-bold text-sm text-slate-700 ml-1.5">{payload.rating || 5}/5</span>
+              </div>
+              <span className="text-[11px] text-slate-400 mt-0.5">
+                Date: {formatDate(payload.reviewDate || approval.createdAt)}
+              </span>
+            </div>
+          </div>
+
+          {payload.title && (
+            <p className="text-sm font-semibold text-slate-800">
+              "{payload.title}"
+            </p>
+          )}
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-serif italic">
+            "{payload.text}"
+          </div>
+
+          {payload.reviewUrl && (
+            <div className="flex items-center gap-2 text-xs pt-1">
+              <span className="text-slate-400">Source Link:</span>
+              <a
+                href={payload.reviewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-cyan-600 hover:text-cyan-700 underline font-medium truncate max-w-md flex items-center gap-1"
+              >
+                {payload.reviewUrl} <ExternalLink size={12} />
+              </a>
+            </div>
+          )}
+
+          <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-xs text-blue-900 flex items-center justify-between">
+            <span>
+              Logged by: <strong>{approval.requestedBy?.firstName} {approval.requestedBy?.lastName}</strong> ({approval.requestedBy?.role})
+            </span>
+            <span className="text-[11px] text-blue-700 font-medium">
+              Approving will credit +1 review to this employee's target
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (approval.action === 'create') {
     return (
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -194,11 +278,28 @@ export default function ApprovalsPage() {
             ) : approvals.map(app => (
               <tr key={app._id} className="hover:bg-slate-50">
                 <td className="px-5 py-4">
-                  <div className="flex items-center gap-2">
-                    {app.entityType === 'Package' ? <Package size={16} className="text-indigo-500" /> : <MapPin size={16} className="text-teal-500" />}
+                  <div className="flex items-center gap-2.5">
+                    {app.entityType === 'Package' ? (
+                      <Package size={16} className="text-indigo-500 shrink-0" />
+                    ) : app.entityType === 'Review' ? (
+                      <Star size={16} className="text-amber-500 fill-amber-500 shrink-0" />
+                    ) : (
+                      <MapPin size={16} className="text-teal-500 shrink-0" />
+                    )}
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{app.action.toUpperCase()} {app.entityType}</p>
-                      <p className="text-xs text-slate-500 truncate max-w-xs">{app.payload?.name || "No name specified"}</p>
+                      <p className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>{app.action.toUpperCase()} {app.entityType}</span>
+                        {app.entityType === 'Review' && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-extrabold bg-amber-100 text-amber-800">
+                            {app.payload?.rating || 5}★
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">
+                        {app.entityType === 'Review'
+                          ? `${app.payload?.reviewerName || 'Customer'} • ${app.payload?.platform || 'Google'} • ${app.payload?.packageName || 'Tour'}`
+                          : (app.payload?.name || "No name specified")}
+                      </p>
                     </div>
                   </div>
                 </td>

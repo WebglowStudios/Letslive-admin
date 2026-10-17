@@ -123,17 +123,27 @@ export default function EditPackagePage() {
   const [childCount, setChildCount] = useState("");
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
+  const [gstIncluded, setGstIncluded] = useState(true);
   const [gstRate, setGstRate] = useState("5");
   const [gstAmount, setGstAmount] = useState("");
 
-  // Formula (Tax-inclusive GST):
-  // Base Price = Total / (1 + Rate / 100)
-  // GST Amount = Total - Base Price
-  const calcInclusiveGst = (total: number, rate: number) => {
-    if (total <= 0 || rate <= 0) return { basePrice: total, gstAmount: 0 };
-    const basePrice = total / (1 + rate / 100);
-    const gst = total - basePrice;
-    return { basePrice, gstAmount: gst };
+  const [tcsIncluded, setTcsIncluded] = useState(false);
+  const [tcsRate, setTcsRate] = useState("5");
+  const [tcsAmount, setTcsAmount] = useState("");
+
+  // Inclusive Tax Math (GST + Overseas TCS):
+  // Combined Rate = GST Rate + TCS Rate
+  // Base Price = Total / (1 + Combined Rate / 100)
+  // GST Amount = Base Price * (GST Rate / 100)
+  // TCS Amount = Base Price * (TCS Rate / 100)
+  const calcInclusiveTaxes = (total: number, gstR: number, tcsR: number) => {
+    if (total <= 0) return { basePrice: 0, gstAmount: 0, tcsAmount: 0 };
+    const combinedRate = Math.max(0, gstR) + Math.max(0, tcsR);
+    if (combinedRate <= 0) return { basePrice: total, gstAmount: 0, tcsAmount: 0 };
+    const basePrice = total / (1 + combinedRate / 100);
+    const gst = gstR > 0 ? basePrice * (gstR / 100) : 0;
+    const tcs = tcsR > 0 ? basePrice * (tcsR / 100) : 0;
+    return { basePrice, gstAmount: gst, tcsAmount: tcs };
   };
 
   const handleHotelPriceChange = (val: string) => { setHotelPrice(val); };
@@ -156,38 +166,78 @@ export default function EditPackagePage() {
   const totalPackagePriceVal = parseFloat(price) || 0;
   const isItemizedCostExceeded = totalPackagePriceVal > 0 && totalItemizedCost > totalPackagePriceVal;
 
-  const currentGstRateNum = parseFloat(gstRate) || 0;
-  const autoGstAmount = totalPackagePriceVal > 0 && currentGstRateNum > 0
-    ? calcInclusiveGst(totalPackagePriceVal, currentGstRateNum).gstAmount
+  const currentGstRateNum = gstIncluded ? (parseFloat(gstRate) || 0) : 0;
+  const currentTcsRateNum = (isInternational && tcsIncluded) ? (parseFloat(tcsRate) || 0) : 0;
+
+  const autoTaxResult = totalPackagePriceVal > 0
+    ? calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, currentTcsRateNum)
+    : { basePrice: totalPackagePriceVal, gstAmount: 0, tcsAmount: 0 };
+
+  const autoGstAmount = gstIncluded && currentGstRateNum > 0 ? autoTaxResult.gstAmount : 0;
+  const effectiveGstAmountNum = gstIncluded
+    ? (gstAmount !== "" && !isNaN(parseFloat(gstAmount)) ? parseFloat(gstAmount) : autoGstAmount)
     : 0;
-  const effectiveGstAmountNum = gstAmount !== "" && !isNaN(parseFloat(gstAmount))
-    ? parseFloat(gstAmount)
-    : autoGstAmount;
+
+  const autoTcsAmount = (isInternational && tcsIncluded && currentTcsRateNum > 0) ? autoTaxResult.tcsAmount : 0;
+  const effectiveTcsAmountNum = (isInternational && tcsIncluded)
+    ? (tcsAmount !== "" && !isNaN(parseFloat(tcsAmount)) ? parseFloat(tcsAmount) : autoTcsAmount)
+    : 0;
+
   const effectiveBasePriceNum = totalPackagePriceVal > 0
-    ? Math.max(0, totalPackagePriceVal - effectiveGstAmountNum)
+    ? Math.max(0, totalPackagePriceVal - effectiveGstAmountNum - effectiveTcsAmountNum)
     : 0;
 
   const handleGstRateChange = (val: string) => {
     setGstRate(val);
     const r = parseFloat(val) || 0;
-    if (totalPackagePriceVal > 0 && r > 0) {
-      const calc = calcInclusiveGst(totalPackagePriceVal, r).gstAmount;
-      setGstAmount(calc > 0 ? (Math.round(calc * 100) / 100).toFixed(2) : "0");
+    if (gstIncluded && totalPackagePriceVal > 0 && r > 0) {
+      const calc = calcInclusiveTaxes(totalPackagePriceVal, r, currentTcsRateNum);
+      setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
+      if (isInternational && tcsIncluded && currentTcsRateNum > 0) {
+        setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+      }
     } else {
       setGstAmount("0");
     }
   };
 
-  const handleGstRatePreset = (preset: number) => {
+  const handleGstRatePreset = (preset: number | "") => {
     handleGstRateChange(String(preset));
   };
 
   const handleRecalculateGst = () => {
-    if (totalPackagePriceVal > 0 && currentGstRateNum > 0) {
-      const calc = calcInclusiveGst(totalPackagePriceVal, currentGstRateNum).gstAmount;
-      setGstAmount(calc > 0 ? (Math.round(calc * 100) / 100).toFixed(2) : "0");
+    if (gstIncluded && totalPackagePriceVal > 0 && currentGstRateNum > 0) {
+      const calc = calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, currentTcsRateNum);
+      setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
     } else {
       setGstAmount("0");
+    }
+  };
+
+  const handleTcsRateChange = (val: string) => {
+    setTcsRate(val);
+    const r = parseFloat(val) || 0;
+    if (isInternational && tcsIncluded && totalPackagePriceVal > 0 && r > 0) {
+      const calc = calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, r);
+      setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+      if (gstIncluded && currentGstRateNum > 0) {
+        setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
+      }
+    } else {
+      setTcsAmount("0");
+    }
+  };
+
+  const handleTcsRatePreset = (preset: number | "") => {
+    handleTcsRateChange(String(preset));
+  };
+
+  const handleRecalculateTcs = () => {
+    if (isInternational && tcsIncluded && totalPackagePriceVal > 0 && currentTcsRateNum > 0) {
+      const calc = calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, currentTcsRateNum);
+      setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+    } else {
+      setTcsAmount("0");
     }
   };
 
@@ -196,9 +246,12 @@ export default function EditPackagePage() {
     setPrice(val);
     const p = parseFloat(val);
     if (!isNaN(p) && p > 0) {
-      if (gstRate && parseFloat(gstRate) > 0) {
-        const calc = calcInclusiveGst(p, parseFloat(gstRate)).gstAmount;
-        setGstAmount(calc > 0 ? (Math.round(calc * 100) / 100).toFixed(2) : "0");
+      const calc = calcInclusiveTaxes(p, gstIncluded ? (parseFloat(gstRate) || 0) : 0, (isInternational && tcsIncluded) ? (parseFloat(tcsRate) || 0) : 0);
+      if (gstIncluded && parseFloat(gstRate) > 0) {
+        setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
+      }
+      if (isInternational && tcsIncluded && parseFloat(tcsRate) > 0) {
+        setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
       }
       if (originalPrice && parseFloat(originalPrice) > p) {
         const op = parseFloat(originalPrice);
@@ -387,8 +440,12 @@ export default function EditPackagePage() {
         setHideTrainInfo(p.hideTrainInfo || false);
         setPriceUnit(p.priceUnit || "person");
         setExtraPersonPrice(p.extraPersonPrice ? String(p.extraPersonPrice) : "");
+        setGstIncluded(p.gstIncluded !== undefined ? Boolean(p.gstIncluded) : true);
         setGstRate(p.gstRate != null ? String(p.gstRate) : "5");
-        setGstAmount(p.gstAmount != null ? String(p.gstAmount) : (p.price ? calcInclusiveGst(p.price, p.gstRate != null ? p.gstRate : 5).gstAmount.toFixed(2) : ""));
+        setGstAmount(p.gstAmount != null ? String(p.gstAmount) : "");
+        setTcsIncluded(p.tcsIncluded !== undefined ? Boolean(p.tcsIncluded) : false);
+        setTcsRate(p.tcsRate != null ? String(p.tcsRate) : "5");
+        setTcsAmount(p.tcsAmount != null ? String(p.tcsAmount) : "");
         setOriginalPrice(p.originalPrice ? String(p.originalPrice) : "");
         setDiscount(p.discount ? String(p.discount) : "");
         setDiscountType(p.discountType || "percent");
@@ -695,8 +752,12 @@ export default function EditPackagePage() {
         childCount: childCount ? Number(childCount) : undefined,
         priceUnit,
         extraPersonPrice: extraPersonPrice ? Number(extraPersonPrice) : 0,
-        gstRate: gstRate !== "" ? Number(gstRate) : 5,
-        gstAmount: effectiveGstAmountNum > 0 ? Number(effectiveGstAmountNum.toFixed(2)) : undefined,
+        gstIncluded,
+        gstRate: gstIncluded ? (gstRate !== "" ? Number(gstRate) : 0) : 0,
+        gstAmount: (gstIncluded && effectiveGstAmountNum > 0) ? Number(effectiveGstAmountNum.toFixed(2)) : undefined,
+        tcsIncluded: isInternational ? tcsIncluded : false,
+        tcsRate: (isInternational && tcsIncluded) ? (tcsRate !== "" ? Number(tcsRate) : 0) : 0,
+        tcsAmount: (isInternational && tcsIncluded && effectiveTcsAmountNum > 0) ? Number(effectiveTcsAmountNum.toFixed(2)) : undefined,
         paymentConfig: {
           mode: paymentMode,
           depositType,
@@ -1363,119 +1424,306 @@ export default function EditPackagePage() {
                 </div>
 
                 {/* Inclusive GST Configuration & Formula Breakdown */}
-                <div className="mt-4 pt-4 border-t border-sky-200/80 bg-white/95 p-4 rounded-xl border border-sky-100 space-y-3">
+                <div className={`mt-4 pt-4 border-t transition-all p-4 rounded-xl border space-y-3 ${gstIncluded ? "bg-white/95 border-sky-200" : "bg-slate-50/80 border-slate-200"}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={gstIncluded}
+                        onChange={(e) => setGstIncluded(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      />
+                      <span className="text-sky-950 font-bold text-xs uppercase tracking-wider">🧾 GST Included in Package Price</span>
+                    </label>
                     <div className="flex items-center gap-2">
-                      <span className="text-sky-900 font-bold text-xs uppercase tracking-wider">🧾 Inclusive GST Settings (PDF Summary Table)</span>
-                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
-                        Inclusive in Package Price
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-medium">Default: 5% GST</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">
-                          GST Rate (%)
-                        </label>
-                        <div className="flex gap-1">
-                          {[0, 5, 12, 18].map((pct) => (
-                            <button
-                              key={pct}
-                              type="button"
-                              onClick={() => handleGstRatePreset(pct)}
-                              className={`px-1.5 py-0.5 text-[10px] rounded font-semibold border transition-colors ${
-                                parseFloat(gstRate) === pct
-                                  ? "bg-sky-600 text-white border-sky-600 shadow-xs"
-                                  : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-sky-50"
-                              }`}
-                            >
-                              {pct}%
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={gstRate}
-                          onChange={(e) => handleGstRateChange(e.target.value)}
-                          placeholder="5"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
-                        />
-                        <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Default value is 5%. Edit this percentage to change the tax slab.
-                      </p>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">
-                          Inclusive GST Amount (₹)
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleRecalculateGst}
-                          className="text-[10px] text-sky-700 hover:text-sky-900 font-semibold underline"
-                        >
-                          Reset to Formula
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={gstAmount}
-                          onChange={(e) => setGstAmount(e.target.value)}
-                          placeholder={autoGstAmount > 0 ? autoGstAmount.toFixed(2) : "0.00"}
-                          className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-900"
-                        />
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Formula: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">Total - (Total ÷ (1 + {gstRate || 0}/100))</code>
-                      </p>
+                      {gstIncluded ? (
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                          ✓ GST Included in Price
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                          ✕ GST Excluded
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Live formula breakdown preview box */}
-                  {totalPackagePriceVal > 0 && (
-                    <div className="bg-sky-50/80 border border-sky-200/60 rounded-lg p-3 text-xs space-y-1.5 text-slate-700">
-                      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-sky-100 pb-1.5 font-semibold text-sky-950">
-                        <span>Tax Breakdown Preview (Per {priceUnit}):</span>
-                        <span className="text-emerald-700 font-bold">Total (Inclusive): ₹{totalPackagePriceVal.toLocaleString("en-IN")}</span>
+                  {gstIncluded ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-semibold text-slate-700">
+                              GST Rate (%)
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleGstRatePreset("")}
+                                className={`px-1.5 py-0.5 text-[10px] rounded font-semibold border transition-colors ${
+                                  gstRate === "" || gstRate === "0"
+                                    ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-sky-50"
+                                }`}
+                                title='Shows "GST Included" on PDF without percentage'
+                              >
+                                Just "GST Included"
+                              </button>
+                              {[5, 12, 18].map((pct) => (
+                                <button
+                                  key={pct}
+                                  type="button"
+                                  onClick={() => handleGstRatePreset(pct)}
+                                  className={`px-1.5 py-0.5 text-[10px] rounded font-semibold border transition-colors ${
+                                    gstRate !== "" && parseFloat(gstRate) === pct
+                                      ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-sky-50"
+                                  }`}
+                                >
+                                  {pct}%
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={gstRate}
+                              onChange={(e) => handleGstRateChange(e.target.value)}
+                              placeholder="Leave blank or 0 for Just GST Included"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+                            />
+                            <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            {currentGstRateNum > 0
+                              ? `PDF will show "${currentGstRateNum}% GST Included"`
+                              : 'PDF will show "GST Included" (no percentage shown)'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-semibold text-slate-700">
+                              Inclusive GST Amount (₹)
+                            </label>
+                            {currentGstRateNum > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleRecalculateGst}
+                                className="text-[10px] text-sky-700 hover:text-sky-900 font-semibold underline"
+                              >
+                                Reset to Formula
+                              </button>
+                            )}
+                          </div>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={gstAmount}
+                              onChange={(e) => setGstAmount(e.target.value)}
+                              placeholder={autoGstAmount > 0 ? autoGstAmount.toFixed(2) : "0.00"}
+                              className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-900"
+                            />
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            {currentGstRateNum > 0 ? (
+                              <>Formula: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">Base × {currentGstRateNum}%</code></>
+                            ) : (
+                              'Optional custom amount or leave 0 for flat inclusion'
+                            )}
+                          </p>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
-                        <div>
-                          <span className="text-slate-500 block">Base (Taxable Value):</span>
-                          <strong className="text-slate-800">
-                            ₹{effectiveBasePriceNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </strong>
+
+                      {/* Live formula breakdown preview box */}
+                      {totalPackagePriceVal > 0 && (
+                        <div className="bg-sky-50/80 border border-sky-200/60 rounded-lg p-3 text-xs space-y-1.5 text-slate-700">
+                          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-sky-100 pb-1.5 font-semibold text-sky-950">
+                            <span>Tax Breakdown Preview (Per {priceUnit}):</span>
+                            <span className="text-emerald-700 font-bold">Total (Inclusive): ₹{totalPackagePriceVal.toLocaleString("en-IN")}</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                            <div>
+                              <span className="text-slate-500 block">Base (Taxable Value):</span>
+                              <strong className="text-slate-800">
+                                ₹{effectiveBasePriceNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">
+                                Inclusive GST {currentGstRateNum > 0 ? `(${currentGstRateNum}%)` : "(Included)"}:
+                              </span>
+                              <strong className="text-emerald-700">
+                                {effectiveGstAmountNum > 0
+                                  ? `₹${effectiveGstAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : "Included in Package"}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Split (CGST + SGST):</span>
+                              <span className="text-slate-700">
+                                {currentGstRateNum > 0
+                                  ? `${(currentGstRateNum / 2).toFixed(1)}% (₹${(effectiveGstAmountNum / 2).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) each`
+                                  : "Included (no separate split)"}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500 pt-1">
+                            ✓ {currentGstRateNum > 0 ? `Bifurcation row and badge will display ${currentGstRateNum}% GST Included.` : 'Bifurcation row and badge will display "GST Included" (no 0% shown).'}
+                          </p>
                         </div>
-                        <div>
-                          <span className="text-slate-500 block">Inclusive GST ({gstRate || 0}%):</span>
-                          <strong className="text-emerald-700">
-                            ₹{effectiveGstAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-slate-500 block">Split (CGST + SGST):</span>
-                          <span className="text-slate-700">
-                            {((parseFloat(gstRate) || 0) / 2).toFixed(1)}% (₹{(effectiveGstAmountNum / 2).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) each
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-500 pt-1">
-                        ✓ This exact GST amount and base price will appear on Page 2 of the Package PDF table.
-                      </p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-lg text-xs text-amber-800">
+                      ✕ <strong>GST Excluded</strong>: The PDF quote and summary table will clearly indicate that GST is excluded and payable extra.
                     </div>
                   )}
                 </div>
+
+                {/* TCS Configuration (International Packages Only) */}
+                {isInternational && (
+                  <div className={`mt-4 pt-4 border-t transition-all p-4 rounded-xl border space-y-3 ${tcsIncluded ? "bg-white/95 border-indigo-200" : "bg-slate-50/80 border-slate-200"}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={tcsIncluded}
+                          onChange={(e) => setTcsIncluded(e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-indigo-950 font-bold text-xs uppercase tracking-wider">🌐 TCS Included in Package Price (Overseas Tour)</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full font-semibold uppercase">
+                          International Only
+                        </span>
+                        {tcsIncluded ? (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                            ✓ TCS Included
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                            ✕ TCS Excluded
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {tcsIncluded ? (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-semibold text-slate-700">
+                                TCS Rate (%)
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTcsRatePreset("")}
+                                  className={`px-1.5 py-0.5 text-[10px] rounded font-semibold border transition-colors ${
+                                    tcsRate === "" || tcsRate === "0"
+                                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-indigo-50"
+                                  }`}
+                                  title='Shows "TCS Included" on PDF without percentage'
+                                >
+                                  Just "TCS Included"
+                                </button>
+                                {[5, 20].map((pct) => (
+                                  <button
+                                    key={pct}
+                                    type="button"
+                                    onClick={() => handleTcsRatePreset(pct)}
+                                    className={`px-1.5 py-0.5 text-[10px] rounded font-semibold border transition-colors ${
+                                      tcsRate !== "" && parseFloat(tcsRate) === pct
+                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-indigo-50"
+                                    }`}
+                                  >
+                                    {pct}%
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={tcsRate}
+                                onChange={(e) => handleTcsRateChange(e.target.value)}
+                                placeholder="Leave blank or 0 for Just TCS Included"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                              />
+                              <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              {currentTcsRateNum > 0
+                                ? `PDF will show "${currentTcsRateNum}% TCS Included"`
+                                : 'PDF will show "TCS Included" (no percentage shown)'}
+                            </p>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-semibold text-slate-700">
+                                Inclusive TCS Amount (₹)
+                              </label>
+                              {currentTcsRateNum > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={handleRecalculateTcs}
+                                  className="text-[10px] text-indigo-700 hover:text-indigo-900 font-semibold underline"
+                                >
+                                  Reset to Formula
+                                </button>
+                              )}
+                            </div>
+                            <div className="relative">
+                              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={tcsAmount}
+                                onChange={(e) => setTcsAmount(e.target.value)}
+                                placeholder={autoTcsAmount > 0 ? autoTcsAmount.toFixed(2) : "0.00"}
+                                className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-900"
+                              />
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              {currentTcsRateNum > 0 ? (
+                                <>Formula: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">Base × {currentTcsRateNum}%</code></>
+                              ) : (
+                                'Optional custom amount or leave 0 for flat inclusion'
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-lg text-xs space-y-1 text-indigo-950">
+                          <div className="flex items-center justify-between font-semibold">
+                            <span>Overseas Tour TCS Position:</span>
+                            <span className="text-indigo-700 font-bold">
+                              {currentTcsRateNum > 0 ? `${currentTcsRateNum}% TCS Included` : "TCS Included"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600">
+                            ✓ Mandatory Overseas Tour Compliance under RBI LRS • Fully claimable by traveller in Form 26AS / ITR.
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-lg text-xs text-amber-800">
+                        ✕ <strong>TCS Excluded</strong>: The PDF quote will show "TCS Excluded" (customer pays TCS separately under RBI LRS rules).
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>

@@ -1214,14 +1214,19 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
   const priceVal = pkg.price || 0;
   const formattedPrice = priceVal > 0 ? priceVal.toLocaleString("en-IN") : "—";
-  const isGstIncluded = pkg.gstIncluded ?? (pkg.gstRate != null ? Number(pkg.gstRate) > 0 : true);
-  const isTcsIncluded = Boolean(pkg.tcsIncluded);
-  const effectiveGstRate = isGstIncluded && pkg.gstRate != null && !isNaN(Number(pkg.gstRate)) ? Number(pkg.gstRate) : (isGstIncluded ? 5 : 0);
-  const effectiveTcsRate = isTcsIncluded && pkg.tcsRate != null && !isNaN(Number(pkg.tcsRate)) ? Number(pkg.tcsRate) : (isTcsIncluded ? 5 : 0);
+  const isGstIncluded = pkg.gstIncluded !== undefined ? Boolean(pkg.gstIncluded) : (pkg.gstRate != null ? Number(pkg.gstRate) >= 0 : true);
+  const isInternational = Boolean(pkg.isInternational);
+  const isTcsIncluded = isInternational && Boolean(pkg.tcsIncluded);
+
+  const hasExplicitGstRate = isGstIncluded && pkg.gstRate != null && !isNaN(Number(pkg.gstRate)) && Number(pkg.gstRate) > 0;
+  const effectiveGstRate = hasExplicitGstRate ? Number(pkg.gstRate) : 0;
+
+  const hasExplicitTcsRate = isTcsIncluded && pkg.tcsRate != null && !isNaN(Number(pkg.tcsRate)) && Number(pkg.tcsRate) > 0;
+  const effectiveTcsRate = hasExplicitTcsRate ? Number(pkg.tcsRate) : 0;
 
   // Inclusive Tax Math:
   // Base Price = Total Amount / (1 + (GST Rate + TCS Rate) / 100)
-  const combinedTaxRate = (isGstIncluded ? effectiveGstRate : 0) + (isTcsIncluded ? effectiveTcsRate : 0);
+  const combinedTaxRate = (isGstIncluded && hasExplicitGstRate ? effectiveGstRate : 0) + (isTcsIncluded && hasExplicitTcsRate ? effectiveTcsRate : 0);
   let basePriceVal = combinedTaxRate > 0 && priceVal > 0
     ? (priceVal / (1 + combinedTaxRate / 100))
     : priceVal;
@@ -1230,7 +1235,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
   if (isGstIncluded) {
     if (pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0) {
       gstAmountVal = Number(pkg.gstAmount);
-    } else {
+    } else if (hasExplicitGstRate) {
       gstAmountVal = Math.max(0, basePriceVal * (effectiveGstRate / 100));
     }
   }
@@ -1239,7 +1244,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
   if (isTcsIncluded) {
     if (pkg.tcsAmount != null && !isNaN(Number(pkg.tcsAmount)) && Number(pkg.tcsAmount) > 0) {
       tcsAmountVal = Number(pkg.tcsAmount);
-    } else {
+    } else if (hasExplicitTcsRate) {
       tcsAmountVal = Math.max(0, basePriceVal * (effectiveTcsRate / 100));
     }
   }
@@ -1632,12 +1637,14 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           </Text>
           <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
             {isGstIncluded
-              ? (effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "GST Exempt")
-              : (isTcsIncluded ? "GST Excluded" : "All Taxes Direct / Exempt")}
+              ? (hasExplicitGstRate ? `${effectiveGstRate}% GST Included` : "GST Included")
+              : "GST Excluded"}
           </Text>
-          <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
-            {isTcsIncluded ? `${effectiveTcsRate}% TCS Included` : "5% TCS Excluded"}
-          </Text>
+          {isInternational ? (
+            <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
+              {isTcsIncluded ? (hasExplicitTcsRate ? `${effectiveTcsRate}% TCS Included` : "TCS Included") : "TCS Excluded"}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -1649,9 +1656,9 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           </Text>
           <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 0.5 }}>
             {[
-              isGstIncluded ? (effectiveGstRate > 0 ? `${effectiveGstRate}% GST INCLUDED` : "GST EXEMPT") : null,
-              isTcsIncluded ? `${effectiveTcsRate}% TCS INCLUDED` : null,
-            ].filter(Boolean).join(" • ") || "NET RATE / EXEMPT"}
+              isGstIncluded ? (hasExplicitGstRate ? `${effectiveGstRate}% GST INCLUDED` : "GST INCLUDED") : "GST EXCLUDED",
+              isInternational ? (isTcsIncluded ? (hasExplicitTcsRate ? `${effectiveTcsRate}% TCS INCLUDED` : "TCS INCLUDED") : "TCS EXCLUDED") : null,
+            ].filter(Boolean).join(" • ") || "NET RATE"}
           </Text>
         </View>
 
@@ -1742,9 +1749,9 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
               </Text>
               <View style={{ flex: 1, paddingLeft: 6 }}>
                 <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#1a3a42" }}>
-                  Goods & Services Tax (GST {effectiveGstRate}%)
+                  {hasExplicitGstRate ? `Goods & Services Tax (GST ${effectiveGstRate}%)` : "Goods & Services Tax (GST Included)"}
                 </Text>
-                {effectiveGstRate > 0 && priceVal > 0 && (
+                {hasExplicitGstRate && priceVal > 0 && (
                   <Text style={{ fontSize: 6.5, color: "#5a7a82", marginTop: 1 }}>
                     Inclusive in Package Price • Base (Taxable Value): ₹{formattedBasePrice}
                   </Text>
@@ -1763,15 +1770,15 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                   </>
                 ) : (
                   <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
-                    {effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "Nil / Exempt"}
+                    {hasExplicitGstRate ? `${effectiveGstRate}% GST Included` : "GST Included"}
                   </Text>
                 )}
               </View>
             </View>
           )}
 
-          {/* TCS Row (Optional - Europe & Overseas Tours) */}
-          {isTcsIncluded && (
+          {/* TCS Row (International Tours Only) */}
+          {isInternational && isTcsIncluded && (
             <View
               style={{
                 flexDirection: "row",
@@ -1788,7 +1795,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
               </Text>
               <View style={{ flex: 1, paddingLeft: 6 }}>
                 <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#1a3a42" }}>
-                  Tax Collected at Source (TCS {effectiveTcsRate}%)
+                  {hasExplicitTcsRate ? `Tax Collected at Source (TCS ${effectiveTcsRate}%)` : "Tax Collected at Source (TCS Included)"}
                 </Text>
                 <Text style={{ fontSize: 6.5, color: "#5a7a82", marginTop: 1 }}>
                   Mandatory Overseas Tour Compliance • Claimable in Form 26AS / ITR
@@ -1807,7 +1814,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                   </>
                 ) : (
                   <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
-                    {`${effectiveTcsRate}% TCS Included`}
+                    {hasExplicitTcsRate ? `${effectiveTcsRate}% TCS Included` : "TCS Included"}
                   </Text>
                 )}
               </View>
@@ -1825,7 +1832,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             }}
           >
             <Text style={{ width: 36, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>
-              {bifurcationRows.length + (isGstIncluded ? 1 : 0) + (isTcsIncluded ? 1 : 0) + 1}
+              {bifurcationRows.length + (isGstIncluded ? 1 : 0) + (isInternational && isTcsIncluded ? 1 : 0) + 1}
             </Text>
             <Text style={{ flex: 1, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#003b47", paddingLeft: 6 }}>
               Total Package Price (per {pkg.priceUnit || "person"})
@@ -1843,10 +1850,14 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ marginTop: 4, paddingHorizontal: 2 }}>
           <Text style={{ fontSize: 6.8, color: "#5a7a82", lineHeight: 1.35 }}>
             <Text style={{ fontFamily: "Helvetica-Bold", color: "#004d5e" }}>Note: </Text>
-            {isTcsIncluded
-              ? `Package rate includes mandatory ${effectiveTcsRate}% TCS under RBI LRS guidelines (fully claimable as tax credit when filing your annual income tax return).`
-              : "Government regulations impose flat TCS on overseas tour packages (claimable as tax credit when filing income tax return)."}
-            {isGstIncluded ? ` All quoted package rates include ${effectiveGstRate}% GST.` : ""}
+            {isInternational ? (
+              isTcsIncluded
+                ? `Package rate includes mandatory ${hasExplicitTcsRate ? `${effectiveTcsRate}% ` : ""}TCS under RBI LRS guidelines (fully claimable as tax credit when filing your annual income tax return).`
+                : "Government regulations impose flat TCS on overseas tour packages (claimable as tax credit when filing income tax return)."
+            ) : ""}
+            {isGstIncluded
+              ? ` All quoted package rates include ${hasExplicitGstRate ? `${effectiveGstRate}% ` : ""}GST.`
+              : " Quoted package rates are exclusive of GST."}
           </Text>
         </View>
       </View>
@@ -1942,10 +1953,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             <Text style={{ fontSize: 6.8, color: "#491217", marginRight: 4, lineHeight: 1.3 }}>•</Text>
             <Text style={{ fontSize: 6.8, color: "#491217", lineHeight: 1.3, flex: 1 }}>
               {isGstIncluded
-                ? `Total package price includes ${effectiveGstRate}% Goods and Services Tax (GST).`
+                ? (hasExplicitGstRate
+                    ? `Total package price includes ${effectiveGstRate}% Goods and Services Tax (GST).`
+                    : "Total package price includes Goods and Services Tax (GST).")
                 : "Quoted package price is net and excludes Goods and Services Tax (GST)."}
-              {isTcsIncluded
-                ? ` Includes mandatory ${effectiveTcsRate}% TCS on overseas travel.`
+              {isInternational && isTcsIncluded
+                ? ` Includes mandatory ${hasExplicitTcsRate ? `${effectiveTcsRate}% ` : ""}TCS on overseas travel.`
                 : ""}
             </Text>
           </View>

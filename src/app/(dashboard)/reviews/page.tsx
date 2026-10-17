@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 import { Review, Package } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { Check, Trash2, Plus, X, Star } from "lucide-react";
+import { Check, Trash2, Plus, X, Star, ExternalLink, Globe } from "lucide-react";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission } from "@/hooks/usePermission";
+import SubmitReviewModal from "@/components/reviews/SubmitReviewModal";
 
 export default function ReviewsPage() {
   const [packages, setPackages] = useState<Package[]>([]);
@@ -21,7 +22,10 @@ export default function ReviewsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [ratingFilter, setRatingFilter] = useState("all");
 
-  // Manual Review Modal
+  // Review Submission Modal
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+
+  // Manual Review Modal (legacy fallback)
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualForm, setManualForm] = useState({ reviewerName: "", rating: 5, title: "", text: "", tripType: "", travelDate: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -157,7 +161,15 @@ export default function ReviewsPage() {
         {/* Left Panel: Packages List */}
         <div className="w-1/3 bg-white rounded-xl border border-slate-200 overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-200 bg-slate-50">
-            <h2 className="font-semibold text-slate-800 mb-3">Packages</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-slate-800">Packages</h2>
+              <button
+                onClick={() => setShowSubmitModal(true)}
+                className="bg-cyan-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-cyan-700 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus size={14} /> Log Review
+              </button>
+            </div>
             <input
               type="text"
               placeholder="Search packages..."
@@ -226,14 +238,12 @@ export default function ReviewsPage() {
                     <option value="2">2 Stars</option>
                     <option value="1">1 Star</option>
                   </select>
-                  {canEdit && (
-                    <button
-                      onClick={() => setShowManualModal(true)}
-                      className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
-                    >
-                      <Plus size={16} /> Add Review
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowSubmitModal(true)}
+                    className="bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
+                  >
+                    <Plus size={16} /> Log Review
+                  </button>
                 </div>
               </div>
 
@@ -260,12 +270,29 @@ export default function ReviewsPage() {
                                   {initial}
                                 </div>
                                 <div>
-                                  <p className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                  <p className="text-sm font-medium text-slate-700 flex items-center gap-2 flex-wrap">
                                     {reviewerName}
+                                    {r.platform && (
+                                      <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                        {r.platform}
+                                      </span>
+                                    )}
                                     {r.isVerified && <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Verified</span>}
-                                    {!r.user && <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Manual</span>}
+                                    {!r.user && !r.platform && <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Manual</span>}
                                   </p>
-                                  <p className="text-xs text-slate-400">{formatDate(r.createdAt)}</p>
+                                  <p className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                                    <span>{r.reviewDate ? `Reviewed: ${formatDate(r.reviewDate)}` : formatDate(r.createdAt)}</span>
+                                    {r.reviewUrl && (
+                                      <a
+                                        href={r.reviewUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-cyan-600 hover:underline flex items-center gap-0.5 text-[11px]"
+                                      >
+                                        Live Review <ExternalLink size={10} />
+                                      </a>
+                                    )}
+                                  </p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 mb-2">
@@ -301,13 +328,32 @@ export default function ReviewsPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 p-6 text-center">
               <Star size={48} className="text-slate-200 mb-4" />
-              <p>Select a package to view its reviews</p>
+              <p className="font-medium text-slate-600 mb-1">Select a package to view its reviews</p>
+              <p className="text-xs text-slate-400 max-w-sm mb-4">Or log a customer review received from Google Reviews, TripAdvisor, or direct feedback.</p>
+              <button
+                onClick={() => setShowSubmitModal(true)}
+                className="bg-cyan-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-cyan-700 transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <Plus size={16} /> Log Customer Review
+              </button>
             </div>
           )}
         </div>
       </div>
+
+      <SubmitReviewModal
+        open={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        initialPackageId={selectedPackage?._id}
+        onSuccess={() => {
+          if (selectedPackage) {
+            fetchReviews(selectedPackage._id);
+          }
+          fetchPackages(searchQuery);
+        }}
+      />
 
       {/* Manual Review Modal */}
       {showManualModal && (
