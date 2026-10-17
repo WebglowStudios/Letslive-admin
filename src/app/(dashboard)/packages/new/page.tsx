@@ -113,7 +113,9 @@ export default function NewPackagePage() {
       if (p.hotelRating) setHotelRating(p.hotelRating);
       if (p.category) setCategory(p.category);
       if (p.price != null) setPrice(p.price.toString());
-      if (p.flightPrice != null) setFlightPrice(p.flightPrice.toString());
+      if (p.flightsIncluded !== undefined) setFlightsIncluded(Boolean(p.flightsIncluded));
+      if (p.flightsIncluded && p.flightPrice != null) setFlightPrice(p.flightPrice.toString());
+      else if (!p.flightsIncluded) setFlightPrice("");
       if (p.landCost != null) setLandCost(p.landCost.toString());
       if (p.hotelPrice != null) setHotelPrice(p.hotelPrice.toString());
       if (p.activityPrice != null) setActivityPrice(p.activityPrice.toString());
@@ -124,7 +126,6 @@ export default function NewPackagePage() {
       if (p.isFeatured !== undefined) setIsFeatured(Boolean(p.isFeatured));
       if (p.isActive !== undefined) setIsActive(Boolean(p.isActive));
       if (p.isGroupTour !== undefined) setIsGroupTour(Boolean(p.isGroupTour));
-      if (p.flightsIncluded !== undefined) setFlightsIncluded(Boolean(p.flightsIncluded));
       if (p.trainsIncluded !== undefined) setTrainsIncluded(Boolean(p.trainsIncluded));
 
       if (Array.isArray(p.departures) && p.departures.length > 0) {
@@ -304,7 +305,8 @@ export default function NewPackagePage() {
       if (p.visaIncluded !== undefined) setVisaIncluded(Boolean(p.visaIncluded));
       if (p.visaPrice != null) setVisaPrice(p.visaPrice.toString());
       if (p.flightsIncluded !== undefined) setFlightsIncluded(Boolean(p.flightsIncluded));
-      if (p.flightPrice != null) setFlightPrice(p.flightPrice.toString());
+      if (p.flightsIncluded && p.flightPrice != null) setFlightPrice(p.flightPrice.toString());
+      else if (!p.flightsIncluded) setFlightPrice("");
       if (p.trainsIncluded !== undefined) setTrainsIncluded(Boolean(p.trainsIncluded));
       if (p.trainPrice != null) setTrainPrice(p.trainPrice.toString());
       if (p.cruiseIncluded !== undefined) setCruiseIncluded(Boolean(p.cruiseIncluded));
@@ -762,7 +764,7 @@ export default function NewPackagePage() {
         hotelRating: hotelRating || undefined,
         category: category === "custom" ? (customCategory || undefined) : (category || undefined),
         price: Number(price) || 0,
-        flightPrice: (flightsIncluded && flightPrice) ? Number(flightPrice) : null,
+        flightPrice: (flightsIncluded && flightPrice && Number(flightPrice) > 0) ? Number(flightPrice) : null,
         landCost: landCost ? Number(landCost) : null,
         hotelPrice: hotelPrice ? Number(hotelPrice) : null,
         activityPrice: null,
@@ -1088,7 +1090,7 @@ export default function NewPackagePage() {
                   {isGroupTour && <span className="text-xs text-cyan-600 font-semibold ml-1.5 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">Departures &amp; Slots active below &darr;</span>}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <input type="checkbox" checked={flightsIncluded} onChange={(e) => { setFlightsIncluded(e.target.checked); if (!e.target.checked) setFlightPrice(""); }} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Flights Included</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1313,7 +1315,10 @@ export default function NewPackagePage() {
                           <input
                             type="checkbox"
                             checked={flightsIncluded}
-                            onChange={(e) => setFlightsIncluded(e.target.checked)}
+                            onChange={(e) => {
+                              setFlightsIncluded(e.target.checked);
+                              if (!e.target.checked) setFlightPrice("");
+                            }}
                             className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className="text-xs font-bold text-slate-800">Flight Cost (Airfare)</span>

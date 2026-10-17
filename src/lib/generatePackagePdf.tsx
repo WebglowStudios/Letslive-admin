@@ -1042,9 +1042,9 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
                   <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}> / {pkg.priceUnit || "person"}</Text>
                 </Text>
               </View>
-              {pkg.flightsIncluded && (pkg.flightPrice || pkg.landCost) ? (
+              {Boolean(pkg.flightsIncluded && typeof pkg.flightPrice === "number" && pkg.flightPrice > 0) ? (
                 <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", marginLeft: 22, marginTop: 2 }}>
-                  Flight: INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}  |  Land: INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}  |  Total: INR {pkg.price.toLocaleString("en-IN")}
+                  Flight: INR {(pkg.flightPrice ?? 0).toLocaleString("en-IN")}  |  Land: INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice ?? 0))).toLocaleString("en-IN")}  |  Total: INR {pkg.price.toLocaleString("en-IN")}
                 </Text>
               ) : null}
             </View>
@@ -1288,7 +1288,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
     ? pkg.landCost
     : (itemizedTotal > 0 ? itemizedTotal : Math.max(0, priceVal - flightPriceVal));
   const hasItemizedBreakdown = Boolean(hotelPriceVal > 0 || actTransPriceVal > 0 || extraMealsPriceVal > 0 || visaPriceVal > 0 || trainPriceVal > 0 || cruisePriceVal > 0);
-  const hasFlightCostBreakdown = Boolean((pkg.flightsIncluded && (flightPriceVal > 0 || landCostVal > 0)) || (flightPriceVal > 0 && landCostVal > 0));
+  const hasFlightCostBreakdown = Boolean(pkg.flightsIncluded && flightPriceVal > 0);
   const showTrains = !pkg.hideTrainInfo && Boolean(pkg.trainsIncluded);
 
   const bifurcationRows: { label: string; amount: number | null }[] = [
@@ -2827,14 +2827,14 @@ const PricingSection = ({ pkg }: { pkg: PackageData }) => {
               ) : null}
               <Text style={s.priceCardAmount}>INR {pkg.price.toLocaleString("en-IN")}</Text>
               <Text style={s.priceCardUnit}>per {pkg.priceUnit || "person"}</Text>
-              {(pkg.flightPrice || pkg.landCost) ? (
+              {Boolean(pkg.flightsIncluded && typeof pkg.flightPrice === "number" && pkg.flightPrice > 0) ? (
                 <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.18)" }}>
                   <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
-                    Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {(pkg.flightPrice || 0).toLocaleString("en-IN")}</Text>
+                    Flight Price: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {(pkg.flightPrice ?? 0).toLocaleString("en-IN")}</Text>
                   </Text>
                   <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
                   <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>
-                    Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice || 0))).toLocaleString("en-IN")}</Text>
+                    Land Cost: <Text style={{ fontFamily: "Helvetica-Bold", color: C.white }}>INR {((pkg.landCost && pkg.landCost > 0) ? pkg.landCost : Math.max(0, pkg.price - (pkg.flightPrice ?? 0))).toLocaleString("en-IN")}</Text>
                   </Text>
                   <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>•</Text>
                   <Text style={{ fontSize: 9.5, color: "rgba(255,255,255,0.85)" }}>

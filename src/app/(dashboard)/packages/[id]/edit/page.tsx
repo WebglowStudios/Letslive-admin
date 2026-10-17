@@ -417,7 +417,7 @@ export default function EditPackagePage() {
         }
 
         setPrice(p.price ? String(p.price) : "");
-        setFlightPrice(p.flightPrice ? String(p.flightPrice) : "");
+        setFlightPrice(p.flightsIncluded && p.flightPrice ? String(p.flightPrice) : "");
         setLandCost(p.landCost ? String(p.landCost) : (p.flightsIncluded && p.flightPrice ? String(Math.max(0, (p.price || 0) - p.flightPrice)) : ""));
         setHotelPrice(p.hotelPrice ? String(p.hotelPrice) : "");
         setActivityPrice(p.activityPrice ? String(p.activityPrice) : "");
@@ -724,7 +724,7 @@ export default function EditPackagePage() {
         isInternational,
         visaIncluded,
         price: Number(price) || 0,
-        flightPrice: (flightsIncluded && flightPrice) ? Number(flightPrice) : null,
+        flightPrice: (flightsIncluded && flightPrice && Number(flightPrice) > 0) ? Number(flightPrice) : null,
         landCost: landCost ? Number(landCost) : null,
         hotelPrice: hotelPrice ? Number(hotelPrice) : null,
         activityPrice: null,
@@ -1050,7 +1050,7 @@ export default function EditPackagePage() {
                   {isGroupTour && <span className="text-xs text-cyan-600 font-semibold ml-1.5 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">Departures &amp; Slots active below &darr;</span>}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
+                  <input type="checkbox" checked={flightsIncluded} onChange={(e) => { setFlightsIncluded(e.target.checked); if (!e.target.checked) setFlightPrice(""); }} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
                   <span className="text-sm text-slate-700">Flights Included</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1292,7 +1292,10 @@ export default function EditPackagePage() {
                           <input
                             type="checkbox"
                             checked={flightsIncluded}
-                            onChange={(e) => setFlightsIncluded(e.target.checked)}
+                            onChange={(e) => {
+                              setFlightsIncluded(e.target.checked);
+                              if (!e.target.checked) setFlightPrice("");
+                            }}
                             className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
                           <span className="text-xs font-bold text-slate-800">Flight Cost (Airfare)</span>

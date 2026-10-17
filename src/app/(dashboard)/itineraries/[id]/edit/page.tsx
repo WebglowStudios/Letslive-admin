@@ -378,7 +378,7 @@ export default function EditCustomItineraryPage() {
       }
 
       setPrice(p.price ? String(p.price) : "");
-      setFlightPrice(p.flightPrice ? String(p.flightPrice) : "");
+      setFlightPrice(p.flightsIncluded && p.flightPrice ? String(p.flightPrice) : "");
       setLandCost(p.landCost ? String(p.landCost) : (p.flightsIncluded && p.flightPrice ? String(Math.max(0, (p.price || 0) - p.flightPrice)) : ""));
       setHotelPrice(p.hotelPrice ? String(p.hotelPrice) : "");
       setActivityPrice(p.activityPrice ? String(p.activityPrice) : "");
@@ -615,7 +615,7 @@ export default function EditCustomItineraryPage() {
         hotelRating: hotelRating || undefined,
         category: category === "custom" ? (customCategory || undefined) : (category || undefined),
         price: Number(price) || 0,
-        flightPrice: flightPrice ? Number(flightPrice) : null,
+        flightPrice: (flightsIncluded && flightPrice && Number(flightPrice) > 0) ? Number(flightPrice) : null,
         landCost: landCost ? Number(landCost) : null,
         hotelPrice: hotelPrice ? Number(hotelPrice) : null,
         activityPrice: null,
@@ -916,7 +916,7 @@ export default function EditCustomItineraryPage() {
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Featured on homepage</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Active</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isGroupTour} onChange={(e) => setIsGroupTour(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Group Tour</span></label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={flightsIncluded} onChange={(e) => setFlightsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Flights Included</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={flightsIncluded} onChange={(e) => { setFlightsIncluded(e.target.checked); if (!e.target.checked) setFlightPrice(""); }} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Flights Included</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={trainsIncluded} onChange={(e) => setTrainsIncluded(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" /><span className="text-sm text-slate-700">Trains Included</span></label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={hideTrainInfo} onChange={(e) => setHideTrainInfo(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500" />
@@ -1155,7 +1155,10 @@ export default function EditCustomItineraryPage() {
                         <input
                           type="checkbox"
                           checked={flightsIncluded}
-                          onChange={(e) => setFlightsIncluded(e.target.checked)}
+                          onChange={(e) => {
+                            setFlightsIncluded(e.target.checked);
+                            if (!e.target.checked) setFlightPrice("");
+                          }}
                           className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                         />
                         <span className="text-xs font-bold text-slate-800">Flight Cost (Airfare)</span>
