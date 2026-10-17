@@ -1851,6 +1851,41 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         </View>
       </View>
 
+      {/* Online Booking & Payment CTA Button */}
+      {(pkg.slug || (pkg as any)._id) && (() => {
+        const targetSlug = pkg.slug || (pkg as any)._id;
+        const enquiryIdStr = pkg.enquiryId ? (typeof pkg.enquiryId === "object" ? (pkg.enquiryId as any)._id : pkg.enquiryId) : "";
+        const payUrl = `https://letslivetours.com/book/${targetSlug}${enquiryIdStr ? `?enquiryId=${enquiryIdStr}` : ""}`;
+        const viewUrl = `https://letslivetours.com/packages/${targetSlug}`;
+        return (
+          <View style={{ alignItems: "center", marginTop: 7, marginBottom: 9 }}>
+            {/* Direct Online Payment Button */}
+            <Link
+              src={payUrl}
+              style={{
+                backgroundColor: C.gn,
+                borderRadius: 20,
+                paddingVertical: 8,
+                paddingHorizontal: 26,
+                textDecoration: "none",
+                marginBottom: 4,
+              }}
+            >
+              <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: C.white, textAlign: "center" }}>
+                Pay & Book Online
+              </Text>
+            </Link>
+
+            {/* Clickable Itinerary link */}
+            <Text style={{ fontSize: 8.5, color: C.gn3, textAlign: "center" }}>
+              <Link src={viewUrl} style={{ color: C.gn3, textDecoration: "underline" }}>
+                View Full Itinerary Online
+              </Link>
+            </Text>
+          </View>
+        );
+      })()}
+
       {/* Row 6: Full Transparency Disclosure Card */}
       <View
         style={{
