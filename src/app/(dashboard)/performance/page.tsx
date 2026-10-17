@@ -1078,7 +1078,22 @@ export default function PerformancePage() {
                           {op.operationId}
                         </td>
                         <td className="py-3 px-4 text-slate-700 font-medium">
-                          {op.customer?.name || "Client"}
+                          {op.customer?.name?.trim() ||
+                            op.customers?.[0]?.name?.trim() ||
+                            (op.booking?.primaryTraveller?.firstName
+                              ? `${op.booking.primaryTraveller.firstName} ${op.booking.primaryTraveller.lastName || ""}`.trim()
+                              : "") ||
+                            (op.booking?.user?.firstName
+                              ? `${op.booking.user.firstName} ${op.booking.user.lastName || ""}`.trim()
+                              : "") ||
+                            (op.bookings?.[0]?.primaryTraveller?.firstName
+                              ? `${op.bookings[0].primaryTraveller.firstName} ${op.bookings[0].primaryTraveller.lastName || ""}`.trim()
+                              : "") ||
+                            (op.bookings?.[0]?.user?.firstName
+                              ? `${op.bookings[0].user.firstName} ${op.bookings[0].user.lastName || ""}`.trim()
+                              : "") ||
+                            op.clientName?.trim() ||
+                            "Client"}
                         </td>
                         <td className="py-3 px-4 text-slate-700 capitalize">
                           {op.destination}

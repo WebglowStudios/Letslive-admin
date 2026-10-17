@@ -147,7 +147,8 @@ interface PackageData {
   travelDates?: { startDate?: string; endDate?: string };
   hotelRating?: string; category?: string;
   price: number; originalPrice?: number; priceUnit?: string; discount?: number; discountType?: "percent" | "amount";
-  gstRate?: number; gstAmount?: number;
+  gstIncluded?: boolean; gstRate?: number; gstAmount?: number;
+  tcsIncluded?: boolean; tcsRate?: number; tcsAmount?: number;
   badge?: string; rating?: number; reviewCount?: number;
   highlights?: string[]; keyPoints?: string[];
   itinerary?: ItineraryDay[];
@@ -1213,20 +1214,38 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
   const priceVal = pkg.price || 0;
   const formattedPrice = priceVal > 0 ? priceVal.toLocaleString("en-IN") : "—";
-  const effectiveGstRate = pkg.gstRate != null && !isNaN(Number(pkg.gstRate)) ? Number(pkg.gstRate) : 5;
+  const isGstIncluded = pkg.gstIncluded ?? (pkg.gstRate != null ? Number(pkg.gstRate) > 0 : true);
+  const isTcsIncluded = Boolean(pkg.tcsIncluded);
+  const effectiveGstRate = isGstIncluded && pkg.gstRate != null && !isNaN(Number(pkg.gstRate)) ? Number(pkg.gstRate) : (isGstIncluded ? 5 : 0);
+  const effectiveTcsRate = isTcsIncluded && pkg.tcsRate != null && !isNaN(Number(pkg.tcsRate)) ? Number(pkg.tcsRate) : (isTcsIncluded ? 5 : 0);
 
-  // Formula (Tax-inclusive GST):
-  // Base Price = Total Amount / (1 + (GST Rate / 100))
-  // GST Amount = Total Amount - Base Price
-  let basePriceVal = effectiveGstRate > 0 && priceVal > 0
-    ? (priceVal / (1 + effectiveGstRate / 100))
+  // Inclusive Tax Math:
+  // Base Price = Total Amount / (1 + (GST Rate + TCS Rate) / 100)
+  const combinedTaxRate = (isGstIncluded ? effectiveGstRate : 0) + (isTcsIncluded ? effectiveTcsRate : 0);
+  let basePriceVal = combinedTaxRate > 0 && priceVal > 0
+    ? (priceVal / (1 + combinedTaxRate / 100))
     : priceVal;
-  let gstAmountVal = pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0
-    ? Number(pkg.gstAmount)
-    : Math.max(0, priceVal - basePriceVal);
 
-  if (pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0) {
-    basePriceVal = Math.max(0, priceVal - gstAmountVal);
+  let gstAmountVal = 0;
+  if (isGstIncluded) {
+    if (pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0) {
+      gstAmountVal = Number(pkg.gstAmount);
+    } else {
+      gstAmountVal = Math.max(0, basePriceVal * (effectiveGstRate / 100));
+    }
+  }
+
+  let tcsAmountVal = 0;
+  if (isTcsIncluded) {
+    if (pkg.tcsAmount != null && !isNaN(Number(pkg.tcsAmount)) && Number(pkg.tcsAmount) > 0) {
+      tcsAmountVal = Number(pkg.tcsAmount);
+    } else {
+      tcsAmountVal = Math.max(0, basePriceVal * (effectiveTcsRate / 100));
+    }
+  }
+
+  if (gstAmountVal > 0 || tcsAmountVal > 0) {
+    basePriceVal = Math.max(0, priceVal - gstAmountVal - tcsAmountVal);
   }
 
   const formattedBasePrice = basePriceVal > 0
@@ -1239,6 +1258,13 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
   const formattedGstAmount = gstAmountVal > 0
     ? gstAmountVal.toLocaleString("en-IN", {
       minimumFractionDigits: gstAmountVal % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2,
+    })
+    : "0";
+
+  const formattedTcsAmount = tcsAmountVal > 0
+    ? tcsAmountVal.toLocaleString("en-IN", {
+      minimumFractionDigits: tcsAmountVal % 1 !== 0 ? 2 : 0,
       maximumFractionDigits: 2,
     })
     : "0";
@@ -1605,10 +1631,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             TAX POSITION
           </Text>
           <Text style={{ fontSize: 11, fontFamily: "Helvetica-Bold", color: "#ffffff" }}>
-            {effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "GST Exempt"}
+            {isGstIncluded
+              ? (effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "GST Exempt")
+              : (isTcsIncluded ? "GST Excluded" : "All Taxes Direct / Exempt")}
           </Text>
           <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
-            5% TCS Excluded
+            {isTcsIncluded ? `${effectiveTcsRate}% TCS Included` : "5% TCS Excluded"}
           </Text>
         </View>
       </View>
@@ -1620,7 +1648,10 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             Price Quote & Cost Bifurcation
           </Text>
           <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 0.5 }}>
-            {effectiveGstRate > 0 ? `${effectiveGstRate}% GST INCLUDED` : "GST EXEMPT"}
+            {[
+              isGstIncluded ? (effectiveGstRate > 0 ? `${effectiveGstRate}% GST INCLUDED` : "GST EXEMPT") : null,
+              isTcsIncluded ? `${effectiveTcsRate}% TCS INCLUDED` : null,
+            ].filter(Boolean).join(" • ") || "NET RATE / EXEMPT"}
           </Text>
         </View>
 
@@ -1693,49 +1724,95 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             );
           })}
 
-          {/* GST Row */}
-          <View
-            style={{
-              flexDirection: "row",
-              paddingVertical: 5,
-              paddingHorizontal: 8,
-              borderBottomWidth: 1,
-              borderBottomColor: "#d4ecf0",
-              alignItems: "center",
-              backgroundColor: bifurcationRows.length % 2 === 1 ? "#fafdfe" : "#ffffff",
-            }}
-          >
-            <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>
-              {bifurcationRows.length + 1}
-            </Text>
-            <View style={{ flex: 1, paddingLeft: 6 }}>
-              <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#1a3a42" }}>
-                Goods & Services Tax (GST {effectiveGstRate}%)
+          {/* GST Row (Optional) */}
+          {isGstIncluded && (
+            <View
+              style={{
+                flexDirection: "row",
+                paddingVertical: 5,
+                paddingHorizontal: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: "#d4ecf0",
+                alignItems: "center",
+                backgroundColor: (bifurcationRows.length + 1) % 2 === 1 ? "#fafdfe" : "#ffffff",
+              }}
+            >
+              <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>
+                {bifurcationRows.length + 1}
               </Text>
-              {effectiveGstRate > 0 && priceVal > 0 && (
+              <View style={{ flex: 1, paddingLeft: 6 }}>
+                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#1a3a42" }}>
+                  Goods & Services Tax (GST {effectiveGstRate}%)
+                </Text>
+                {effectiveGstRate > 0 && priceVal > 0 && (
+                  <Text style={{ fontSize: 6.5, color: "#5a7a82", marginTop: 1 }}>
+                    Inclusive in Package Price • Base (Taxable Value): ₹{formattedBasePrice}
+                  </Text>
+                )}
+              </View>
+              <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
+                {gstAmountVal > 0 ? (
+                  <>
+                    <RupeeIcon color="#00833e" size={7.5} />
+                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e" }}>
+                      {formattedGstAmount}/-
+                    </Text>
+                    <Text style={{ fontSize: 6.8, color: "#00833e", marginLeft: 2.5 }}>
+                      (Included)
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
+                    {effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "Nil / Exempt"}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* TCS Row (Optional - Europe & Overseas Tours) */}
+          {isTcsIncluded && (
+            <View
+              style={{
+                flexDirection: "row",
+                paddingVertical: 5,
+                paddingHorizontal: 8,
+                borderBottomWidth: 1,
+                borderBottomColor: "#d4ecf0",
+                alignItems: "center",
+                backgroundColor: (bifurcationRows.length + (isGstIncluded ? 2 : 1)) % 2 === 1 ? "#fafdfe" : "#ffffff",
+              }}
+            >
+              <Text style={{ width: 36, fontSize: 7.5, color: "#5a7a82", textAlign: "center" }}>
+                {bifurcationRows.length + (isGstIncluded ? 2 : 1)}
+              </Text>
+              <View style={{ flex: 1, paddingLeft: 6 }}>
+                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#1a3a42" }}>
+                  Tax Collected at Source (TCS {effectiveTcsRate}%)
+                </Text>
                 <Text style={{ fontSize: 6.5, color: "#5a7a82", marginTop: 1 }}>
-                  Inclusive in Package Price • Base (Taxable Value): ₹{formattedBasePrice}
+                  Mandatory Overseas Tour Compliance • Claimable in Form 26AS / ITR
                 </Text>
-              )}
-            </View>
-            <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
-              {gstAmountVal > 0 ? (
-                <>
-                  <RupeeIcon color="#00833e" size={7.5} />
-                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e" }}>
-                    {formattedGstAmount}/-
+              </View>
+              <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
+                {tcsAmountVal > 0 ? (
+                  <>
+                    <RupeeIcon color="#00833e" size={7.5} />
+                    <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e" }}>
+                      {formattedTcsAmount}/-
+                    </Text>
+                    <Text style={{ fontSize: 6.8, color: "#00833e", marginLeft: 2.5 }}>
+                      (Included)
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
+                    {`${effectiveTcsRate}% TCS Included`}
                   </Text>
-                  <Text style={{ fontSize: 6.8, color: "#00833e", marginLeft: 2.5 }}>
-                    (Included)
-                  </Text>
-                </>
-              ) : (
-                <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
-                  {effectiveGstRate > 0 ? `${effectiveGstRate}% GST Included` : "Nil / Exempt"}
-                </Text>
-              )}
+                )}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Total Row */}
           <View
@@ -1748,7 +1825,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             }}
           >
             <Text style={{ width: 36, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center" }}>
-              {bifurcationRows.length + 2}
+              {bifurcationRows.length + (isGstIncluded ? 1 : 0) + (isTcsIncluded ? 1 : 0) + 1}
             </Text>
             <Text style={{ flex: 1, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#003b47", paddingLeft: 6 }}>
               Total Package Price (per {pkg.priceUnit || "person"})
@@ -1766,7 +1843,10 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
         <View style={{ marginTop: 4, paddingHorizontal: 2 }}>
           <Text style={{ fontSize: 6.8, color: "#5a7a82", lineHeight: 1.35 }}>
             <Text style={{ fontFamily: "Helvetica-Bold", color: "#004d5e" }}>Note: </Text>
-            Government regulations impose flat TCS on overseas tour packages (claimable as tax credit when filing income tax return). All quoted package rates include {effectiveGstRate}% GST.
+            {isTcsIncluded
+              ? `Package rate includes mandatory ${effectiveTcsRate}% TCS under RBI LRS guidelines (fully claimable as tax credit when filing your annual income tax return).`
+              : "Government regulations impose flat TCS on overseas tour packages (claimable as tax credit when filing income tax return)."}
+            {isGstIncluded ? ` All quoted package rates include ${effectiveGstRate}% GST.` : ""}
           </Text>
         </View>
       </View>
@@ -1826,7 +1906,12 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
             <Text style={{ fontSize: 6.8, color: "#491217", marginRight: 4, lineHeight: 1.3 }}>•</Text>
             <Text style={{ fontSize: 6.8, color: "#491217", lineHeight: 1.3, flex: 1 }}>
-              Total package price includes {effectiveGstRate}% Goods and Services Tax (GST).
+              {isGstIncluded
+                ? `Total package price includes ${effectiveGstRate}% Goods and Services Tax (GST).`
+                : "Quoted package price is net and excludes Goods and Services Tax (GST)."}
+              {isTcsIncluded
+                ? ` Includes mandatory ${effectiveTcsRate}% TCS on overseas travel.`
+                : ""}
             </Text>
           </View>
         </View>

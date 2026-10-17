@@ -13,6 +13,9 @@ interface OperationItem {
   operationId: string;
   customers?: { name: string; email: string; pax: number }[];
   customer?: { name: string; email: string; pax: number };
+  booking?: any;
+  bookings?: any[];
+  clientName?: string;
   departureId?: string;
   destination: string;
   travelDates: { start: string; end: string };
@@ -309,7 +312,24 @@ export default function OperationsPage() {
                           </>
                         ) : (
                           <>
-                            <p className="text-sm font-medium text-slate-700">{op.customers?.[0]?.name || op.customer?.name || 'Unknown'}</p>
+                            <p className="text-sm font-medium text-slate-700">
+                              {op.customer?.name?.trim() ||
+                                op.customers?.[0]?.name?.trim() ||
+                                (op.booking?.primaryTraveller?.firstName
+                                  ? `${op.booking.primaryTraveller.firstName} ${op.booking.primaryTraveller.lastName || ""}`.trim()
+                                  : "") ||
+                                (op.booking?.user?.firstName
+                                  ? `${op.booking.user.firstName} ${op.booking.user.lastName || ""}`.trim()
+                                  : "") ||
+                                (op.bookings?.[0]?.primaryTraveller?.firstName
+                                  ? `${op.bookings[0].primaryTraveller.firstName} ${op.bookings[0].primaryTraveller.lastName || ""}`.trim()
+                                  : "") ||
+                                (op.bookings?.[0]?.user?.firstName
+                                  ? `${op.bookings[0].user.firstName} ${op.bookings[0].user.lastName || ""}`.trim()
+                                  : "") ||
+                                op.clientName?.trim() ||
+                                "Customer"}
+                            </p>
                             <p className="text-[10px] text-slate-400">{op.customers?.[0]?.pax || op.customer?.pax || 0} pax</p>
                           </>
                         )}

@@ -57,8 +57,12 @@ export interface Package {
   category?: string;
   originalPrice?: number;
   price: number;
+  gstIncluded?: boolean;
   gstRate?: number;
   gstAmount?: number;
+  tcsIncluded?: boolean;
+  tcsRate?: number;
+  tcsAmount?: number;
   rating: number;
   reviewCount: number;
   badge?: string;
