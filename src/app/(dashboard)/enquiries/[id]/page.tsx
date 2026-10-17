@@ -631,8 +631,8 @@ function DuplicateItineraryModal({
   onSuccess?: () => void;
 }) {
   const router = useRouter();
-  const [standardPackages, setStandardPackages] = useState<{ _id: string; name: string }[]>([]);
-  const [customPackages, setCustomPackages] = useState<{ _id: string; name: string }[]>([]);
+  const [standardPackages, setStandardPackages] = useState<any[]>([]);
+  const [customPackages, setCustomPackages] = useState<any[]>([]);
   const [destinations, setDestinations] = useState<{ _id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState("");
@@ -680,13 +680,20 @@ function DuplicateItineraryModal({
     if (!pkgId) return;
     const list = activeTab === "standard" ? standardPackages : customPackages;
     const picked = list.find((p) => p._id === pkgId);
-    if (picked && !itineraryTitle) {
-      if (initialClientPackage) {
-        setItineraryTitle(initialClientPackage);
-      } else if (targetDestination) {
-        setItineraryTitle(`${targetDestination} Tour - for ${clientName || "Client"}`);
-      } else {
-        setItineraryTitle(`${picked.name} - for ${clientName || "Client"}`);
+    if (picked) {
+      if (!itineraryTitle || itineraryTitle === initialClientPackage || itineraryTitle.endsWith(` - for ${clientName || "Client"}`)) {
+        if (initialClientPackage) {
+          setItineraryTitle(initialClientPackage);
+        } else {
+          setItineraryTitle(`${picked.name} - for ${clientName || "Client"}`);
+        }
+      }
+      // If the template has a destination and targetDestination was untouched or empty, sync to template's destination
+      const pickedDestName = typeof picked.destination === "object" && picked.destination?.name
+        ? picked.destination.name
+        : (typeof picked.destination === "string" ? picked.destination : (picked.customDestinationText || ""));
+      if (pickedDestName && (!targetDestination || targetDestination === initialClientDest)) {
+        setTargetDestination(pickedDestName);
       }
     }
   }
@@ -703,18 +710,23 @@ function DuplicateItineraryModal({
 
     setDuplicating(true);
     try {
-      const matchedDest = destinations.find(
-        (d) => d.name.toLowerCase().trim() === targetDestination.toLowerCase().trim()
-      );
-      const destId = matchedDest ? matchedDest._id : undefined;
-      const customDest = !matchedDest && targetDestination.trim() ? targetDestination.trim() : undefined;
-
-      const res = await api.post(`/packages/${selectedPackage}/duplicate`, {
+      const payload: Record<string, any> = {
         enquiryId: enquiry._id,
         name: itineraryTitle.trim(),
-        destination: destId,
-        customDestinationText: customDest,
-      });
+      };
+
+      if (targetDestination.trim()) {
+        const matchedDest = destinations.find(
+          (d) => d.name.toLowerCase().trim() === targetDestination.toLowerCase().trim()
+        );
+        if (matchedDest) {
+          payload.destination = matchedDest._id;
+        } else {
+          payload.customDestinationText = targetDestination.trim();
+        }
+      }
+
+      const res = await api.post(`/packages/${selectedPackage}/duplicate`, payload);
       const newPackage = res?.data?.data || res?.data;
       if (newPackage?._id) {
         onClose();
