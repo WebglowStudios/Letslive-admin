@@ -179,7 +179,7 @@ export default function NewDestinationPage() {
               onChange={(e) => setName(e.target.value)}
               required
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="e.g. Bali, Indonesia"
+              placeholder="e.g. Bali (or Vietnam)"
             />
           </div>
 

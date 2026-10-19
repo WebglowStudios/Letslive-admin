@@ -70,6 +70,7 @@ export default function EditCustomItineraryPage() {
   const [activityPrice, setActivityPrice] = useState("");
   const [transferPrice, setTransferPrice] = useState("");
   const [activityAndTransportPrice, setActivityAndTransportPrice] = useState("");
+  const [mergeHotelAndActivity, setMergeHotelAndActivity] = useState(false);
   const [extraMealsIncluded, setExtraMealsIncluded] = useState(false);
   const [extraMealsCount, setExtraMealsCount] = useState("");
   const [extraMealsPrice, setExtraMealsPrice] = useState("");
@@ -388,6 +389,7 @@ export default function EditCustomItineraryPage() {
           ? String(p.activityAndTransportPrice)
           : (p.activityPrice || p.transferPrice ? String((p.activityPrice || 0) + (p.transferPrice || 0)) : "")
       );
+      setMergeHotelAndActivity(p.mergeHotelAndActivity || false);
       setExtraMealsIncluded(p.extraMealsIncluded || false);
       setExtraMealsCount(p.extraMealsCount != null ? String(p.extraMealsCount) : "");
       setExtraMealsPrice(p.extraMealsPrice != null ? String(p.extraMealsPrice) : "");
@@ -621,6 +623,7 @@ export default function EditCustomItineraryPage() {
         activityPrice: null,
         transferPrice: null,
         activityAndTransportPrice: activityAndTransportPrice ? Number(activityAndTransportPrice) : null,
+        mergeHotelAndActivity: Boolean(mergeHotelAndActivity),
         extraMealsIncluded: isInternational ? extraMealsIncluded : false,
         extraMealsCount: (isInternational && extraMealsIncluded && extraMealsCount) ? Number(extraMealsCount) : null,
         extraMealsPrice: (isInternational && extraMealsIncluded && extraMealsPrice) ? Number(extraMealsPrice) : null,
@@ -1012,53 +1015,119 @@ export default function EditCustomItineraryPage() {
               </div>
 
               <div className="space-y-3">
-                {/* 1. Hotel */}
-                <div className="bg-white p-3.5 rounded-xl border border-sky-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">1</span>
-                      <span className="text-xs font-bold text-slate-800">Hotels &amp; Accommodations</span>
-                      <span className="text-[11px] text-slate-400 font-normal">(Included in package)</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Leave blank to display &quot;Included in Package&quot;</p>
+                {/* Merge Hotels & Activities Toggle */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-sky-200 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="mergeHotelAndActivity"
+                      checked={mergeHotelAndActivity}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setMergeHotelAndActivity(checked);
+                        if (checked) {
+                          const combined = (parseFloat(hotelPrice) || 0) + (parseFloat(activityAndTransportPrice) || 0);
+                          if (combined > 0) {
+                            setHotelPrice(String(combined));
+                            setActivityAndTransportPrice("");
+                          }
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    <label htmlFor="mergeHotelAndActivity" className="cursor-pointer select-none">
+                      <span className="text-xs font-bold text-slate-800">
+                        Merge Hotels &amp; Activities into 1 column / row on PDF
+                      </span>
+                      <span className="block text-[11px] text-slate-500">
+                        {mergeHotelAndActivity
+                          ? "Hotels, Sightseeing & Ground Transport combined into 1 item in PDF cost table."
+                          : "Unchecked — Hotels and Activities shown as 2 separate rows in PDF cost table."}
+                      </span>
+                    </label>
                   </div>
-                  <div className="w-full sm:w-48">
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
-                      <input
-                        type="number"
-                        value={hotelPrice}
-                        onChange={(e) => handleHotelPriceChange(e.target.value)}
-                        placeholder="Included in package"
-                        className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      />
-                    </div>
-                  </div>
+                  {mergeHotelAndActivity && (
+                    <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full border border-sky-200">
+                      Combined in 1 Row
+                    </span>
+                  )}
                 </div>
 
-                {/* 2. Activity and transportation cost in one */}
-                <div className="bg-white p-3.5 rounded-xl border border-sky-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">2</span>
-                      <span className="text-xs font-bold text-slate-800">Activity and Transportation Cost</span>
-                      <span className="text-[11px] text-slate-400 font-normal">(Combined Activities, Sightseeing &amp; Ground Transport)</span>
+                {mergeHotelAndActivity ? (
+                  /* Combined Hotel & Activity Cost */
+                  <div className="bg-white p-3.5 rounded-xl border-2 border-sky-300 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-sky-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                        <span className="text-xs font-bold text-slate-800">Hotels, Activities &amp; Ground Transport Cost</span>
+                        <span className="text-[11px] text-sky-700 bg-sky-50 px-2 py-0.5 rounded font-semibold border border-sky-100">(Combined Expense)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Combined expense for hotels, accommodations, activities, and transport. Leave blank to display &quot;Included in Package&quot;</p>
                     </div>
-                    <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Leave blank to display &quot;Included in Package&quot;</p>
-                  </div>
-                  <div className="w-full sm:w-48">
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
-                      <input
-                        type="number"
-                        value={activityAndTransportPrice}
-                        onChange={(e) => handleActivityAndTransportPriceChange(e.target.value)}
-                        placeholder="Included in package"
-                        className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                      />
+                    <div className="w-full sm:w-48">
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                        <input
+                          type="number"
+                          value={hotelPrice}
+                          onChange={(e) => handleHotelPriceChange(e.target.value)}
+                          placeholder="Included in package"
+                          className="w-full pl-7 pr-3 py-1.5 border border-sky-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* 1. Hotel */}
+                    <div className="bg-white p-3.5 rounded-xl border border-sky-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">1</span>
+                          <span className="text-xs font-bold text-slate-800">Hotels &amp; Accommodations</span>
+                          <span className="text-[11px] text-slate-400 font-normal">(Included in package)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Leave blank to display &quot;Included in Package&quot;</p>
+                      </div>
+                      <div className="w-full sm:w-48">
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            value={hotelPrice}
+                            onChange={(e) => handleHotelPriceChange(e.target.value)}
+                            placeholder="Included in package"
+                            className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Activity and transportation cost in one */}
+                    <div className="bg-white p-3.5 rounded-xl border border-sky-100 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center">2</span>
+                          <span className="text-xs font-bold text-slate-800">Activity and Transportation Cost</span>
+                          <span className="text-[11px] text-slate-400 font-normal">(Combined Activities, Sightseeing &amp; Ground Transport)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 ml-7 mt-0.5">Leave blank to display &quot;Included in Package&quot;</p>
+                      </div>
+                      <div className="w-full sm:w-48">
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            value={activityAndTransportPrice}
+                            onChange={(e) => handleActivityAndTransportPriceChange(e.target.value)}
+                            placeholder="Included in package"
+                            className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* 3. Extra add on meals (Only for international packages) */}
                 {isInternational && (

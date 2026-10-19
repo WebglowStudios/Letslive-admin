@@ -115,6 +115,7 @@ interface PackageData {
   flightsIncluded?: boolean;
   trainsIncluded?: boolean;
   hideTrainInfo?: boolean;
+  mergeHotelAndActivity?: boolean;
   flightPrice?: number;
   landCost?: number;
   hotelPrice?: number;
@@ -966,9 +967,19 @@ const CoverPage = ({ pkg }: { pkg: PackageData }) => {
                   <Path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z" fill={C.cu} />
                 </Svg>
                 <Text style={{ fontSize: 12, fontFamily: "Helvetica-Bold", color: C.white }}>
-                  {pkg.destination.name}
-                  {pkg.destination.country ? `, ${pkg.destination.country}` : ""}
-                  {pkg.duration ? ` - ${pkg.duration.nights}N` : ""}
+                  {(() => {
+                    const rawName = pkg.destination.name?.trim() || "";
+                    const parts = rawName.split(",").map((p) => p.trim()).filter(Boolean);
+                    const uniqueParts = parts.filter((part, idx) =>
+                      parts.findIndex((p) => p.toLowerCase() === part.toLowerCase()) === idx
+                    );
+                    const cleanName = uniqueParts.join(", ") || rawName;
+                    const country = pkg.destination.country?.trim() || "";
+                    const displayLoc = (country && !cleanName.toLowerCase().includes(country.toLowerCase()))
+                      ? `${cleanName}, ${country}`
+                      : cleanName;
+                    return `${displayLoc}${pkg.duration ? ` - ${pkg.duration.nights}N` : ""}`;
+                  })()}
                 </Text>
               </View>
             )}
@@ -1291,16 +1302,24 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
   const hasFlightCostBreakdown = Boolean(pkg.flightsIncluded && flightPriceVal > 0);
   const showTrains = !pkg.hideTrainInfo && Boolean(pkg.trainsIncluded);
 
-  const bifurcationRows: { label: string; amount: number | null }[] = [
-    {
+  const bifurcationRows: { label: string; amount: number | null }[] = [];
+
+  if (pkg.mergeHotelAndActivity) {
+    const combinedHotelActVal = hotelPriceVal + actTransPriceVal;
+    bifurcationRows.push({
+      label: `Hotels, Activities & Ground Transport (${pkg.stays?.length ? `${pkg.stays.length} Selected ${pkg.stays.length > 1 ? "Properties" : "Property"}` : durationText} • ${days} Days Curated Itinerary)`,
+      amount: combinedHotelActVal > 0 ? combinedHotelActVal : null,
+    });
+  } else {
+    bifurcationRows.push({
       label: `Hotels & Accommodations (${pkg.stays?.length ? `${pkg.stays.length} Selected ${pkg.stays.length > 1 ? "Properties" : "Property"}` : durationText})`,
       amount: hotelPriceVal > 0 ? hotelPriceVal : null,
-    },
-    {
+    });
+    bifurcationRows.push({
       label: `Activities, Sightseeing & Ground Transport (${days} Days Curated Itinerary)`,
       amount: actTransPriceVal > 0 ? actTransPriceVal : null,
-    },
-  ];
+    });
+  }
 
   if (pkg.isInternational && pkg.extraMealsIncluded) {
     bifurcationRows.push({
