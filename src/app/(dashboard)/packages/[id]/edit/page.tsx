@@ -29,6 +29,17 @@ interface ItineraryDay {
   images: string[];
 }
 
+export interface StayOption {
+  optionId: string;
+  isDefault?: boolean;
+  name: string;
+  rating?: string;
+  roomType?: string;
+  priceDifference: number;
+  remark?: string;
+  address?: string;
+}
+
 interface Stay {
   _key: number;
   name: string;
@@ -43,6 +54,8 @@ interface Stay {
   confirmationNo: string;
   remark?: string;
   showRemarkToCustomer?: boolean;
+  hasOptions?: boolean;
+  options?: StayOption[];
 }
 
 interface Transfer {
@@ -502,7 +515,7 @@ export default function EditPackagePage() {
         );
         setStays(
           p.stays && p.stays.length > 0
-            ? p.stays.map((s: { name?: string; rating?: string; nights?: number; rooms?: number; roomType?: string; amenities?: string[]; checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string; remark?: string; remarks?: string; showRemarkToCustomer?: boolean }, i: number) => ({
+            ? p.stays.map((s: any, i: number) => ({
                 _key: Date.now() + i + 1000,
                 name: s.name || "",
                 rating: s.rating || "",
@@ -516,6 +529,17 @@ export default function EditPackagePage() {
                 confirmationNo: s.confirmationNo || "",
                 remark: s.remark || s.remarks || "",
                 showRemarkToCustomer: s.showRemarkToCustomer ?? false,
+                hasOptions: !!s.hasOptions,
+                options: Array.isArray(s.options) ? s.options.map((opt: any, oIdx: number) => ({
+                  optionId: opt.optionId || `opt_${Date.now()}_${oIdx}`,
+                  isDefault: !!opt.isDefault,
+                  name: opt.name || "",
+                  rating: opt.rating || "",
+                  roomType: opt.roomType || "",
+                  priceDifference: Number(opt.priceDifference) || 0,
+                  remark: opt.remark || "",
+                  address: opt.address || "",
+                })) : [],
               }))
             : []
         );
@@ -673,6 +697,84 @@ export default function EditPackagePage() {
     setStays(newStays);
   }
 
+  function toggleStayOptions(stayIndex: number) {
+    const updated = [...stays];
+    const stay = updated[stayIndex];
+    stay.hasOptions = !stay.hasOptions;
+    if (stay.hasOptions && (!stay.options || stay.options.length === 0)) {
+      stay.options = [
+        {
+          optionId: `opt_${Date.now()}_1`,
+          isDefault: true,
+          name: stay.name || "Standard Hotel",
+          rating: stay.rating || "3-Star",
+          roomType: stay.roomType || "Standard Room",
+          priceDifference: 0,
+          address: stay.address || "",
+          remark: stay.remark || "",
+        },
+        {
+          optionId: `opt_${Date.now()}_2`,
+          isDefault: false,
+          name: "",
+          rating: "4-Star",
+          roomType: "Deluxe Room",
+          priceDifference: 2500,
+          address: stay.address || "",
+          remark: "",
+        }
+      ];
+    }
+    setStays(updated);
+  }
+
+  function addStayOption(stayIndex: number) {
+    const updated = [...stays];
+    const stay = updated[stayIndex];
+    if (!stay.options) stay.options = [];
+    stay.options.push({
+      optionId: `opt_${Date.now()}_${stay.options.length + 1}`,
+      isDefault: stay.options.length === 0,
+      name: "",
+      rating: "4-Star",
+      roomType: "",
+      priceDifference: 0,
+      address: stay.address || "",
+      remark: "",
+    });
+    setStays(updated);
+  }
+
+  function removeStayOption(stayIndex: number, optionIndex: number) {
+    const updated = [...stays];
+    const stay = updated[stayIndex];
+    if (stay.options) {
+      stay.options = stay.options.filter((_, idx) => idx !== optionIndex);
+      if (stay.options.length > 0 && !stay.options.some(o => o.isDefault)) {
+        stay.options[0].isDefault = true;
+      }
+    }
+    setStays(updated);
+  }
+
+  function updateStayOption(stayIndex: number, optionIndex: number, field: keyof StayOption, value: any) {
+    const updated = [...stays];
+    const stay = updated[stayIndex];
+    if (stay.options && stay.options[optionIndex]) {
+      if (field === 'isDefault' && value === true) {
+        stay.options.forEach((opt, idx) => {
+          opt.isDefault = idx === optionIndex;
+          if (idx === optionIndex) {
+            opt.priceDifference = 0;
+          }
+        });
+      } else {
+        stay.options[optionIndex] = { ...stay.options[optionIndex], [field]: value };
+      }
+      setStays(updated);
+    }
+  }
+
   // Transfers helpers
   function addTransfer() {
     setTransfers([...transfers, { _key: Date.now(), title: "", description: "", transferType: "Shared Transfer", vehicleType: "", from: "", to: "", stops: [], legs: [{ from: "", to: "", stops: [], transferType: "Shared Transfer", vehicleType: "" }], day: 0, details: [], images: [] }]);
@@ -802,11 +904,11 @@ export default function EditPackagePage() {
           accommodation: d.accommodation,
           images: d.images,
         })),
-        stays: stays.filter((s) => s.name).map((s) => ({
-          name: s.name,
-          rating: s.rating,
+        stays: stays.filter((s) => s.name || (s.hasOptions && s.options && s.options.length > 0)).map((s) => ({
+          name: s.name || (s.options && s.options.find(o => o.isDefault)?.name) || (s.options && s.options[0]?.name) || "",
+          rating: s.rating || (s.options && s.options.find(o => o.isDefault)?.rating) || (s.options && s.options[0]?.rating) || "",
           nights: Number(s.nights) || 0,
-          roomType: s.roomType,
+          roomType: s.roomType || (s.options && s.options.find(o => o.isDefault)?.roomType) || (s.options && s.options[0]?.roomType) || "",
           rooms: Number(s.rooms) || 0,
           amenities: s.amenities,
           checkIn: s.checkIn || undefined,
@@ -815,6 +917,17 @@ export default function EditPackagePage() {
           confirmationNo: s.confirmationNo || undefined,
           remark: s.remark?.trim() || undefined,
           showRemarkToCustomer: !!s.showRemarkToCustomer,
+          hasOptions: !!s.hasOptions,
+          options: s.hasOptions && s.options ? s.options.map(opt => ({
+            optionId: opt.optionId,
+            isDefault: !!opt.isDefault,
+            name: opt.name,
+            rating: opt.rating || undefined,
+            roomType: opt.roomType || undefined,
+            priceDifference: Number(opt.priceDifference) || 0,
+            remark: opt.remark?.trim() || undefined,
+            address: opt.address?.trim() || undefined,
+          })) : [],
         })),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({
           title: t.title,
@@ -2145,6 +2258,122 @@ export default function EditPackagePage() {
                               )}
                             </span>
                           </div>
+                        </div>
+
+                        {/* Hotel Selection Options */}
+                        <div className="pt-2 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={!!stay.hasOptions}
+                                onChange={() => toggleStayOptions(i)}
+                                className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 border-slate-300 cursor-pointer"
+                              />
+                              <span className="text-xs font-bold text-slate-800">
+                                Enable Hotel Options for Client Selection
+                              </span>
+                              <span className="text-[10px] bg-cyan-100 text-cyan-800 font-semibold px-2 py-0.5 rounded-full">
+                                Dynamic Pricing
+                              </span>
+                            </label>
+                            {stay.hasOptions && (
+                              <button
+                                type="button"
+                                onClick={() => addStayOption(i)}
+                                className="flex items-center gap-1 text-xs text-cyan-700 font-semibold hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 rounded-md transition-colors"
+                              >
+                                <Plus size={12} /> Add Hotel Option
+                              </button>
+                            )}
+                          </div>
+
+                          {stay.hasOptions && (
+                            <div className="mt-2 space-y-3 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+                              <p className="text-[11px] text-slate-500">
+                                Clients can pick their preferred hotel from these options. The chosen option will dynamically adjust package price by the specified price difference.
+                              </p>
+                              {stay.options?.map((opt, oIdx) => (
+                                <div key={opt.optionId || oIdx} className="bg-white p-3 rounded-lg border border-slate-200/90 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700">
+                                      <input
+                                        type="radio"
+                                        name={`default_opt_${stay._key}`}
+                                        checked={!!opt.isDefault}
+                                        onChange={() => updateStayOption(i, oIdx, "isDefault", true)}
+                                        className="w-3.5 h-3.5 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                      />
+                                      {opt.isDefault ? (
+                                        <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px]">
+                                          Default / Base Included (₹0)
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-500 text-[10px]">Set as Default Base Option</span>
+                                      )}
+                                    </label>
+                                    {stay.options && stay.options.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeStayOption(i, oIdx)}
+                                        className="text-slate-400 hover:text-red-500 p-1"
+                                        title="Remove Option"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    <input
+                                      type="text"
+                                      value={opt.name}
+                                      onChange={(e) => updateStayOption(i, oIdx, "name", e.target.value)}
+                                      placeholder="Hotel name (e.g. Radisson Blu Resort)"
+                                      className="px-2.5 py-1.5 border border-slate-200 rounded text-xs focus:ring-2 focus:ring-cyan-500"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={opt.roomType || ""}
+                                      onChange={(e) => updateStayOption(i, oIdx, "roomType", e.target.value)}
+                                      placeholder="Room category (e.g. Deluxe Ocean View)"
+                                      className="px-2.5 py-1.5 border border-slate-200 rounded text-xs focus:ring-2 focus:ring-cyan-500"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={opt.rating || ""}
+                                        onChange={(e) => updateStayOption(i, oIdx, "rating", e.target.value)}
+                                        placeholder="Rating (e.g. 5-Star)"
+                                        className="w-1/2 px-2.5 py-1.5 border border-slate-200 rounded text-xs focus:ring-2 focus:ring-cyan-500"
+                                      />
+                                      <div className="w-1/2 flex items-center gap-1">
+                                        <span className="text-[11px] font-semibold text-slate-500">₹+/-</span>
+                                        <input
+                                          type="number"
+                                          disabled={opt.isDefault}
+                                          value={opt.isDefault ? 0 : (opt.priceDifference ?? "")}
+                                          onChange={(e) => updateStayOption(i, oIdx, "priceDifference", Number(e.target.value) || 0)}
+                                          placeholder="Price Delta"
+                                          className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs focus:ring-2 focus:ring-cyan-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                          title="Price difference per person compared to default"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={opt.remark || ""}
+                                      onChange={(e) => updateStayOption(i, oIdx, "remark", e.target.value)}
+                                      placeholder="Remarks / Amenities (e.g. Complimentary buffet breakfast + spa voucher)"
+                                      className="w-full px-2.5 py-1.5 border border-slate-200 rounded text-xs focus:ring-2 focus:ring-cyan-500"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

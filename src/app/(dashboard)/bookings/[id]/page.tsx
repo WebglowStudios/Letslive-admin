@@ -7,18 +7,58 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 import {
   ArrowLeft, User, Package, MapPin, Calendar, Users, CreditCard,
   CheckCircle, Clock, XCircle, AlertCircle, Phone, Mail,
-  RefreshCw, MessageSquare, ExternalLink, ChevronRight, Link as LinkIcon
+  RefreshCw, MessageSquare, ExternalLink, ChevronRight, Link as LinkIcon,
+  Building2, Star, BedDouble, Edit2, Check
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission, useRole } from "@/hooks/usePermission";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface StayOption {
+  optionId: string;
+  hotelName: string;
+  hotelRating?: number;
+  roomType?: string;
+  priceDifference: number;
+  isDefault?: boolean;
+  description?: string;
+}
+
+interface StayItem {
+  stayLocation: string;
+  nights?: number;
+  hotelName?: string;
+  hotelRating?: number;
+  roomType?: string;
+  hasOptions?: boolean;
+  options?: StayOption[];
+}
+
+interface SelectedHotelOption {
+  stayIndex: number;
+  stayLocation: string;
+  optionId: string;
+  hotelName: string;
+  hotelRating?: number;
+  roomType?: string;
+  priceDifferenceApplied: number;
+}
+
 interface BookingDetail {
   _id: string;
   bookingId: string;
   user: { _id: string; firstName: string; lastName: string; email: string; phone?: string };
-  package: { _id: string; name: string; slug: string; duration?: { nights: number; days: number }; price?: number };
+  package: {
+    _id: string;
+    name: string;
+    slug: string;
+    duration?: { nights: number; days: number };
+    price?: number;
+    priceType?: string;
+    priceUnit?: string;
+    stays?: StayItem[];
+  };
   destination?: { _id: string; name: string };
   enquiry?: string | { _id: string; [key: string]: any };
   travelDate: string;
@@ -47,6 +87,8 @@ interface BookingDetail {
   cancellationReason?: string;
   cancelledAt?: string;
   dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
+  selectedHotelOptions?: SelectedHotelOption[];
+  hotelUpgradeTotal?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,6 +160,79 @@ export default function BookingDetailPage() {
   const [updatingDates, setUpdatingDates] = useState(false);
   const [showDateReasonModal, setShowDateReasonModal] = useState(false);
   const [dateChangeReason, setDateChangeReason] = useState("");
+
+  // Hotel Options state
+  const [isEditingHotels, setIsEditingHotels] = useState(false);
+  const [tempSelectedOptions, setTempSelectedOptions] = useState<Record<number, string>>({});
+  const [updatingHotels, setUpdatingHotels] = useState(false);
+
+  const initEditingHotels = () => {
+    if (!booking?.package?.stays) return;
+    const initial: Record<number, string> = {};
+    booking.package.stays.forEach((stay, idx) => {
+      const existing = booking.selectedHotelOptions?.find(s => s.stayIndex === idx);
+      if (existing) {
+        initial[idx] = existing.optionId;
+      } else if (stay.options && stay.options.length > 0) {
+        const defaultOpt = stay.options.find(o => o.isDefault) || stay.options[0];
+        initial[idx] = defaultOpt.optionId;
+      } else {
+        initial[idx] = "default";
+      }
+    });
+    setTempSelectedOptions(initial);
+    setIsEditingHotels(true);
+  };
+
+  const calculatePreviewDifference = () => {
+    if (!booking?.package?.stays) return { newUpgradeTotal: 0, delta: 0 };
+    const adults = booking.travellers?.adults || 1;
+    const children = booking.travellers?.children || 0;
+    const isPerGroup = booking.package.priceUnit === 'group' || booking.package.priceUnit === 'family';
+
+    let perPaxDelta = 0;
+    booking.package.stays.forEach((stay, idx) => {
+      if (!stay.hasOptions || !stay.options || stay.options.length === 0) return;
+      const chosenOptionId = tempSelectedOptions[idx];
+      const opt = stay.options.find(o => o.optionId === chosenOptionId) || stay.options[0];
+      perPaxDelta += Number(opt?.priceDifference || 0);
+    });
+
+    const newUpgradeTotal = isPerGroup ? perPaxDelta : perPaxDelta * (adults + children);
+    const delta = newUpgradeTotal - (booking.hotelUpgradeTotal || 0);
+    return { newUpgradeTotal, delta };
+  };
+
+  const handleSaveHotelOptions = async () => {
+    if (!booking?.package?.stays) return;
+    setUpdatingHotels(true);
+    try {
+      const payloadOptions: SelectedHotelOption[] = booking.package.stays.map((stay, idx) => {
+        const chosenOptionId = tempSelectedOptions[idx];
+        const opt = stay.options?.find(o => o.optionId === chosenOptionId) || stay.options?.[0];
+        return {
+          stayIndex: idx,
+          stayLocation: stay.stayLocation,
+          optionId: opt?.optionId || 'default',
+          hotelName: opt?.hotelName || stay.hotelName || 'Standard Accommodation',
+          hotelRating: opt?.hotelRating ?? stay.hotelRating,
+          roomType: opt?.roomType || stay.roomType,
+          priceDifferenceApplied: opt?.priceDifference || 0,
+        };
+      });
+
+      const res = await api.put(`/bookings/${id}/hotel-options`, {
+        selectedHotelOptions: payloadOptions,
+      });
+      alert(`Hotel selections updated successfully! Booking price adjusted by ${formatCurrency(res.data?.priceDelta || 0)}.`);
+      setIsEditingHotels(false);
+      fetchBooking();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update hotel selections');
+    } finally {
+      setUpdatingHotels(false);
+    }
+  };
 
   const fetchBooking = useCallback(async () => {
     setLoading(true);
@@ -406,6 +521,211 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
+            {/* Package Accommodations & Hotel Options */}
+            {booking.package?.stays && booking.package.stays.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-cyan-600" />
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Accommodations & Hotels ({booking.package.stays.length})
+                    </p>
+                  </div>
+                  {canUpdate && booking.package.stays.some(s => s.hasOptions && s.options && s.options.length > 1) && (
+                    !isEditingHotels ? (
+                      <button
+                        type="button"
+                        onClick={initEditingHotels}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Edit2 size={12} /> Change Hotel Selection
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingHotels(false)}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {booking.package.stays.map((stay, idx) => {
+                    const selected = booking.selectedHotelOptions?.find(s => s.stayIndex === idx);
+                    const currentChosenOptionId = tempSelectedOptions[idx] || selected?.optionId;
+
+                    return (
+                      <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/60 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 font-bold text-xs flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="text-sm font-bold text-slate-800">{stay.stayLocation}</span>
+                            {stay.nights && (
+                              <span className="text-xs text-slate-400">({stay.nights} {stay.nights > 1 ? "Nights" : "Night"})</span>
+                            )}
+                          </div>
+                          {stay.hasOptions && stay.options && stay.options.length > 1 && (
+                            <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                              {stay.options.length} options available
+                            </span>
+                          )}
+                        </div>
+
+                        {!isEditingHotels ? (
+                          /* View Mode */
+                          <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-200/60">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                                <Building2 size={14} className="text-slate-400" />
+                                {selected?.hotelName || stay.hotelName || "Standard Accommodation"}
+                              </p>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                {(selected?.hotelRating || stay.hotelRating) && (
+                                  <span className="flex items-center gap-1 text-amber-500 font-semibold">
+                                    <Star size={12} className="fill-amber-400 text-amber-400" />
+                                    {selected?.hotelRating || stay.hotelRating} Star
+                                  </span>
+                                )}
+                                {(selected?.roomType || stay.roomType) && (
+                                  <span className="flex items-center gap-1 text-slate-600">
+                                    <BedDouble size={12} className="text-slate-400" />
+                                    {selected?.roomType || stay.roomType}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              {selected && selected.priceDifferenceApplied > 0 ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+                                  +₹{selected.priceDifferenceApplied.toLocaleString()} / person upgrade
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                                  Included (Base Hotel)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          /* Edit Mode for this stay */
+                          <div className="space-y-2 pt-2 border-t border-slate-200">
+                            {stay.hasOptions && stay.options && stay.options.length > 1 ? (
+                              stay.options.map(opt => {
+                                const isSelected = currentChosenOptionId === opt.optionId;
+                                return (
+                                  <label
+                                    key={opt.optionId}
+                                    onClick={() => setTempSelectedOptions(prev => ({ ...prev, [idx]: opt.optionId }))}
+                                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                                      isSelected
+                                        ? "bg-white border-cyan-500 shadow-sm ring-2 ring-cyan-500/20"
+                                        : "bg-white/60 border-slate-200 hover:border-slate-300"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                        isSelected ? "border-cyan-600 bg-cyan-600 text-white" : "border-slate-300"
+                                      }`}>
+                                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                      </div>
+                                      <div>
+                                        <p className="text-sm font-semibold text-slate-800">{opt.hotelName}</p>
+                                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                                          {opt.hotelRating && (
+                                            <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
+                                              <Star size={11} className="fill-amber-400 text-amber-400" />
+                                              {opt.hotelRating} Star
+                                            </span>
+                                          )}
+                                          {opt.roomType && (
+                                            <span className="flex items-center gap-1 text-slate-600">
+                                              <BedDouble size={11} className="text-slate-400" />
+                                              {opt.roomType}
+                                            </span>
+                                          )}
+                                          {opt.description && (
+                                            <span className="text-slate-400 truncate max-w-xs">{opt.description}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      {opt.priceDifference > 0 ? (
+                                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+                                          +₹{opt.priceDifference.toLocaleString()} / person
+                                        </span>
+                                      ) : (
+                                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                                          Included (₹0)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </label>
+                                );
+                              })
+                            ) : (
+                              <p className="text-xs text-slate-500 italic">No alternative hotel options for this location.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Edit Mode Summary and Action Bar */}
+                {isEditingHotels && (
+                  <div className="mt-5 pt-4 border-t border-slate-200 bg-cyan-50/60 -mx-5 -mb-5 p-5 rounded-b-2xl">
+                    {(() => {
+                      const { newUpgradeTotal, delta } = calculatePreviewDifference();
+                      return (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="space-y-1 text-center sm:text-left">
+                            <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                              Price Recalculation Preview
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              New Hotel Upgrade Total: <span className="font-bold text-slate-800">{formatCurrency(newUpgradeTotal)}</span>
+                              {" "}• Net Price Delta:{" "}
+                              <span className={`font-bold ${delta > 0 ? "text-indigo-600" : delta < 0 ? "text-emerald-600" : "text-slate-600"}`}>
+                                {delta > 0 ? `+${formatCurrency(delta)}` : formatCurrency(delta)}
+                              </span>
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              New Booking Total: <span className="font-extrabold text-cyan-800">{formatCurrency(booking.totalAmount + delta)}</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingHotels(false)}
+                              disabled={updatingHotels}
+                              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveHotelOptions}
+                              disabled={updatingHotels}
+                              className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              {updatingHotels ? "Updating..." : "Save Selection"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Primary Traveller */}
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Primary Traveller</p>
@@ -566,6 +886,14 @@ export default function BookingDetailPage() {
                   <span className="text-sm text-slate-500">Total Amount</span>
                   <span className="text-sm font-bold text-slate-800">{formatCurrency(booking.totalAmount)}</span>
                 </div>
+                {booking.hotelUpgradeTotal !== undefined && booking.hotelUpgradeTotal > 0 && (
+                  <div className="flex justify-between items-center text-xs text-indigo-700 bg-indigo-50 px-2.5 py-1.5 rounded-lg border border-indigo-100">
+                    <span className="font-medium flex items-center gap-1.5">
+                      <Building2 size={13} /> Hotel Upgrades
+                    </span>
+                    <span className="font-bold">+{formatCurrency(booking.hotelUpgradeTotal)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-500">Amount Paid</span>
                   <span className="text-sm font-semibold text-emerald-600">{formatCurrency(booking.paidAmount || 0)}</span>
