@@ -103,11 +103,11 @@ export default function NewCustomItineraryPage() {
   const [priceUnit, setPriceUnit] = useState("person");
   const [extraPersonPrice, setExtraPersonPrice] = useState("");
   const [gstIncluded, setGstIncluded] = useState(true);
-  const [gstRate, setGstRate] = useState("5");
+  const [gstRate, setGstRate] = useState("");
   const [gstAmount, setGstAmount] = useState("");
 
   const [tcsIncluded, setTcsIncluded] = useState(false);
-  const [tcsRate, setTcsRate] = useState("5");
+  const [tcsRate, setTcsRate] = useState("");
   const [tcsAmount, setTcsAmount] = useState("");
 
   // Inclusive Tax Math (GST + Overseas TCS):
@@ -441,20 +441,24 @@ export default function NewCustomItineraryPage() {
   const totalPackagePriceVal = parseFloat(price) || 0;
   const isItemizedCostExceeded = totalPackagePriceVal > 0 && totalItemizedCost > totalPackagePriceVal;
 
-  const currentGstRateNum = gstIncluded ? (parseFloat(gstRate) || 0) : 0;
-  const currentTcsRateNum = (isInternational && tcsIncluded) ? (parseFloat(tcsRate) || 0) : 0;
+  const currentGstRateNum = (gstIncluded && gstRate !== "" && !isNaN(parseFloat(gstRate)) && parseFloat(gstRate) > 0)
+    ? parseFloat(gstRate)
+    : 0;
+  const currentTcsRateNum = (isInternational && tcsIncluded && tcsRate !== "" && !isNaN(parseFloat(tcsRate)) && parseFloat(tcsRate) > 0)
+    ? parseFloat(tcsRate)
+    : 0;
 
-  const autoTaxResult = totalPackagePriceVal > 0
+  const autoTaxResult = (totalPackagePriceVal > 0 && (currentGstRateNum > 0 || currentTcsRateNum > 0))
     ? calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, currentTcsRateNum)
     : { basePrice: totalPackagePriceVal, gstAmount: 0, tcsAmount: 0 };
 
-  const autoGstAmount = gstIncluded && currentGstRateNum > 0 ? autoTaxResult.gstAmount : 0;
-  const effectiveGstAmountNum = gstIncluded
+  const autoGstAmount = (gstIncluded && currentGstRateNum > 0) ? autoTaxResult.gstAmount : 0;
+  const effectiveGstAmountNum = (gstIncluded && currentGstRateNum > 0)
     ? (gstAmount !== "" && !isNaN(parseFloat(gstAmount)) ? parseFloat(gstAmount) : autoGstAmount)
     : 0;
 
   const autoTcsAmount = (isInternational && tcsIncluded && currentTcsRateNum > 0) ? autoTaxResult.tcsAmount : 0;
-  const effectiveTcsAmountNum = (isInternational && tcsIncluded)
+  const effectiveTcsAmountNum = (isInternational && tcsIncluded && currentTcsRateNum > 0)
     ? (tcsAmount !== "" && !isNaN(parseFloat(tcsAmount)) ? parseFloat(tcsAmount) : autoTcsAmount)
     : 0;
 
@@ -467,12 +471,12 @@ export default function NewCustomItineraryPage() {
     const r = parseFloat(val) || 0;
     if (gstIncluded && totalPackagePriceVal > 0 && r > 0) {
       const calc = calcInclusiveTaxes(totalPackagePriceVal, r, currentTcsRateNum);
-      setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
+      setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "");
       if (isInternational && tcsIncluded && currentTcsRateNum > 0) {
-        setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+        setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "");
       }
     } else {
-      setGstAmount("0");
+      setGstAmount("");
     }
   };
 
@@ -483,9 +487,9 @@ export default function NewCustomItineraryPage() {
   const handleRecalculateGst = () => {
     if (gstIncluded && totalPackagePriceVal > 0 && currentGstRateNum > 0) {
       const calc = calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, currentTcsRateNum);
-      setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
+      setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "");
     } else {
-      setGstAmount("0");
+      setGstAmount("");
     }
   };
 
@@ -494,12 +498,12 @@ export default function NewCustomItineraryPage() {
     const r = parseFloat(val) || 0;
     if (isInternational && tcsIncluded && totalPackagePriceVal > 0 && r > 0) {
       const calc = calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, r);
-      setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+      setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "");
       if (gstIncluded && currentGstRateNum > 0) {
-        setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
+        setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "");
       }
     } else {
-      setTcsAmount("0");
+      setTcsAmount("");
     }
   };
 
@@ -510,9 +514,9 @@ export default function NewCustomItineraryPage() {
   const handleRecalculateTcs = () => {
     if (isInternational && tcsIncluded && totalPackagePriceVal > 0 && currentTcsRateNum > 0) {
       const calc = calcInclusiveTaxes(totalPackagePriceVal, currentGstRateNum, currentTcsRateNum);
-      setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+      setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "");
     } else {
-      setTcsAmount("0");
+      setTcsAmount("");
     }
   };
 
@@ -520,12 +524,23 @@ export default function NewCustomItineraryPage() {
     setPrice(val);
     const p = parseFloat(val);
     if (!isNaN(p) && p > 0) {
-      const calc = calcInclusiveTaxes(p, gstIncluded ? (parseFloat(gstRate) || 0) : 0, (isInternational && tcsIncluded) ? (parseFloat(tcsRate) || 0) : 0);
-      if (gstIncluded && parseFloat(gstRate) > 0) {
-        setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "0");
-      }
-      if (isInternational && tcsIncluded && parseFloat(tcsRate) > 0) {
-        setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "0");
+      const r = gstIncluded ? (parseFloat(gstRate) || 0) : 0;
+      const tr = (isInternational && tcsIncluded) ? (parseFloat(tcsRate) || 0) : 0;
+      if (r > 0 || tr > 0) {
+        const calc = calcInclusiveTaxes(p, r, tr);
+        if (gstIncluded && r > 0) {
+          setGstAmount(calc.gstAmount > 0 ? (Math.round(calc.gstAmount * 100) / 100).toFixed(2) : "");
+        } else {
+          setGstAmount("");
+        }
+        if (isInternational && tcsIncluded && tr > 0) {
+          setTcsAmount(calc.tcsAmount > 0 ? (Math.round(calc.tcsAmount * 100) / 100).toFixed(2) : "");
+        } else {
+          setTcsAmount("");
+        }
+      } else {
+        setGstAmount("");
+        setTcsAmount("");
       }
       if (originalPrice && parseFloat(originalPrice) > p) {
         const op = parseFloat(originalPrice);
@@ -877,11 +892,11 @@ export default function NewCustomItineraryPage() {
         priceUnit,
         extraPersonPrice: extraPersonPrice ? Number(extraPersonPrice) : 0,
         gstIncluded,
-        gstRate: gstIncluded ? (gstRate !== "" ? Number(gstRate) : 0) : 0,
-        gstAmount: (gstIncluded && effectiveGstAmountNum > 0) ? Number(effectiveGstAmountNum.toFixed(2)) : undefined,
+        gstRate: (gstIncluded && currentGstRateNum > 0) ? currentGstRateNum : 0,
+        gstAmount: (gstIncluded && currentGstRateNum > 0 && effectiveGstAmountNum > 0) ? Number(effectiveGstAmountNum.toFixed(2)) : undefined,
         tcsIncluded: isInternational ? tcsIncluded : false,
-        tcsRate: (isInternational && tcsIncluded) ? (tcsRate !== "" ? Number(tcsRate) : 0) : 0,
-        tcsAmount: (isInternational && tcsIncluded && effectiveTcsAmountNum > 0) ? Number(effectiveTcsAmountNum.toFixed(2)) : undefined,
+        tcsRate: (isInternational && tcsIncluded && currentTcsRateNum > 0) ? currentTcsRateNum : 0,
+        tcsAmount: (isInternational && tcsIncluded && currentTcsRateNum > 0 && effectiveTcsAmountNum > 0) ? Number(effectiveTcsAmountNum.toFixed(2)) : undefined,
         showOnDestination,
         keyPoints, highlights, inclusions, exclusions, knowBeforeYouGo, thingsToCarry,
         paymentPolicy, cancellationPolicy, flightCancellationPolicy,
@@ -1732,17 +1747,22 @@ export default function NewCustomItineraryPage() {
                           <input
                             type="number"
                             step="0.01"
-                            value={gstAmount}
+                            value={currentGstRateNum > 0 ? gstAmount : ""}
                             onChange={(e) => setGstAmount(e.target.value)}
-                            placeholder={autoGstAmount > 0 ? autoGstAmount.toFixed(2) : "0.00"}
-                            className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-900"
+                            disabled={currentGstRateNum <= 0}
+                            placeholder={currentGstRateNum > 0 ? (autoGstAmount > 0 ? autoGstAmount.toFixed(2) : "0.00") : "Included in price (no amount)"}
+                            className={`w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none font-bold ${
+                              currentGstRateNum > 0
+                                ? "bg-white text-slate-900 focus:ring-2 focus:ring-sky-500"
+                                : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                            }`}
                           />
                         </div>
                         <p className="text-[11px] text-slate-500 mt-1">
                           {currentGstRateNum > 0 ? (
                             <>Formula: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">Base × {currentGstRateNum}%</code></>
                           ) : (
-                            'Optional custom amount or leave 0 for flat inclusion'
+                            'Disabled for flat inclusion (no separate amount displayed on PDF)'
                           )}
                         </p>
                       </div>
@@ -1755,34 +1775,39 @@ export default function NewCustomItineraryPage() {
                           <span>Tax Breakdown Preview (Per {priceUnit}):</span>
                           <span className="text-emerald-700 font-bold">Total (Inclusive): ₹{totalPackagePriceVal.toLocaleString("en-IN")}</span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
-                          <div>
-                            <span className="text-slate-500 block">Base (Taxable Value):</span>
-                            <strong className="text-slate-800">
-                              ₹{effectiveBasePriceNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </strong>
+                        {currentGstRateNum > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                            <div>
+                              <span className="text-slate-500 block">Base (Taxable Value):</span>
+                              <strong className="text-slate-800">
+                                ₹{effectiveBasePriceNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">
+                                Inclusive GST ({currentGstRateNum}%):
+                              </span>
+                              <strong className="text-emerald-700">
+                                {effectiveGstAmountNum > 0
+                                  ? `₹${effectiveGstAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : "Included in Package"}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Split (CGST + SGST):</span>
+                              <span className="text-slate-700">
+                                {(currentGstRateNum / 2).toFixed(1)}% (₹{(effectiveGstAmountNum / 2).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) each
+                              </span>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-slate-500 block">
-                              Inclusive GST {currentGstRateNum > 0 ? `(${currentGstRateNum}%)` : "(Included)"}:
-                            </span>
-                            <strong className="text-emerald-700">
-                              {effectiveGstAmountNum > 0
-                                ? `₹${effectiveGstAmountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                : "Included in Package"}
-                            </strong>
+                        ) : (
+                          <div className="py-1 text-[11px] text-slate-600 flex items-center justify-between">
+                            <span>Flat GST Position:</span>
+                            <strong className="text-emerald-700 font-semibold">✓ "GST Included" (No separate rate or numeric amount shown on PDF)</strong>
                           </div>
-                          <div>
-                            <span className="text-slate-500 block">Split (CGST + SGST):</span>
-                            <span className="text-slate-700">
-                              {currentGstRateNum > 0
-                                ? `${(currentGstRateNum / 2).toFixed(1)}% (₹${(effectiveGstAmountNum / 2).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) each`
-                                : "Included (no separate split)"}
-                            </span>
-                          </div>
-                        </div>
+                        )}
                         <p className="text-[10px] text-slate-500 pt-1">
-                          ✓ {currentGstRateNum > 0 ? `Bifurcation row and badge will display ${currentGstRateNum}% GST Included.` : 'Bifurcation row and badge will display "GST Included" (no 0% shown).'}
+                          ✓ {currentGstRateNum > 0 ? `Bifurcation row and badge will display ${currentGstRateNum}% GST Included.` : 'Bifurcation row and badge will display "GST Included" without any rupee amount.'}
                         </p>
                       </div>
                     )}
@@ -1898,17 +1923,22 @@ export default function NewCustomItineraryPage() {
                             <input
                               type="number"
                               step="0.01"
-                              value={tcsAmount}
+                              value={currentTcsRateNum > 0 ? tcsAmount : ""}
                               onChange={(e) => setTcsAmount(e.target.value)}
-                              placeholder={autoTcsAmount > 0 ? autoTcsAmount.toFixed(2) : "0.00"}
-                              className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-900"
+                              disabled={currentTcsRateNum <= 0}
+                              placeholder={currentTcsRateNum > 0 ? (autoTcsAmount > 0 ? autoTcsAmount.toFixed(2) : "0.00") : "Included in price (no amount)"}
+                              className={`w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none font-bold ${
+                                currentTcsRateNum > 0
+                                  ? "bg-white text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                              }`}
                             />
                           </div>
                           <p className="text-[11px] text-slate-500 mt-1">
                             {currentTcsRateNum > 0 ? (
                               <>Formula: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">Base × {currentTcsRateNum}%</code></>
                             ) : (
-                              'Optional custom amount or leave 0 for flat inclusion'
+                              'Disabled for flat inclusion (no separate amount displayed on PDF)'
                             )}
                           </p>
                         </div>

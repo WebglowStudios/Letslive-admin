@@ -1243,19 +1243,19 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
     : priceVal;
 
   let gstAmountVal = 0;
-  if (isGstIncluded) {
+  if (isGstIncluded && hasExplicitGstRate) {
     if (pkg.gstAmount != null && !isNaN(Number(pkg.gstAmount)) && Number(pkg.gstAmount) > 0) {
       gstAmountVal = Number(pkg.gstAmount);
-    } else if (hasExplicitGstRate) {
+    } else {
       gstAmountVal = Math.max(0, basePriceVal * (effectiveGstRate / 100));
     }
   }
 
   let tcsAmountVal = 0;
-  if (isTcsIncluded) {
+  if (isTcsIncluded && hasExplicitTcsRate) {
     if (pkg.tcsAmount != null && !isNaN(Number(pkg.tcsAmount)) && Number(pkg.tcsAmount) > 0) {
       tcsAmountVal = Number(pkg.tcsAmount);
-    } else if (hasExplicitTcsRate) {
+    } else {
       tcsAmountVal = Math.max(0, basePriceVal * (effectiveTcsRate / 100));
     }
   }
@@ -1777,7 +1777,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                 )}
               </View>
               <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
-                {gstAmountVal > 0 ? (
+                {hasExplicitGstRate && gstAmountVal > 0 ? (
                   <>
                     <RupeeIcon color="#00833e" size={7.5} />
                     <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e" }}>
@@ -1821,7 +1821,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                 </Text>
               </View>
               <View style={{ width: 130, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
-                {tcsAmountVal > 0 ? (
+                {hasExplicitTcsRate && tcsAmountVal > 0 ? (
                   <>
                     <RupeeIcon color="#00833e" size={7.5} />
                     <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e" }}>
