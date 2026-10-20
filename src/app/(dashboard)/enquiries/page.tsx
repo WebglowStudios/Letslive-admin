@@ -590,7 +590,7 @@ function EnquiriesContent() {
                   onClick={() => setShowImportCsv(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs transition-colors"
                 >
-                  <Upload size={13} /> Import CSV
+                  <Upload size={13} /> Import Excel / CSV
                 </button>
                 <a
                   href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/enquiries/export`}
