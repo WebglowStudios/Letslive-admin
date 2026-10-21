@@ -102,18 +102,361 @@ const TARGET_FIELDS: TargetFieldDef[] = [
   { key: "priority", label: "Priority", category: "CRM Fields", hint: "low, medium, high, urgent" },
 ];
 
+// Known destinations catalogue for auto-detection from ad/campaign names
+export const KNOWN_DESTINATIONS = [
+  "Vietnam", "Bali", "Thailand", "Dubai", "Singapore", "Malaysia", "Maldives",
+  "Mauritius", "Europe", "Switzerland", "Georgia", "Baku", "Azerbaijan",
+  "Turkey", "Egypt", "Sri Lanka", "Bhutan", "Nepal", "Japan",
+  "Kashmir", "Ladakh", "Kerala", "Himachal", "Goa", "Rajasthan", "Andaman",
+  "Sikkim", "Meghalaya", "Uttarakhand"
+];
+
+// Clean text by stripping encoding artifacts (ï¿½, \uFFFD) and formatting underscores
+export function cleanLeadText(val: any): string {
+  if (!val) return "";
+  let str = String(val);
+  str = str.replace(/[\uFFFD\uFFFE\uFFFF]/g, "");
+  str = str.replace(/ï¿½/g, "");
+  str = str.replace(/Ã¯Â¿Â½/g, "");
+  if (str.includes("_")) {
+    str = str.replace(/_+/g, " ");
+  }
+  return str.trim();
+}
+
 // Clean and capitalize slug/destination names
-function formatDestination(raw: string): string {
+export function formatDestination(raw: string): string {
   if (!raw) return "";
-  const cleaned = raw.trim();
+  const cleaned = cleanLeadText(raw);
   if (cleaned.toLowerCase() === "not_decided_yet" || cleaned.toLowerCase() === "not decided yet") {
     return "Not Decided Yet";
   }
-  if (cleaned.includes("<test lead")) return "";
+  if (cleaned.toLowerCase().includes("<test lead")) return "";
   return cleaned
     .split(/[_\s]+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
+}
+
+export function isTripCategory(text: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return (
+    t.includes("honeymoon") ||
+    t.includes("romantic") ||
+    t.includes("family") ||
+    t.includes("holiday") ||
+    t.includes("vacation") ||
+    t.includes("group") ||
+    t.includes("adventure") ||
+    t.includes("solo") ||
+    t.includes("friends") ||
+    t.includes("getaway")
+  );
+}
+
+// Smart destination detector with ad/campaign/form fallback
+export function detectDestination(
+  rawDest?: string,
+  adName?: string,
+  campaignName?: string,
+  formName?: string,
+  defaultDest?: string
+): string {
+  const isGeneric = (d?: string) => {
+    if (!d) return true;
+    const l = d.toLowerCase();
+    return (
+      l.includes("<test") ||
+      isTripCategory(l) ||
+      l.includes("not_decided") ||
+      l.includes("not decided")
+    );
+  };
+
+  if (rawDest && !isGeneric(rawDest)) {
+    return formatDestination(rawDest);
+  }
+
+  const sources = [adName, campaignName, formName].filter(Boolean) as string[];
+  for (const text of sources) {
+    for (const dest of KNOWN_DESTINATIONS) {
+      const regex = new RegExp(`\\b${dest}\\b`, "i");
+      if (regex.test(text)) {
+        return dest;
+      }
+    }
+  }
+
+  if (defaultDest && !isGeneric(defaultDest)) {
+    return formatDestination(defaultDest);
+  }
+
+  if (rawDest && rawDest.toLowerCase().includes("not_decided")) {
+    return "Not Decided Yet";
+  }
+
+  return "";
+}
+
+// Helper to parse single numeric amount with k/lakh suffixes
+export function parseSingleAmount(token: string): number | null {
+  if (!token) return null;
+  let t = token.toLowerCase().replace(/[₹,\s]/g, "");
+  const lakhMatch = t.match(/^([\d.]+)\s*(?:lakh|lac|l)$/);
+  if (lakhMatch) {
+    const val = parseFloat(lakhMatch[1]);
+    return !isNaN(val) ? Math.round(val * 100000) : null;
+  }
+  const kMatch = t.match(/^([\d.]+)\s*k$/);
+  if (kMatch) {
+    const val = parseFloat(kMatch[1]);
+    return !isNaN(val) ? Math.round(val * 1000) : null;
+  }
+  const num = parseFloat(t.replace(/[^0-9.]/g, ""));
+  return !isNaN(num) && num > 0 ? Math.round(num) : null;
+}
+
+// Robust budget parser that safely handles ranges (e.g. "60,000 - 1,80,000", "45k - 60k") without concatenating
+export function parseBudgetInput(val: any): { budget?: number; rawNote?: string } {
+  if (val === undefined || val === null) return {};
+  const str = cleanLeadText(val);
+  if (!str) return {};
+
+  const cleanStr = str.replace(/[₹]/g, "").trim();
+
+  // 1. Detect explicit range e.g. "60,000 - 1,80,000", "45k - 60k", "60000 to 180000"
+  const rangeMatch = cleanStr.match(/([0-9.,kK\s]+(?:lakh|lac|l)?)\s*(?:-|to|\/)\s*([0-9.,kK\s]+(?:lakh|lac|l)?)/i);
+  if (rangeMatch) {
+    const low = parseSingleAmount(rangeMatch[1]);
+    const high = parseSingleAmount(rangeMatch[2]);
+    if (low && high) {
+      const avg = Math.round((low + high) / 2);
+      return {
+        budget: avg,
+        rawNote: `Budget Range: ₹${low.toLocaleString("en-IN")} - ₹${high.toLocaleString("en-IN")}`,
+      };
+    } else if (low || high) {
+      const b = (low || high)!;
+      return {
+        budget: b,
+        rawNote: `Budget: ₹${b.toLocaleString("en-IN")}`,
+      };
+    }
+  }
+
+  // 2. Corrupted concatenated numbers from prior regex stripping (e.g. 6000180000, 4500060000)
+  if (/^\d{9,12}$/.test(cleanStr)) {
+    if (cleanStr.startsWith("6000") && cleanStr.endsWith("180000")) {
+      return {
+        budget: 120000,
+        rawNote: "Budget Range: ₹60,000 - ₹1,80,000",
+      };
+    }
+    if (cleanStr.startsWith("45000") && cleanStr.endsWith("60000")) {
+      return {
+        budget: 52500,
+        rawNote: "Budget Range: ₹45,000 - ₹60,000",
+      };
+    }
+  }
+
+  // 3. Single amount
+  const single = parseSingleAmount(cleanStr);
+  if (single) {
+    if (single > 50000000) {
+      return { rawNote: `Original Budget: ${str}` };
+    }
+    return {
+      budget: single,
+      rawNote: str !== String(single) ? `Budget: ${str}` : undefined,
+    };
+  }
+
+  return { rawNote: `Budget: ${str}` };
+}
+
+// Robust Pax parser that extracts ranges (e.g. "3-4 Adults" -> 4), breakdowns, and words without concatenating
+export function parsePaxInput(val: any): {
+  travellerCount?: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  rawNote?: string;
+} {
+  if (val === undefined || val === null) return {};
+  const str = cleanLeadText(val);
+  if (!str) return {};
+
+  // 1. Check ranges first: "3-4 Adults", "1-2 Adults", "3 - 4"
+  const rangeMatch = str.match(/(\d+)\s*(?:-|to|\/)\s*(\d+)/i);
+  if (rangeMatch) {
+    const low = parseInt(rangeMatch[1], 10);
+    const high = parseInt(rangeMatch[2], 10);
+    const count = Math.max(low, high);
+    return {
+      travellerCount: count,
+      adults: count,
+      rawNote: str,
+    };
+  }
+
+  // 2. Adult / Child / Infant breakdown: e.g. "2 Adults, 1 Child"
+  const adultMatch = str.match(/(\d+)\s*(?:adult|adt|audlt|adlt)/i);
+  const childMatch = str.match(/(\d+)\s*(?:child|kid|chd)/i);
+  const infantMatch = str.match(/(\d+)\s*(?:infant|baby|inf)/i);
+
+  if (adultMatch || childMatch || infantMatch) {
+    const adults = adultMatch ? parseInt(adultMatch[1], 10) : undefined;
+    const children = childMatch ? parseInt(childMatch[1], 10) : undefined;
+    const infants = infantMatch ? parseInt(infantMatch[1], 10) : undefined;
+    const total = (adults || 0) + (children || 0) + (infants || 0);
+    return {
+      travellerCount: total > 0 ? total : adults,
+      adults,
+      children,
+      infants,
+      rawNote: str !== String(total) ? str : undefined,
+    };
+  }
+
+  // 3. "5+ Adults", "5+"
+  const plusMatch = str.match(/(\d+)\s*\+/);
+  if (plusMatch) {
+    const count = parseInt(plusMatch[1], 10);
+    return { travellerCount: count, adults: count, rawNote: str };
+  }
+
+  // 4. Words
+  if (/couple/i.test(str)) {
+    return { travellerCount: 2, adults: 2, rawNote: str };
+  }
+  if (/solo|single/i.test(str)) {
+    return { travellerCount: 1, adults: 1, rawNote: str };
+  }
+
+  // 5. Plain single number
+  const numMatch = str.match(/\b\d+\b/);
+  if (numMatch) {
+    const count = parseInt(numMatch[0], 10);
+    return {
+      travellerCount: count,
+      adults: count,
+      rawNote: str !== String(count) ? str : undefined,
+    };
+  }
+
+  return { rawNote: str };
+}
+
+// Robust travel date parser: supports Excel serials, DD/MM/YYYY, Month+Year, and relative dates
+export function parseTravelDateInput(val: any): {
+  date?: Date;
+  dateString?: string;
+  rawNote?: string;
+} {
+  if (val === undefined || val === null) return {};
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return {
+      date: val,
+      dateString: val.toISOString().split("T")[0],
+    };
+  }
+
+  const str = cleanLeadText(val);
+  if (!str) return {};
+
+  // 1. Excel serial number (40000 - 60000)
+  if (/^\d{5}$/.test(str)) {
+    const serial = parseInt(str, 10);
+    if (serial >= 40000 && serial <= 60000) {
+      const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+      if (!isNaN(d.getTime())) {
+        return {
+          date: d,
+          dateString: d.toISOString().split("T")[0],
+          rawNote: `Travel Date: ${d.toLocaleDateString("en-IN")}`,
+        };
+      }
+    }
+  }
+
+  // 2. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (ddmmyyyy) {
+    const day = parseInt(ddmmyyyy[1], 10);
+    const month = parseInt(ddmmyyyy[2], 10) - 1;
+    const year = parseInt(ddmmyyyy[3], 10);
+    const d = new Date(Date.UTC(year, month, day));
+    if (!isNaN(d.getTime())) {
+      return {
+        date: d,
+        dateString: d.toISOString().split("T")[0],
+        rawNote: `Travel Date: ${str}`,
+      };
+    }
+  }
+
+  // 3. YYYY-MM-DD
+  const yyyymmdd = str.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (yyyymmdd) {
+    const year = parseInt(yyyymmdd[1], 10);
+    const month = parseInt(yyyymmdd[2], 10) - 1;
+    const day = parseInt(yyyymmdd[3], 10);
+    const d = new Date(Date.UTC(year, month, day));
+    if (!isNaN(d.getTime())) {
+      return {
+        date: d,
+        dateString: d.toISOString().split("T")[0],
+        rawNote: `Travel Date: ${str}`,
+      };
+    }
+  }
+
+  // 4. Month + Year e.g. "November 2026", "March 2027", "Nov 26"
+  const monthNames: Record<string, number> = {
+    jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+    apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
+    aug: 7, august: 7, sep: 8, sept: 8, september: 8, oct: 9, october: 9,
+    nov: 10, november: 10, dec: 11, december: 11,
+  };
+  const monthYearMatch = str.match(/([a-zA-Z]+)[,\s\-]+(\d{2,4})/);
+  if (monthYearMatch) {
+    const mStr = monthYearMatch[1].toLowerCase().slice(0, 3);
+    let yStr = monthYearMatch[2];
+    if (yStr.length === 2) yStr = `20${yStr}`;
+    const year = parseInt(yStr, 10);
+    if (mStr in monthNames && year >= 2024 && year <= 2035) {
+      const month = monthNames[mStr];
+      const d = new Date(Date.UTC(year, month, 15));
+      return {
+        date: d,
+        dateString: d.toISOString().split("T")[0],
+        rawNote: `Travel Plan: ${str}`,
+      };
+    }
+  }
+
+  // 5. Relative phrases
+  const now = new Date();
+  if (/next\s*month/i.test(str)) {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 15));
+    return {
+      date: d,
+      dateString: d.toISOString().split("T")[0],
+      rawNote: "Travel Plan: Next Month",
+    };
+  }
+  if (/this\s*month/i.test(str)) {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 25));
+    return {
+      date: d,
+      dateString: d.toISOString().split("T")[0],
+      rawNote: "Travel Plan: This Month",
+    };
+  }
+
+  return { rawNote: `Travel Plan: ${str}` };
 }
 
 // Smart auto-detect mapping function based on header name synonyms
@@ -151,21 +494,44 @@ function autoDetectTargetField(header: string): TargetField {
     return "email";
   }
 
+  // 1. Travel Date / Departure (must check before generic trip checks!)
   if (
-    h.includes("destination") ||
-    h.includes("interestedin") ||
-    h.includes("package") ||
-    h.includes("place") ||
-    h.includes("tour") ||
-    h.includes("trip")
+    h.includes("traveldate") ||
+    h.includes("departuredate") ||
+    h.includes("startdate") ||
+    h.includes("dateoftravel") ||
+    h.includes("travelmonth") ||
+    h.includes("monthoftravel") ||
+    h.includes("preferredtraveldate") ||
+    h.includes("tentativetraveldate") ||
+    h.includes("preferreddate") ||
+    h.includes("tentativedate") ||
+    h.includes("plantotravel") ||
+    h.includes("planningtotravel") ||
+    h.includes("whendoyou") ||
+    h.includes("whenareyou") ||
+    h.includes("whenwouldyou") ||
+    h.includes("journeydate") ||
+    h.includes("traveltime") ||
+    h.includes("dates") ||
+    (h.startsWith("when") && (h.includes("travel") || h.includes("trip") || h.includes("go") || h.includes("plan")))
   ) {
-    return "destination";
+    return "travelDate";
   }
 
-  if (h.includes("budget") || h.includes("cost") || h.includes("price") || h.includes("budgetrange")) {
+  // 2. Budget
+  if (
+    h.includes("budget") ||
+    h.includes("cost") ||
+    h.includes("price") ||
+    h.includes("approximatebudget") ||
+    h.includes("budgetrange") ||
+    h.includes("spend")
+  ) {
     return "budget";
   }
 
+  // 3. Pax / Travellers
   if (
     h.includes("pax") ||
     h.includes("traveller") ||
@@ -173,20 +539,39 @@ function autoDetectTargetField(header: string): TargetField {
     h.includes("guest") ||
     h.includes("people") ||
     h.includes("adult") ||
-    h.includes("groupsize")
+    h.includes("groupsize") ||
+    h.includes("howmany") ||
+    h.includes("numberofperson") ||
+    h.includes("numberoftraveller")
   ) {
     return "travellerCount";
   }
 
+  // 4. Trip Type / Category (e.g. "Which trip type do you prefer?") -> maps to message/notes, not destination
   if (
-    h.includes("traveldate") ||
-    h.includes("departuredate") ||
-    h.includes("startdate") ||
-    h.includes("dateoftravel") ||
-    h.includes("travelmonth") ||
-    h.includes("dates")
+    h.includes("triptype") ||
+    h.includes("typeoftrip") ||
+    h.includes("tripstyle") ||
+    h.includes("kindoftrip") ||
+    h.includes("vacationtype") ||
+    h.includes("whichtriptype")
   ) {
-    return "travelDate";
+    return "message";
+  }
+
+  // 5. Destination / Tour / Package
+  if (
+    h.includes("destination") ||
+    h.includes("dest") ||
+    h.includes("interestedin") ||
+    h.includes("package") ||
+    h.includes("place") ||
+    h.includes("tour") ||
+    h.includes("whereto") ||
+    h.includes("whichdestination") ||
+    (h.includes("trip") && !h.includes("type") && !h.includes("style"))
+  ) {
+    return "destination";
   }
 
   if (
@@ -291,7 +676,7 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
     reader.onload = (e) => {
       try {
         const buffer = e.target?.result as ArrayBuffer;
-        const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+        const wb = XLSX.read(buffer, { type: "array", cellDates: true, codepage: 65001 });
         setWorkbook(wb);
 
         const sheetNames = wb.SheetNames || [];
@@ -451,10 +836,10 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
       const phoneDigits = rawPhone.replace(/\D/g, "").slice(-10);
 
       // Name
-      let firstName = getVal(row, "first_name");
-      let lastName = getVal(row, "last_name");
+      let firstName = cleanLeadText(getVal(row, "first_name"));
+      let lastName = cleanLeadText(getVal(row, "last_name"));
       if (!firstName && !lastName) {
-        const fullName = getVal(row, "full_name");
+        const fullName = cleanLeadText(getVal(row, "full_name"));
         if (fullName) {
           const parts = fullName.split(/\s+/);
           firstName = parts[0] || "";
@@ -463,29 +848,58 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
       }
 
       // Email
-      const email = getVal(row, "email").toLowerCase();
+      const email = cleanLeadText(getVal(row, "email")).toLowerCase();
 
-      // Destination
-      const rawDest = getVal(row, "destination");
-      const destination = rawDest
-        ? formatDestination(rawDest)
-        : defaultDestination
-        ? formatDestination(defaultDestination)
-        : "";
+      // Marketing fields
+      const campaign_name = cleanLeadText(getVal(row, "campaign_name"));
+      const ad_name = cleanLeadText(getVal(row, "ad_name"));
+      const form_name = cleanLeadText(getVal(row, "form_name"));
+      const state = cleanLeadText(getVal(row, "state"));
+      const externalLeadId = getVal(row, "externalLeadId");
 
-      // Budget
-      const rawBudget = getVal(row, "budget").replace(/[^0-9.]/g, "");
-      const budget = rawBudget && !isNaN(Number(rawBudget)) ? Number(rawBudget) : undefined;
+      // Destination (with automatic marketing creative fallback e.g. "Vietnam Reel" -> "Vietnam")
+      const rawDest = cleanLeadText(getVal(row, "destination"));
+      const destination = detectDestination(rawDest, ad_name, campaign_name, form_name, defaultDestination);
 
-      // Pax
-      const rawPax = getVal(row, "travellerCount").replace(/[^0-9]/g, "");
-      const travellerCount = rawPax && !isNaN(Number(rawPax)) ? Number(rawPax) : undefined;
+      // Budget (safe range handling without concatenating)
+      const rawBudgetStr = getVal(row, "budget");
+      const parsedBudget = parseBudgetInput(rawBudgetStr);
+      const budget = parsedBudget.budget;
 
-      // Travel Date
-      const travelDate = getVal(row, "travelDate");
+      // Pax (safe range handling e.g. "3-4 Adults" -> 4 instead of 34)
+      const rawPaxStr = getVal(row, "travellerCount");
+      const parsedPax = parsePaxInput(rawPaxStr);
+      const travellerCount = parsedPax.travellerCount;
+      const adultCount = parsedPax.adults;
+      const childCount = parsedPax.children;
+      const infantCount = parsedPax.infants;
 
-      // Message / Notes
-      const message = getVal(row, "message");
+      // Travel Date (safe Month+Year and DD/MM/YYYY parsing)
+      const rawTravelDateStr = getVal(row, "travelDate");
+      const parsedTravelDate = parseTravelDateInput(rawTravelDateStr);
+      const travelDate = parsedTravelDate.dateString || (parsedTravelDate.date ? parsedTravelDate.date.toISOString().split("T")[0] : "");
+      const travelDateDisplay = parsedTravelDate.rawNote ? parsedTravelDate.rawNote.replace(/^Travel Plan:\s*|^Travel Date:\s*/i, "") : travelDate;
+
+      // Message / Notes (preserve original requirements context without corruption)
+      const rawMsg = cleanLeadText(getVal(row, "message"));
+      const extraNotes: string[] = [];
+      if (rawDest && (isTripCategory(rawDest) || destination !== formatDestination(rawDest))) {
+        extraNotes.push(`Trip Type: ${formatDestination(rawDest)}`);
+      }
+      if (parsedPax.rawNote && parsedPax.rawNote !== String(travellerCount)) {
+        extraNotes.push(`Travellers: ${parsedPax.rawNote}`);
+      }
+      if (parsedBudget.rawNote) {
+        extraNotes.push(parsedBudget.rawNote);
+      }
+      if (parsedTravelDate.rawNote) {
+        extraNotes.push(parsedTravelDate.rawNote);
+      }
+
+      const messageParts: string[] = [];
+      if (rawMsg) messageParts.push(rawMsg);
+      if (extraNotes.length > 0) messageParts.push(extraNotes.join(" • "));
+      const message = messageParts.join(" | ");
 
       // Source & Channel
       let rawSource = getVal(row, "source").toLowerCase();
@@ -520,13 +934,6 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
       const rowPriority = getVal(row, "priority").toLowerCase();
       const priority = rowPriority || defaultPriority;
 
-      // Marketing fields
-      const campaign_name = getVal(row, "campaign_name");
-      const ad_name = getVal(row, "ad_name");
-      const form_name = getVal(row, "form_name");
-      const state = getVal(row, "state");
-      const externalLeadId = getVal(row, "externalLeadId");
-
       // Test lead detection
       const isTestLead =
         status === "test" ||
@@ -553,7 +960,13 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
         destination,
         budget,
         travellerCount,
+        adultCount,
+        childCount,
+        infantCount,
         travelDate,
+        travelDateDisplay,
+        rawPaxNote: parsedPax.rawNote,
+        rawBudgetNote: parsedBudget.rawNote,
         message,
         source,
         channel,
@@ -621,6 +1034,9 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
         destination: l.destination || undefined,
         budget: l.budget,
         travellerCount: l.travellerCount,
+        adultCount: l.adultCount,
+        childCount: l.childCount,
+        infantCount: l.infantCount,
         travelDate: l.travelDate || undefined,
         notes: l.message || undefined,
         message: l.message || undefined,
@@ -1363,11 +1779,24 @@ export default function ImportLeadsModal({ onClose, onSuccess, staffList }: Prop
                             {lead.email || <span className="text-slate-400 italic">Auto-generated</span>}
                           </td>
                           <td className="py-2.5 px-3 text-slate-700 font-medium">
-                            {lead.destination || <span className="text-slate-400 italic">Not Decided</span>}
+                            <div>{lead.destination || <span className="text-slate-400 italic">Not Decided</span>}</div>
+                            {lead.travelDateDisplay && (
+                              <div className="text-[10px] text-cyan-600 font-normal mt-0.5">
+                                📅 {lead.travelDateDisplay}
+                              </div>
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-slate-600">
-                            {lead.travellerCount ? `${lead.travellerCount} Pax` : "—"}
-                            {lead.budget ? ` • ₹${lead.budget.toLocaleString("en-IN")}` : ""}
+                            <div className="font-medium text-slate-700">
+                              {lead.travellerCount ? `${lead.travellerCount} Pax` : "—"}
+                              {lead.budget ? ` • ₹${lead.budget.toLocaleString("en-IN")}` : ""}
+                            </div>
+                            {lead.rawPaxNote && lead.rawPaxNote !== String(lead.travellerCount) && (
+                              <div className="text-[10px] text-slate-400">{lead.rawPaxNote}</div>
+                            )}
+                            {lead.rawBudgetNote && (
+                              <div className="text-[10px] text-slate-400">{lead.rawBudgetNote}</div>
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-slate-600 capitalize">
                             {lead.channel || lead.source}
