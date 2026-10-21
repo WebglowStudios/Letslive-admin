@@ -1761,7 +1761,7 @@ function EnquiriesContent() {
                           <span className="font-mono text-[11px] font-bold text-cyan-800 bg-cyan-50 border border-cyan-200/80 px-1.5 py-0.5 rounded shadow-2xs">
                             {e.enquiryId || `ENQ-${String(e._id).slice(-6).toUpperCase()}`}
                           </span>
-                          {e.unifiedBookingId && (
+                          {e.status === "converted" && e.unifiedBookingId && (
                             <span className="font-mono text-[11px] font-bold text-purple-800 bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 rounded shadow-2xs flex items-center gap-1" title="Unified Booking ID">
                               <span>🎫 {e.unifiedBookingId}</span>
                             </span>

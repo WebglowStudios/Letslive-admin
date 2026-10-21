@@ -2390,7 +2390,7 @@ export default function EnquiryDetailPage() {
             <span className="font-mono text-xs font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded shadow-2xs">
               {enquiry.enquiryId || `ENQ-${String(enquiry._id).slice(-6).toUpperCase()}`}
             </span>
-            {enquiry.unifiedBookingId && (
+            {enquiry.status === "converted" && enquiry.unifiedBookingId && (
               <span className="font-mono text-xs font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded shadow-2xs flex items-center gap-1" title="Master Unified Booking ID">
                 🎫 Unified Trip ID: {enquiry.unifiedBookingId}
               </span>
@@ -2963,40 +2963,62 @@ export default function EnquiryDetailPage() {
             </div>
 
             {/* Booking ref */}
-            {enquiry.bookingRef && typeof enquiry.bookingRef === "object" && (
-              <div className={`rounded-2xl border p-4 ${
-                enquiry.bookingRef.paymentFinanceStatus === 'pending_approval'
-                  ? 'bg-amber-50 border-amber-200'
-                  : enquiry.bookingRef.paymentFinanceStatus === 'rejected'
-                  ? 'bg-rose-50 border-rose-200'
-                  : 'bg-emerald-50 border-emerald-200'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className={`text-xs font-semibold ${
-                    enquiry.bookingRef.paymentFinanceStatus === 'pending_approval'
-                      ? 'text-amber-800'
-                      : enquiry.bookingRef.paymentFinanceStatus === 'rejected'
-                      ? 'text-rose-700'
-                      : 'text-emerald-700'
-                  }`}>
-                    {enquiry.bookingRef.paymentFinanceStatus === 'pending_approval'
-                      ? 'Booking Pending Finance Approval'
-                      : enquiry.bookingRef.paymentFinanceStatus === 'rejected'
-                      ? 'Booking Payment Disapproved'
-                      : 'Converted Booking'}
-                  </p>
-                  {enquiry.bookingRef.paymentFinanceStatus === 'pending_approval' && (
-                    <span className="text-[10px] bg-amber-200 text-amber-800 font-bold px-1.5 py-0.5 rounded">
-                      Pending
+            {enquiry.bookingRef && typeof enquiry.bookingRef === "object" && (() => {
+              const bRef = enquiry.bookingRef;
+              const isPendingFinance = bRef.paymentFinanceStatus === 'pending_approval';
+              const isRejected = bRef.paymentFinanceStatus === 'rejected';
+              const isConfirmed = bRef.bookingStatus === 'confirmed' || bRef.bookingStatus === 'staff-confirmed' || bRef.paymentStatus === 'paid' || bRef.paymentStatus === 'partial';
+              const isCancelled = bRef.bookingStatus === 'cancelled';
+
+              let cardBg = 'bg-amber-50/70 border-amber-200';
+              let titleColor = 'text-amber-800';
+              let titleText = 'Booking Awaiting Payment';
+              let badgeBg = 'bg-amber-100 text-amber-800 border-amber-300';
+              let badgeText = 'Payment Pending';
+
+              if (isPendingFinance) {
+                cardBg = 'bg-amber-50 border-amber-200';
+                titleColor = 'text-amber-800';
+                titleText = 'Booking Pending Finance Approval';
+                badgeBg = 'bg-amber-200 text-amber-800 border-amber-300';
+                badgeText = 'Pending Approval';
+              } else if (isRejected) {
+                cardBg = 'bg-rose-50 border-rose-200';
+                titleColor = 'text-rose-700';
+                titleText = 'Booking Payment Disapproved';
+                badgeBg = 'bg-rose-100 text-rose-700 border-rose-300';
+                badgeText = 'Disapproved';
+              } else if (isCancelled) {
+                cardBg = 'bg-slate-50 border-slate-200';
+                titleColor = 'text-slate-600';
+                titleText = 'Booking Cancelled';
+                badgeBg = 'bg-slate-200 text-slate-700 border-slate-300';
+                badgeText = 'Cancelled';
+              } else if (isConfirmed) {
+                cardBg = 'bg-emerald-50 border-emerald-200';
+                titleColor = 'text-emerald-700';
+                titleText = 'Converted Booking';
+                badgeBg = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                badgeText = 'Confirmed';
+              }
+
+              return (
+                <div className={`rounded-2xl border p-4 ${cardBg}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`text-xs font-semibold ${titleColor}`}>
+                      {titleText}
+                    </p>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeBg}`}>
+                      {badgeText}
                     </span>
-                  )}
+                  </div>
+                  <Link href={`/bookings/${bRef._id || bRef.bookingId}`} className="text-sm font-bold text-slate-800 hover:text-cyan-600 hover:underline block">
+                    {bRef.bookingId}
+                  </Link>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatCurrency(bRef.totalAmount)}</p>
                 </div>
-                <Link href={`/bookings/${enquiry.bookingRef._id || enquiry.bookingRef.bookingId}`} className="text-sm font-bold text-slate-800 hover:text-cyan-600 hover:underline block">
-                  {enquiry.bookingRef.bookingId}
-                </Link>
-                <p className="text-xs text-slate-500 mt-0.5">{formatCurrency(enquiry.bookingRef.totalAmount)}</p>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* ─── CENTER: Timeline / Activity Feed ─────────────────────────── */}
