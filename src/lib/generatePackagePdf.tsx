@@ -1788,7 +1788,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                     </Text>
                   </>
                 ) : (
-                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
+                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right" }}>
                     {hasExplicitGstRate ? `${effectiveGstRate}% GST Included` : "GST Included"}
                   </Text>
                 )}
@@ -1832,7 +1832,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
                     </Text>
                   </>
                 ) : (
-                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right", paddingRight: 6 }}>
+                  <Text style={{ fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#00833e", textAlign: "right" }}>
                     {hasExplicitTcsRate ? `${effectiveTcsRate}% TCS Included` : "TCS Included"}
                   </Text>
                 )}
