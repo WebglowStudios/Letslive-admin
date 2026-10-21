@@ -2870,7 +2870,7 @@ export default function EnquiryDetailPage() {
                         <DollarSign size={12} className="shrink-0 text-slate-400" /> Budget: {formatCurrency(enquiry.budget)}
                       </p>
                     )}
-                    {enquiry.conversionValue && (
+                    {enquiry.status === "converted" && enquiry.conversionValue && (
                       <p className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
                         <CheckCircle size={12} className="shrink-0" /> Converted: {formatCurrency(enquiry.conversionValue)}
                       </p>

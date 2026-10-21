@@ -1881,7 +1881,7 @@ function EnquiriesContent() {
                       <span className="text-[10px] text-slate-300 flex items-center gap-1">
                         <Clock size={10} /> {formatDate(e.createdAt)}
                       </span>
-                      {e.conversionValue && (
+                      {e.status === "converted" && e.conversionValue && (
                         <span className="text-[10px] text-emerald-600 font-bold">
                           ₹{e.conversionValue.toLocaleString("en-IN")}
                         </span>
