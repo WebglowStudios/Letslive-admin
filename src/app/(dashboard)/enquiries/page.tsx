@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import {
   Search, Filter, MessageSquare, User, Clock, Phone, Plus,
-  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, ChevronUp, Download, Upload, X,
+  AlertTriangle, Calendar, CheckSquare, Square, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Upload, X,
   KanbanSquare, Archive
 } from "lucide-react";
 import Link from "next/link";
@@ -17,6 +17,27 @@ import { Enquiry } from "@/types";
 import PhoneInput from "@/components/ui/PhoneInput";
 import DestinationSelect from "@/components/ui/DestinationSelect";
 import ImportLeadsModal from "@/components/enquiries/ImportLeadsModal";
+
+function getPageNumbers(current: number, total: number): (number | string)[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages: (number | string)[] = [];
+  pages.push(1);
+  if (current > 3) {
+    pages.push("...");
+  }
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) {
+    pages.push("...");
+  }
+  pages.push(total);
+  return pages;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-100 text-blue-700",
@@ -316,33 +337,63 @@ export default function EnquiriesPage() {
 
 function EnquiriesContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Helper to read cached filters from sessionStorage if URL has no search params
+  const getSavedFilters = () => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem("crm_enquiries_filters");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const saved = !searchParams.toString() ? getSavedFilters() : null;
+
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(() => {
     const s = searchParams.get("status");
-    if (!s || s === "all") return [];
-    return s.split(",").map((x) => x.trim()).filter(Boolean);
+    if (s && s !== "all") return s.split(",").map((x) => x.trim()).filter(Boolean);
+    if (saved?.selectedStatuses) return saved.selectedStatuses;
+    return [];
   });
   const [selectedChannels, setSelectedChannels] = useState<string[]>(() => {
     const c = searchParams.get("channel");
-    if (!c || c === "all") return [];
-    return c.split(",").map((x) => x.trim()).filter(Boolean);
+    if (c && c !== "all") return c.split(",").map((x) => x.trim()).filter(Boolean);
+    if (saved?.selectedChannels) return saved.selectedChannels;
+    return [];
   });
-  const [dnpFilter, setDnpFilter] = useState(() => searchParams.get("dnp") || "all");
-  const [assignedFilter, setAssignedFilter] = useState(() => searchParams.get("assignedTo") || "all");
-  const [leadAgeFilter, setLeadAgeFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [destinationFilter, setDestinationFilter] = useState("");
+  const [dnpFilter, setDnpFilter] = useState<string>(() => searchParams.get("dnp") || saved?.dnpFilter || "all");
+  const [assignedFilter, setAssignedFilter] = useState<string>(() => searchParams.get("assignedTo") || saved?.assignedFilter || "all");
+  const [leadAgeFilter, setLeadAgeFilter] = useState<string>(() => searchParams.get("leadAge") || saved?.leadAgeFilter || "all");
+  const [search, setSearch] = useState<string>(() => searchParams.get("search") || saved?.search || "");
+  const [searchInput, setSearchInput] = useState<string>(() => searchParams.get("search") || saved?.search || "");
+  const [dateFrom, setDateFrom] = useState<string>(() => searchParams.get("from") || saved?.dateFrom || "");
+  const [dateTo, setDateTo] = useState<string>(() => searchParams.get("to") || saved?.dateTo || "");
+  const [destinationFilter, setDestinationFilter] = useState<string>(() => searchParams.get("destination") || saved?.destinationFilter || "");
   const [destinationsList, setDestinationsList] = useState<{ _id: string; name: string }[]>([]);
-  const [paxFilter, setPaxFilter] = useState("");
+  const [paxFilter, setPaxFilter] = useState<string>(() => searchParams.get("pax") || saved?.paxFilter || "");
   const [activeTab, setActiveTab] = useState<"all" | "unassigned" | "follow-ups">(() => {
-    if (searchParams.get("tab") === "follow-ups") return "follow-ups";
-    if (searchParams.get("assignedTo") === "unassigned") return "unassigned";
+    const tab = searchParams.get("tab") || saved?.activeTab;
+    if (tab === "follow-ups") return "follow-ups";
+    if (tab === "unassigned" || searchParams.get("assignedTo") === "unassigned") return "unassigned";
     return "all";
   });
+
+  const [currentPage, setCurrentPage] = useState<number>(() => {
+    const p = parseInt(searchParams.get("page") || (saved?.currentPage ? String(saved.currentPage) : "1"), 10);
+    return isNaN(p) || p < 1 ? 1 : p;
+  });
+  const [perPage, setPerPage] = useState<number>(() => {
+    const l = parseInt(searchParams.get("limit") || (saved?.perPage ? String(saved.perPage) : "25"), 10);
+    return isNaN(l) || l < 1 ? 25 : l;
+  });
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
   const [showAddLead, setShowAddLead] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [showStatusChips, setShowStatusChips] = useState(false);
@@ -363,6 +414,7 @@ function EnquiriesContent() {
   }, []);
 
   function toggleStatus(st: string) {
+    setCurrentPage(1);
     if (st === "all") {
       setSelectedStatuses([]);
       return;
@@ -373,6 +425,7 @@ function EnquiriesContent() {
   }
 
   function toggleChannel(ch: string) {
+    setCurrentPage(1);
     if (ch === "all") {
       setSelectedChannels([]);
       return;
@@ -395,6 +448,12 @@ function EnquiriesContent() {
     setSearch("");
     setSearchInput("");
     if (activeTab === "unassigned") setActiveTab("all");
+    setCurrentPage(1);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("crm_enquiries_url");
+      sessionStorage.removeItem("crm_enquiries_filters");
+    }
+    router.replace(pathname, { scroll: false });
   }
 
   const activeFiltersCount =
@@ -408,20 +467,102 @@ function EnquiriesContent() {
     (dateFrom || dateTo ? 1 : 0) +
     (search ? 1 : 0);
 
+  // Sync state to URL and sessionStorage
   useEffect(() => {
-    const s = searchParams.get("status");
-    if (s && s !== "all") setSelectedStatuses(s.split(",").map((x) => x.trim()).filter(Boolean));
-    const d = searchParams.get("dnp");
-    if (d) setDnpFilter(d);
-    const a = searchParams.get("assignedTo");
-    if (a) {
-      setAssignedFilter(a);
-      if (a === "unassigned") setActiveTab("unassigned");
+    const params = new URLSearchParams();
+    if (currentPage > 1) params.set("page", currentPage.toString());
+    if (perPage !== 25) params.set("limit", perPage.toString());
+    if (selectedStatuses.length > 0) params.set("status", selectedStatuses.join(","));
+    if (selectedChannels.length > 0) params.set("channel", selectedChannels.join(","));
+    if (assignedFilter && assignedFilter !== "all") params.set("assignedTo", assignedFilter);
+    if (leadAgeFilter && leadAgeFilter !== "all") params.set("leadAge", leadAgeFilter);
+    if (dnpFilter && dnpFilter !== "all") params.set("dnp", dnpFilter);
+    if (destinationFilter) params.set("destination", destinationFilter);
+    if (paxFilter) params.set("pax", paxFilter);
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (search.trim()) params.set("search", search.trim());
+    if (activeTab !== "all") params.set("tab", activeTab);
+
+    const newQuery = params.toString();
+    const currentQuery = searchParams.toString();
+    if (newQuery !== currentQuery) {
+      router.replace(`${pathname}${newQuery ? `?${newQuery}` : ""}`, { scroll: false });
     }
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("crm_enquiries_url", `${pathname}${newQuery ? `?${newQuery}` : ""}`);
+      sessionStorage.setItem(
+        "crm_enquiries_filters",
+        JSON.stringify({
+          selectedStatuses,
+          selectedChannels,
+          assignedFilter,
+          leadAgeFilter,
+          dnpFilter,
+          destinationFilter,
+          paxFilter,
+          dateFrom,
+          dateTo,
+          search,
+          activeTab,
+          currentPage,
+          perPage,
+        })
+      );
+    }
+  }, [
+    currentPage,
+    perPage,
+    selectedStatuses,
+    selectedChannels,
+    assignedFilter,
+    leadAgeFilter,
+    dnpFilter,
+    destinationFilter,
+    paxFilter,
+    dateFrom,
+    dateTo,
+    search,
+    activeTab,
+    pathname,
+    router,
+    searchParams,
+  ]);
+
+  // Handle browser back/forward history navigation
+  useEffect(() => {
+    const p = parseInt(searchParams.get("page") || "1", 10);
+    const newPage = isNaN(p) || p < 1 ? 1 : p;
+    setCurrentPage((prev) => (prev !== newPage ? newPage : prev));
+
+    const l = parseInt(searchParams.get("limit") || "25", 10);
+    const newLimit = isNaN(l) || l < 1 ? 25 : l;
+    setPerPage((prev) => (prev !== newLimit ? newLimit : prev));
+
+    const s = searchParams.get("status");
+    const newStatuses = s && s !== "all" ? s.split(",").map((x) => x.trim()).filter(Boolean) : [];
+    setSelectedStatuses((prev) => (JSON.stringify(prev) !== JSON.stringify(newStatuses) ? newStatuses : prev));
+
     const c = searchParams.get("channel");
-    if (c && c !== "all") setSelectedChannels(c.split(",").map((x) => x.trim()).filter(Boolean));
+    const newChannels = c && c !== "all" ? c.split(",").map((x) => x.trim()).filter(Boolean) : [];
+    setSelectedChannels((prev) => (JSON.stringify(prev) !== JSON.stringify(newChannels) ? newChannels : prev));
+
+    setDnpFilter(searchParams.get("dnp") || "all");
+    setAssignedFilter(searchParams.get("assignedTo") || "all");
+    setLeadAgeFilter(searchParams.get("leadAge") || "all");
+    setDestinationFilter(searchParams.get("destination") || "");
+    setPaxFilter(searchParams.get("pax") || "");
+    setDateFrom(searchParams.get("from") || "");
+    setDateTo(searchParams.get("to") || "");
+
+    const q = searchParams.get("search") || "";
+    setSearch(q);
+    setSearchInput(q);
+
     const tab = searchParams.get("tab");
     if (tab === "follow-ups") setActiveTab("follow-ups");
+    else if (tab === "unassigned" || searchParams.get("assignedTo") === "unassigned") setActiveTab("unassigned");
+    else if (!tab) setActiveTab("all");
   }, [searchParams]);
 
   useEffect(() => {
@@ -468,10 +609,22 @@ function EnquiriesContent() {
     try {
       if (activeTab === "follow-ups") {
         const res = await api.get("/enquiries/follow-ups/today");
-        setEnquiries(res?.data || []);
+        const list: Enquiry[] = res?.data || [];
+        const total = list.length;
+        const pages = Math.max(1, Math.ceil(total / perPage));
+        setTotalCount(total);
+        setTotalPages(pages);
+        if (currentPage > pages && pages >= 1) {
+          setCurrentPage(pages);
+        }
+        const startIndex = (currentPage - 1) * perPage;
+        setEnquiries(list.slice(startIndex, startIndex + perPage));
       } else {
         const endpoint = "/enquiries";
-        const params = new URLSearchParams({ limit: "100" });
+        const params = new URLSearchParams({
+          limit: perPage.toString(),
+          page: currentPage.toString(),
+        });
         if (selectedStatuses.length > 0) params.set("status", selectedStatuses.join(","));
         if (dnpFilter !== "all") params.set("dnp", dnpFilter);
         if (activeTab === "unassigned") {
@@ -481,13 +634,15 @@ function EnquiriesContent() {
         }
         if (leadAgeFilter && leadAgeFilter !== "all") params.set("leadAge", leadAgeFilter);
         if (selectedChannels.length > 0) params.set("channel", selectedChannels.join(","));
-        if (search) params.set("search", search);
+        if (search.trim()) params.set("search", search.trim());
         if (dateFrom) params.set("from", dateFrom);
         if (dateTo) params.set("to", dateTo);
         if (destinationFilter) params.set("destination", destinationFilter);
+        if (paxFilter) params.set("travellerCount", paxFilter);
+
         const res = await api.get(`${endpoint}?${params}`);
         const isUnassigned = activeTab === "unassigned" || assignedFilter === "unassigned";
-        let data = res?.data || [];
+        let data: Enquiry[] = res?.data || [];
         if (isUnassigned) {
           data = data.filter((e: Enquiry) => e.status !== "closed");
         }
@@ -498,20 +653,52 @@ function EnquiriesContent() {
           if (aClosed !== bClosed) return aClosed - bClosed;
           return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
         });
+
+        const total = res?.total !== undefined ? res.total : sorted.length;
+        const pages = res?.pages !== undefined ? res.pages : Math.max(1, Math.ceil(total / perPage));
+
         setEnquiries(sorted);
+        setTotalCount(total);
+        setTotalPages(pages);
+        if (currentPage > pages && pages >= 1) {
+          setCurrentPage(pages);
+        }
       }
     } catch {
       setEnquiries([]);
+      setTotalCount(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, [selectedStatuses, selectedChannels, dnpFilter, assignedFilter, leadAgeFilter, search, dateFrom, dateTo, destinationFilter, paxFilter, activeTab, isStaffOnly]);
+  }, [
+    currentPage,
+    perPage,
+    selectedStatuses,
+    selectedChannels,
+    dnpFilter,
+    assignedFilter,
+    leadAgeFilter,
+    search,
+    dateFrom,
+    dateTo,
+    destinationFilter,
+    paxFilter,
+    activeTab,
+  ]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
-  // Debounce search
+  // Debounce search with page reset
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput), 400);
+    const t = setTimeout(() => {
+      setSearch((prev: string) => {
+        if (prev !== searchInput) {
+          setCurrentPage(1);
+        }
+        return searchInput;
+      });
+    }, 400);
     return () => clearTimeout(t);
   }, [searchInput]);
 
@@ -583,7 +770,7 @@ function EnquiriesContent() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">{enquiries.length} lead{enquiries.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-slate-500">{totalCount} lead{totalCount !== 1 ? "s" : ""}{totalPages > 1 ? ` (Page ${currentPage} of ${totalPages})` : ""}</span>
             {!isStaffOnly && (
               <>
                 <button
@@ -626,6 +813,7 @@ function EnquiriesContent() {
             <button
               key={tab.id}
               onClick={() => {
+                setCurrentPage(1);
                 setActiveTab(tab.id as "all" | "unassigned" | "follow-ups");
                 if (tab.id === "unassigned") {
                   setAssignedFilter("unassigned");
@@ -662,7 +850,7 @@ function EnquiriesContent() {
                   </h4>
                 </div>
                 <p className="text-xs text-amber-800">
-                  {enquiries.length} unassigned lead{enquiries.length === 1 ? "" : "s"} waiting for distribution.
+                  {totalCount} unassigned lead{totalCount === 1 ? "" : "s"} waiting for distribution.
                   {recommendedStaff && (
                     <> Recommended for new leads: <strong className="font-bold underline text-amber-950">{recommendedStaff.firstName} {recommendedStaff.lastName}</strong> (lowest active workload with {recommendedStaff.activeLeadsCount || 0} active leads).</>
                   )}
@@ -713,7 +901,7 @@ function EnquiriesContent() {
                 className="bg-transparent border-none outline-none text-sm w-full"
               />
               {searchInput && (
-                <button onClick={() => { setSearchInput(""); setSearch(""); }}><X size={13} className="text-slate-400" /></button>
+                <button onClick={() => { setSearchInput(""); setSearch(""); setCurrentPage(1); }}><X size={13} className="text-slate-400" /></button>
               )}
             </div>
 
@@ -742,6 +930,7 @@ function EnquiriesContent() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedStatuses([]);
+                      setCurrentPage(1);
                     }}
                     title="Clear status filter"
                     className="p-0.5 rounded-full hover:bg-cyan-100 text-cyan-700"
@@ -759,7 +948,10 @@ function EnquiriesContent() {
                     <span className="text-xs font-bold text-slate-800">Filter by Status</span>
                     <button
                       type="button"
-                      onClick={() => setSelectedStatuses([])}
+                      onClick={() => {
+                        setSelectedStatuses([]);
+                        setCurrentPage(1);
+                      }}
                       className="text-[11px] text-slate-500 hover:text-slate-800 underline"
                     >
                       Clear All
@@ -770,21 +962,30 @@ function EnquiriesContent() {
                   <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
                     <button
                       type="button"
-                      onClick={() => setSelectedStatuses(["new", "ytc", "in-progress", "follow-up", "callback-scheduled", "whatsapp-sent"])}
+                      onClick={() => {
+                        setSelectedStatuses(["new", "ytc", "in-progress", "follow-up", "callback-scheduled", "whatsapp-sent"]);
+                        setCurrentPage(1);
+                      }}
                       className="text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200 px-2 py-0.5 rounded-md hover:bg-cyan-100"
                     >
                       ⚡ Active Pipeline
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedStatuses(["dnp", "busy"])}
+                      onClick={() => {
+                        setSelectedStatuses(["dnp", "busy"]);
+                        setCurrentPage(1);
+                      }}
                       className="text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md hover:bg-rose-100"
                     >
                       📵 DNP / Busy
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedStatuses(["closed"])}
+                      onClick={() => {
+                        setSelectedStatuses(["closed"]);
+                        setCurrentPage(1);
+                      }}
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors ${
                         selectedStatuses.length === 1 && selectedStatuses[0] === "closed"
                           ? "bg-red-600 text-white border-red-700 font-bold"
@@ -837,6 +1038,7 @@ function EnquiriesContent() {
             <button
               type="button"
               onClick={() => {
+                setCurrentPage(1);
                 if (selectedStatuses.length === 1 && selectedStatuses[0] === "closed") {
                   setSelectedStatuses([]);
                 } else {
@@ -891,7 +1093,10 @@ function EnquiriesContent() {
               <span className="text-[11px] font-bold text-slate-700">Lead Age:</span>
               <select
                 value={leadAgeFilter}
-                onChange={(e) => setLeadAgeFilter(e.target.value)}
+                onChange={(e) => {
+                  setLeadAgeFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="bg-white border border-slate-200 text-slate-800 text-[11px] font-semibold rounded-md px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
               >
                 {LEAD_AGE_OPTIONS.map((opt) => (
@@ -900,7 +1105,10 @@ function EnquiriesContent() {
               </select>
               {leadAgeFilter !== "all" && (
                 <button
-                  onClick={() => setLeadAgeFilter("all")}
+                  onClick={() => {
+                    setLeadAgeFilter("all");
+                    setCurrentPage(1);
+                  }}
                   title="Clear lead age filter"
                   className="text-slate-400 hover:text-slate-600 p-0.5"
                 >
@@ -913,6 +1121,7 @@ function EnquiriesContent() {
             <button
               type="button"
               onClick={() => {
+                setCurrentPage(1);
                 if (selectedStatuses.includes("dnp") || dnpFilter === "dnp") {
                   setSelectedStatuses((prev) => prev.filter((s) => s !== "dnp"));
                   setDnpFilter("all");
@@ -948,6 +1157,7 @@ function EnquiriesContent() {
                   value={assignedFilter}
                   onChange={(e) => {
                     const val = e.target.value;
+                    setCurrentPage(1);
                     setAssignedFilter(val);
                     if (val === "unassigned") {
                       setActiveTab("unassigned");
@@ -970,6 +1180,7 @@ function EnquiriesContent() {
                   <button
                     onClick={() => {
                       setAssignedFilter("all");
+                      setCurrentPage(1);
                       if (activeTab === "unassigned") setActiveTab("all");
                     }}
                     title="Clear salesperson filter"
@@ -985,7 +1196,10 @@ function EnquiriesContent() {
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
-                onClick={() => setSelectedChannels([])}
+                onClick={() => {
+                  setSelectedChannels([]);
+                  setCurrentPage(1);
+                }}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
                   selectedChannels.length === 0
                     ? "bg-slate-800 text-white shadow-2xs"
@@ -1020,19 +1234,29 @@ function EnquiriesContent() {
               <input
                 type="date"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
               <span className="text-[11px] text-slate-400">to</span>
               <input
                 type="date"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
               {(dateFrom || dateTo) && (
                 <button
-                  onClick={() => { setDateFrom(""); setDateTo(""); }}
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                    setCurrentPage(1);
+                  }}
                   className="flex items-center gap-0.5 text-[11px] text-red-500 hover:text-red-700"
                 >
                   <X size={11} /> Clear
@@ -1044,7 +1268,10 @@ function EnquiriesContent() {
             <div className="flex items-center gap-2">
               <select
                 value={destinationFilter}
-                onChange={(e) => setDestinationFilter(e.target.value)}
+                onChange={(e) => {
+                  setDestinationFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-cyan-500 max-w-[130px]"
               >
                 <option value="">All Destinations</option>
@@ -1058,13 +1285,20 @@ function EnquiriesContent() {
                 type="number"
                 min="1"
                 value={paxFilter}
-                onChange={(e) => setPaxFilter(e.target.value)}
+                onChange={(e) => {
+                  setPaxFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="PAX"
                 className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 w-16"
               />
               {(destinationFilter || paxFilter) && (
                 <button
-                  onClick={() => { setDestinationFilter(""); setPaxFilter(""); }}
+                  onClick={() => {
+                    setDestinationFilter("");
+                    setPaxFilter("");
+                    setCurrentPage(1);
+                  }}
                   className="flex items-center gap-0.5 text-[11px] text-red-500 hover:text-red-700"
                 >
                   <X size={11} /> Clear
@@ -1149,6 +1383,7 @@ function EnquiriesContent() {
                   type="button"
                   onClick={() => {
                     setAssignedFilter("all");
+                    setCurrentPage(1);
                     if (activeTab === "unassigned") setActiveTab("all");
                   }}
                   className="text-indigo-400 hover:text-indigo-700 ml-0.5"
@@ -1165,7 +1400,10 @@ function EnquiriesContent() {
                 Age: {LEAD_AGE_OPTIONS.find((o) => o.id === leadAgeFilter)?.label || leadAgeFilter}
                 <button
                   type="button"
-                  onClick={() => setLeadAgeFilter("all")}
+                  onClick={() => {
+                    setLeadAgeFilter("all");
+                    setCurrentPage(1);
+                  }}
                   className="text-amber-500 hover:text-amber-800 ml-0.5"
                 >
                   <X size={11} />
@@ -1181,7 +1419,10 @@ function EnquiriesContent() {
                 DNP Leads
                 <button
                   type="button"
-                  onClick={() => setDnpFilter("all")}
+                  onClick={() => {
+                    setDnpFilter("all");
+                    setCurrentPage(1);
+                  }}
                   className="text-rose-400 hover:text-rose-700 ml-0.5"
                 >
                   <X size={11} />
@@ -1210,7 +1451,7 @@ function EnquiriesContent() {
             {destinationFilter && (
               <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
                 📍 {destinationFilter}
-                <button type="button" onClick={() => setDestinationFilter("")} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+                <button type="button" onClick={() => { setDestinationFilter(""); setCurrentPage(1); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
               </span>
             )}
 
@@ -1218,7 +1459,7 @@ function EnquiriesContent() {
             {paxFilter && (
               <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
                 👥 {paxFilter} PAX
-                <button type="button" onClick={() => setPaxFilter("")} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+                <button type="button" onClick={() => { setPaxFilter(""); setCurrentPage(1); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
               </span>
             )}
 
@@ -1226,7 +1467,7 @@ function EnquiriesContent() {
             {(dateFrom || dateTo) && (
               <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
                 📅 {dateFrom || "Start"} → {dateTo || "End"}
-                <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+                <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); setCurrentPage(1); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
               </span>
             )}
 
@@ -1234,7 +1475,7 @@ function EnquiriesContent() {
             {search && (
               <span className="inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[11px] shadow-2xs">
                 🔍 &ldquo;{search}&rdquo;
-                <button type="button" onClick={() => { setSearch(""); setSearchInput(""); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
+                <button type="button" onClick={() => { setSearch(""); setSearchInput(""); setCurrentPage(1); }} className="text-slate-400 hover:text-slate-700 ml-0.5"><X size={11} /></button>
               </span>
             )}
 
@@ -1267,7 +1508,7 @@ function EnquiriesContent() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
-                    Viewing assigned pipeline • <strong className="text-indigo-900">{enquiries.length} lead{enquiries.length !== 1 ? "s" : ""}</strong> matching current filters
+                    Viewing assigned pipeline • <strong className="text-indigo-900">{totalCount} lead{totalCount !== 1 ? "s" : ""}</strong> matching current filters
                   </p>
                 </div>
               </div>
@@ -1283,6 +1524,7 @@ function EnquiriesContent() {
                   onClick={() => {
                     setAssignedFilter("all");
                     setActiveTab("all");
+                    setCurrentPage(1);
                   }}
                   className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200/60"
                 >
@@ -1296,18 +1538,18 @@ function EnquiriesContent() {
               <span className="text-slate-500 font-medium text-[11px] mr-1">Stack Filters:</span>
               <button
                 type="button"
-                onClick={() => { setSelectedStatuses([]); setLeadAgeFilter("all"); setDnpFilter("all"); }}
+                onClick={() => { setSelectedStatuses([]); setLeadAgeFilter("all"); setDnpFilter("all"); setCurrentPage(1); }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   selectedStatuses.length === 0 && leadAgeFilter === "all" && dnpFilter === "all"
                     ? "bg-indigo-700 text-white shadow-xs font-bold"
                     : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                All ({enquiries.length})
+                All ({totalCount})
               </button>
               <button
                 type="button"
-                onClick={() => setLeadAgeFilter(leadAgeFilter === "3days" ? "all" : "3days")}
+                onClick={() => { setLeadAgeFilter(leadAgeFilter === "3days" ? "all" : "3days"); setCurrentPage(1); }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   leadAgeFilter === "3days"
                     ? "bg-indigo-700 text-white shadow-xs font-bold"
@@ -1318,7 +1560,7 @@ function EnquiriesContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setLeadAgeFilter(leadAgeFilter === "older7days" ? "all" : "older7days")}
+                onClick={() => { setLeadAgeFilter(leadAgeFilter === "older7days" ? "all" : "older7days"); setCurrentPage(1); }}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   leadAgeFilter === "older7days"
                     ? "bg-indigo-700 text-white shadow-xs font-bold"
@@ -1394,13 +1636,14 @@ function EnquiriesContent() {
                 <Phone size={13} className="text-rose-600" /> DNP Filter Active:
               </span>
               <span className="text-[11px] text-rose-700 font-medium">
-                Showing all {enquiries.length} client{enquiries.length === 1 ? "" : "s"} currently in DNP status
+                Showing all {totalCount} client{totalCount === 1 ? "" : "s"} currently in DNP status
               </span>
             </div>
             <button
               onClick={() => {
                 setSelectedStatuses((prev) => prev.filter((s) => s !== "dnp"));
                 setDnpFilter("all");
+                setCurrentPage(1);
               }}
               className="text-[11px] font-semibold text-rose-700 hover:text-rose-900 bg-white border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer"
             >
@@ -1672,6 +1915,94 @@ function EnquiriesContent() {
           ))
           )}
         </div>
+
+        {/* Pagination */}
+        {!loading && totalCount > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-3 sm:px-5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap justify-center sm:justify-start">
+              <span>
+                Showing{" "}
+                <strong className="text-slate-700">
+                  {(currentPage - 1) * perPage + 1}–{Math.min(currentPage * perPage, totalCount)}
+                </strong>{" "}
+                of <strong className="text-slate-700">{totalCount}</strong> enquiries
+              </span>
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center gap-1.5">
+                <span>Per page:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setPerPage(val);
+                    setCurrentPage(1);
+                  }}
+                  className="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-slate-700 font-semibold focus:outline-none focus:ring-1 focus:ring-cyan-500 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 flex-wrap justify-center">
+                <button
+                  onClick={() => {
+                    setCurrentPage((p) => Math.max(1, p - 1));
+                    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Previous page"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                {getPageNumbers(currentPage, totalPages).map((page, idx) => {
+                  if (page === "...") {
+                    return (
+                      <span key={`dots-${idx}`} className="w-9 h-9 flex items-center justify-center text-xs text-slate-400 select-none">
+                        ...
+                      </span>
+                    );
+                  }
+                  const pageNum = Number(page);
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => {
+                        setCurrentPage(pageNum);
+                        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors ${
+                        pageNum === currentPage
+                          ? "bg-cyan-600 text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                <button
+                  onClick={() => {
+                    setCurrentPage((p) => Math.min(totalPages, p + 1));
+                    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  title="Next page"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </RoleGuard>
   );

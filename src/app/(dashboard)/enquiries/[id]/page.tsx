@@ -2242,7 +2242,8 @@ export default function EnquiryDetailPage() {
     if (window.confirm("Are you sure you want to permanently delete this enquiry? This action cannot be undone and will permanently remove this lead from the CRM.")) {
       try {
         await api.del(`/enquiries/${id}`);
-        router.push("/enquiries");
+        const savedUrl = typeof window !== "undefined" ? sessionStorage.getItem("crm_enquiries_url") : null;
+        router.push(savedUrl || "/enquiries");
       } catch (error) {
         console.error("Failed to delete enquiry:", error);
         alert("Failed to delete enquiry. Please try again.");
@@ -2370,7 +2371,19 @@ export default function EnquiryDetailPage() {
         {/* Breadcrumb & Actions */}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => router.push("/enquiries")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
+            <button
+              onClick={() => {
+                const savedUrl = typeof window !== "undefined" ? sessionStorage.getItem("crm_enquiries_url") : null;
+                if (savedUrl) {
+                  router.push(savedUrl);
+                } else if (typeof window !== "undefined" && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/enquiries");
+                }
+              }}
+              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+            >
               <ArrowLeft size={15} /> Enquiries
             </button>
             <span className="text-slate-300">/</span>
