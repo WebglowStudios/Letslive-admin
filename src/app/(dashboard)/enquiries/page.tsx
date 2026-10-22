@@ -467,7 +467,9 @@ function EnquiriesContent() {
     (dateFrom || dateTo ? 1 : 0) +
     (search ? 1 : 0);
 
-  // Sync state to URL and sessionStorage
+  // Sync state to URL and sessionStorage (only fires when filter state actually changes)
+  // NOTE: searchParams intentionally NOT in deps — adding it would create an infinite loop
+  // because this effect calls router.replace() which changes searchParams → re-triggers effect.
   useEffect(() => {
     const params = new URLSearchParams();
     if (currentPage > 1) params.set("page", currentPage.toString());
@@ -485,10 +487,8 @@ function EnquiriesContent() {
     if (activeTab !== "all") params.set("tab", activeTab);
 
     const newQuery = params.toString();
-    const currentQuery = searchParams.toString();
-    if (newQuery !== currentQuery) {
-      router.replace(`${pathname}${newQuery ? `?${newQuery}` : ""}`, { scroll: false });
-    }
+    router.replace(`${pathname}${newQuery ? `?${newQuery}` : ""}`, { scroll: false });
+
     if (typeof window !== "undefined") {
       sessionStorage.setItem("crm_enquiries_url", `${pathname}${newQuery ? `?${newQuery}` : ""}`);
       sessionStorage.setItem(
@@ -510,6 +510,7 @@ function EnquiriesContent() {
         })
       );
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     currentPage,
     perPage,
@@ -525,45 +526,16 @@ function EnquiriesContent() {
     search,
     activeTab,
     pathname,
-    router,
-    searchParams,
+    // router and searchParams intentionally omitted — both are stable refs but adding
+    // searchParams here would trigger a loop: state→URL→searchParams→state→URL...
   ]);
 
-  // Handle browser back/forward history navigation
-  useEffect(() => {
-    const p = parseInt(searchParams.get("page") || "1", 10);
-    const newPage = isNaN(p) || p < 1 ? 1 : p;
-    setCurrentPage((prev) => (prev !== newPage ? newPage : prev));
-
-    const l = parseInt(searchParams.get("limit") || "25", 10);
-    const newLimit = isNaN(l) || l < 1 ? 25 : l;
-    setPerPage((prev) => (prev !== newLimit ? newLimit : prev));
-
-    const s = searchParams.get("status");
-    const newStatuses = s && s !== "all" ? s.split(",").map((x) => x.trim()).filter(Boolean) : [];
-    setSelectedStatuses((prev) => (JSON.stringify(prev) !== JSON.stringify(newStatuses) ? newStatuses : prev));
-
-    const c = searchParams.get("channel");
-    const newChannels = c && c !== "all" ? c.split(",").map((x) => x.trim()).filter(Boolean) : [];
-    setSelectedChannels((prev) => (JSON.stringify(prev) !== JSON.stringify(newChannels) ? newChannels : prev));
-
-    setDnpFilter(searchParams.get("dnp") || "all");
-    setAssignedFilter(searchParams.get("assignedTo") || "all");
-    setLeadAgeFilter(searchParams.get("leadAge") || "all");
-    setDestinationFilter(searchParams.get("destination") || "");
-    setPaxFilter(searchParams.get("pax") || "");
-    setDateFrom(searchParams.get("from") || "");
-    setDateTo(searchParams.get("to") || "");
-
-    const q = searchParams.get("search") || "";
-    setSearch(q);
-    setSearchInput(q);
-
-    const tab = searchParams.get("tab");
-    if (tab === "follow-ups") setActiveTab("follow-ups");
-    else if (tab === "unassigned" || searchParams.get("assignedTo") === "unassigned") setActiveTab("unassigned");
-    else if (!tab) setActiveTab("all");
-  }, [searchParams]);
+  // NOTE: The "sync URL → state" effect was intentionally removed.
+  // It caused an infinite render loop (flickering): the URL-sync effect would call
+  // router.replace() → searchParams changed → this effect re-set all state →
+  // state changed → URL-sync effect fired again → infinite loop.
+  // Initial state is already correctly seeded from searchParams/sessionStorage above
+  // via the useState initializers, so no read-back effect is needed.
 
   useEffect(() => {
     api.get("/destinations?limit=100&admin=true").then((res) => {
