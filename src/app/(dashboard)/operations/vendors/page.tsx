@@ -139,6 +139,10 @@ export default function VendorsPage() {
     status: string;
     dueDate?: string;
     remarks?: string;
+    initialPaid: number;
+    mode: "add" | "direct";
+    addAmount: number | "";
+    installmentNote: string;
   } | null>(null);
   const [savingPayment, setSavingPayment] = useState(false);
 
@@ -197,13 +201,47 @@ export default function VendorsPage() {
     if (!activeVendor || !updatingPaymentItem) return;
     setSavingPayment(true);
     try {
+      const isAddMode = updatingPaymentItem.mode === "add";
+      const addNum = isAddMode ? (Number(updatingPaymentItem.addAmount) || 0) : 0;
+
+      const finalPaid = isAddMode
+        ? Math.max(0, updatingPaymentItem.initialPaid + addNum)
+        : Math.max(0, Number(updatingPaymentItem.paid) || 0);
+
+      // Determine final status
+      let finalStatus = updatingPaymentItem.status;
+      if (isAddMode) {
+        if (finalPaid >= updatingPaymentItem.cost && updatingPaymentItem.cost > 0) {
+          finalStatus = "paid";
+        } else if (finalPaid > 0) {
+          finalStatus = "partial";
+        } else {
+          finalStatus = "pending";
+        }
+      }
+
+      // Format remarks
+      let finalRemarks = updatingPaymentItem.remarks || "";
+      if (isAddMode && addNum > 0) {
+        const todayStr = new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+        const noteText = updatingPaymentItem.installmentNote?.trim();
+        const entry = `[${todayStr}] +₹${addNum.toLocaleString("en-IN")}${noteText ? ` (${noteText})` : ""}`;
+        finalRemarks = finalRemarks ? `${finalRemarks} | ${entry}` : entry;
+      } else if (!isAddMode) {
+        finalRemarks = updatingPaymentItem.remarks || "";
+      }
+
       await api.put(
         `/vendors/${activeVendor._id}/assignments/${updatingPaymentItem.category}/${updatingPaymentItem.serviceId}/payment`,
         {
-          paymentStatus: updatingPaymentItem.status,
-          paidAmount: updatingPaymentItem.paid,
+          paymentStatus: finalStatus,
+          paidAmount: finalPaid,
           paymentDueDate: updatingPaymentItem.dueDate || null,
-          remarks: updatingPaymentItem.remarks || "",
+          remarks: finalRemarks,
         }
       );
       setUpdatingPaymentItem(null);
@@ -1106,10 +1144,14 @@ export default function VendorsPage() {
                                       serviceId: part._id,
                                       title: part.title,
                                       cost: part.vendorCost,
-                                      paid: part.paidAmount,
-                                      status: part.paymentStatus,
+                                      paid: part.paidAmount || 0,
+                                      status: part.paymentStatus || "pending",
                                       dueDate: part.paymentDueDate ? part.paymentDueDate.split("T")[0] : "",
                                       remarks: part.remarks || "",
+                                      initialPaid: part.paidAmount || 0,
+                                      mode: "add",
+                                      addAmount: "",
+                                      installmentNote: "",
                                     })
                                   }
                                   className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-700 hover:text-cyan-700 transition shrink-0"
@@ -1215,164 +1257,433 @@ export default function VendorsPage() {
       {/* ========================================================================= */}
       {/* QUICK PAYMENT UPDATE MODAL                                                */}
       {/* ========================================================================= */}
-      {updatingPaymentItem && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Update Vendor Payment</h3>
-                <p className="text-xs text-slate-500 truncate max-w-xs">{updatingPaymentItem.title}</p>
-              </div>
-              <button
-                onClick={() => setUpdatingPaymentItem(null)}
-                className="p-1 text-slate-400 hover:text-slate-600"
-              >
-                <X size={16} />
-              </button>
-            </div>
+      {updatingPaymentItem && (() => {
+        const isAddMode = updatingPaymentItem.mode === "add";
+        const initialPaid = updatingPaymentItem.initialPaid || 0;
+        const totalCost = updatingPaymentItem.cost || 0;
+        const addNum = isAddMode ? (Number(updatingPaymentItem.addAmount) || 0) : 0;
+        const currentRemaining = Math.max(0, totalCost - initialPaid);
 
-            <div className="p-4 space-y-3 text-xs">
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex justify-between items-center">
-                <span className="text-slate-500">Total Vendor Cost:</span>
-                <span className="text-sm font-bold text-slate-900">
-                  {formatCurrency(updatingPaymentItem.cost)}
-                </span>
-              </div>
+        const computedPaid = isAddMode
+          ? Math.max(0, initialPaid + addNum)
+          : Math.max(0, Number(updatingPaymentItem.paid) || 0);
 
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                  Payment Status
-                </label>
-                <select
-                  value={updatingPaymentItem.status}
-                  onChange={(e) => {
-                    const nextStatus = e.target.value;
-                    let nextPaid = updatingPaymentItem.paid;
-                    if (nextStatus === "paid") {
-                      nextPaid = updatingPaymentItem.cost;
-                    } else if (nextStatus === "pending") {
-                      nextPaid = 0;
-                    }
-                    setUpdatingPaymentItem({
-                      ...updatingPaymentItem,
-                      status: nextStatus,
-                      paid: nextPaid,
-                    });
-                  }}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800"
+        const computedRemaining = Math.max(0, totalCost - computedPaid);
+        const percentRemaining = totalCost > 0 ? Math.round((computedRemaining / totalCost) * 100) : 0;
+
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col max-h-[92vh]">
+              {/* Modal Header */}
+              <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Receipt size={16} className="text-cyan-600" />
+                    Update Vendor Payment
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate max-w-sm mt-0.5">{updatingPaymentItem.title}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUpdatingPaymentItem(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition"
                 >
-                  <option value="pending">Pending (Unpaid)</option>
-                  <option value="partial">Partial</option>
-                  <option value="paid">Paid (Fully Settled)</option>
-                </select>
+                  <X size={16} />
+                </button>
               </div>
 
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                  Amount Paid (₹)
-                </label>
-                <input
-                  type="number"
-                  value={updatingPaymentItem.paid}
-                  onChange={(e) =>
-                    setUpdatingPaymentItem({
-                      ...updatingPaymentItem,
-                      paid: Number(e.target.value) || 0,
-                      status:
-                        Number(e.target.value) >= updatingPaymentItem.cost
-                          ? "paid"
-                          : Number(e.target.value) > 0
-                          ? "partial"
-                          : "pending",
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-
-              {updatingPaymentItem.status?.toLowerCase() === "partial" && (
-                <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-lg space-y-1.5">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-amber-900 font-medium">Total Amount:</span>
-                    <span className="font-bold text-slate-900">{formatCurrency(updatingPaymentItem.cost)}</span>
+              {/* Modal Body */}
+              <div className="p-5 space-y-4 text-xs overflow-y-auto">
+                {/* Cost & Existing Status Banner */}
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Cost</span>
+                    <span className="text-sm font-bold text-slate-900">{formatCurrency(totalCost)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-amber-900 font-medium">Paid Amount:</span>
-                    <span className="font-bold text-emerald-700">{formatCurrency(updatingPaymentItem.paid || 0)}</span>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Already Paid</span>
+                    <span className="text-sm font-bold text-emerald-700">{formatCurrency(initialPaid)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-amber-200 font-bold">
-                    <span className="text-amber-950">Remaining Amount:</span>
-                    <span className="text-amber-900 flex items-center gap-1.5">
-                      <span>{formatCurrency(Math.max(0, updatingPaymentItem.cost - (updatingPaymentItem.paid || 0)))}</span>
-                      {updatingPaymentItem.cost > 0 && (
-                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                          {Math.round((Math.max(0, updatingPaymentItem.cost - (updatingPaymentItem.paid || 0)) / updatingPaymentItem.cost) * 100)}% due
-                        </span>
-                      )}
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Current Due</span>
+                    <span className={`text-sm font-bold ${currentRemaining > 0 ? "text-amber-600" : "text-emerald-700"}`}>
+                      {formatCurrency(currentRemaining)}
                     </span>
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                  Payment Due Date (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={updatingPaymentItem.dueDate || ""}
-                  onChange={(e) =>
-                    setUpdatingPaymentItem({
-                      ...updatingPaymentItem,
-                      dueDate: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
+                {/* Mode Selector Tabs */}
+                <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setUpdatingPaymentItem({ ...updatingPaymentItem, mode: "add" })}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition ${
+                      isAddMode
+                        ? "bg-white text-cyan-700 shadow-xs border border-slate-200/60"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Plus size={14} className="stroke-[2.5] text-cyan-600" />
+                    <span>Add Payment (+ Installment)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUpdatingPaymentItem({ ...updatingPaymentItem, mode: "direct" })}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition ${
+                      !isAddMode
+                        ? "bg-white text-cyan-700 shadow-xs border border-slate-200/60"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Edit3 size={13} className="text-slate-500" />
+                    <span>Direct Total Amount</span>
+                  </button>
+                </div>
 
-              <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                  Payment Note / Remarks
-                </label>
-                <input
-                  type="text"
-                  value={updatingPaymentItem.remarks || ""}
-                  onChange={(e) =>
-                    setUpdatingPaymentItem({
-                      ...updatingPaymentItem,
-                      remarks: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. Paid via UPI ref 9283921"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                />
-              </div>
-            </div>
+                {/* Mode 1: Add Payment (Installment) */}
+                {isAddMode ? (
+                  <div className="space-y-3.5">
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-[11px] uppercase font-bold text-slate-700 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 inline-block"></span>
+                          Amount Paid Today (+ ₹)
+                        </label>
+                        {currentRemaining > 0 && (
+                          <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            Balance Due: {formatCurrency(currentRemaining)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-600 font-bold text-sm">
+                          + ₹
+                        </div>
+                        <input
+                          type="number"
+                          value={updatingPaymentItem.addAmount}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? "" : Number(e.target.value);
+                            const num = Number(val) || 0;
+                            const nextPaid = initialPaid + num;
+                            const autoStatus =
+                              nextPaid >= totalCost && totalCost > 0
+                                ? "paid"
+                                : nextPaid > 0
+                                ? "partial"
+                                : "pending";
+                            setUpdatingPaymentItem({
+                              ...updatingPaymentItem,
+                              addAmount: val,
+                              status: autoStatus,
+                            });
+                          }}
+                          placeholder="Enter payment amount (e.g. 100000)"
+                          className="w-full pl-10 pr-4 py-2.5 border-2 border-cyan-500/50 focus:border-cyan-600 rounded-xl text-sm font-bold text-slate-900 outline-none shadow-xs"
+                          autoFocus
+                        />
+                      </div>
 
-            <div className="p-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setUpdatingPaymentItem(null)}
-                className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleQuickPaymentSave}
-                disabled={savingPayment}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-semibold hover:bg-cyan-700 shadow-xs disabled:opacity-50"
-              >
-                {savingPayment ? (
-                  <RefreshCw size={12} className="animate-spin" />
+                      {/* Quick Shortcut Chips */}
+                      {currentRemaining > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase">Quick Add:</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUpdatingPaymentItem({
+                                ...updatingPaymentItem,
+                                addAmount: currentRemaining,
+                                status: "paid",
+                              })
+                            }
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-semibold transition flex items-center gap-1"
+                          >
+                            <CheckCircle2 size={12} />
+                            Full Remaining ({formatCurrency(currentRemaining)})
+                          </button>
+                          {currentRemaining > 1000 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const half = Math.round(currentRemaining / 2);
+                                setUpdatingPaymentItem({
+                                  ...updatingPaymentItem,
+                                  addAmount: half,
+                                  status: (initialPaid + half) >= totalCost ? "paid" : "partial",
+                                });
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-[11px] font-semibold transition"
+                            >
+                              50% ({formatCurrency(Math.round(currentRemaining / 2))})
+                            </button>
+                          )}
+                          {currentRemaining >= 50000 && currentRemaining !== 50000 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setUpdatingPaymentItem({
+                                  ...updatingPaymentItem,
+                                  addAmount: 50000,
+                                  status: (initialPaid + 50000) >= totalCost ? "paid" : "partial",
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 text-[11px] font-semibold transition"
+                            >
+                              + ₹50,000
+                            </button>
+                          )}
+                          {currentRemaining >= 100000 && currentRemaining !== 100000 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setUpdatingPaymentItem({
+                                  ...updatingPaymentItem,
+                                  addAmount: 100000,
+                                  status: (initialPaid + 100000) >= totalCost ? "paid" : "partial",
+                                })
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 text-[11px] font-semibold transition"
+                            >
+                              + ₹1,00,000
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Live Calculation Strip */}
+                    <div className="p-3.5 bg-gradient-to-br from-amber-50/90 to-amber-100/40 border border-amber-200/80 rounded-xl space-y-2">
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pb-2 border-b border-amber-200/70">
+                        <div>
+                          <span className="text-slate-500 block text-[10px] uppercase font-bold">Previously Paid</span>
+                          <span className="font-bold text-slate-800 text-xs">{formatCurrency(initialPaid)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-500 block text-[10px] uppercase font-bold">Adding Today</span>
+                          <span className={`font-bold text-xs ${addNum > 0 ? "text-emerald-700" : "text-slate-400"}`}>
+                            {addNum > 0 ? `+ ${formatCurrency(addNum)}` : "₹0"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-700">New Total Paid:</span>
+                        <span className="font-extrabold text-emerald-800 text-sm">
+                          {formatCurrency(computedPaid)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-xs pt-1.5 border-t border-amber-200/70">
+                        <span className="font-bold text-amber-950">Remaining Due:</span>
+                        <span className="text-amber-900 font-bold flex items-center gap-1.5">
+                          <span className="text-sm">{formatCurrency(computedRemaining)}</span>
+                          {totalCost > 0 && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              computedRemaining === 0
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}>
+                              {computedRemaining === 0 ? "Fully Cleared" : `${percentRemaining}% due`}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Status Dropdown */}
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                        Resulting Payment Status
+                      </label>
+                      <select
+                        value={updatingPaymentItem.status}
+                        onChange={(e) =>
+                          setUpdatingPaymentItem({
+                            ...updatingPaymentItem,
+                            status: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800 font-medium"
+                      >
+                        <option value="pending">Pending (Unpaid)</option>
+                        <option value="partial">Partial</option>
+                        <option value="paid">Paid (Fully Settled)</option>
+                      </select>
+                    </div>
+
+                    {/* Payment Note for this installment */}
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                        Payment Note / Transaction Reference for this payment
+                      </label>
+                      <input
+                        type="text"
+                        value={updatingPaymentItem.installmentNote}
+                        onChange={(e) =>
+                          setUpdatingPaymentItem({
+                            ...updatingPaymentItem,
+                            installmentNote: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. Paid via UPI ref 9283921 / HDFC Cheque"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none"
+                      />
+                      {updatingPaymentItem.remarks && (
+                        <div className="mt-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-600">
+                          <span className="font-bold text-slate-700 block mb-0.5">Previous Notes:</span>
+                          <p className="line-clamp-2 italic">{updatingPaymentItem.remarks}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : (
-                  <Check size={12} />
+                  /* Mode 2: Direct Total Override */
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                        Payment Status
+                      </label>
+                      <select
+                        value={updatingPaymentItem.status}
+                        onChange={(e) => {
+                          const nextStatus = e.target.value;
+                          let nextPaid = updatingPaymentItem.paid;
+                          if (nextStatus === "paid") {
+                            nextPaid = totalCost;
+                          } else if (nextStatus === "pending") {
+                            nextPaid = 0;
+                          }
+                          setUpdatingPaymentItem({
+                            ...updatingPaymentItem,
+                            status: nextStatus,
+                            paid: nextPaid,
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-800 font-medium"
+                      >
+                        <option value="pending">Pending (Unpaid)</option>
+                        <option value="partial">Partial</option>
+                        <option value="paid">Paid (Fully Settled)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                        Cumulative Amount Paid (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={updatingPaymentItem.paid}
+                        onChange={(e) => {
+                          const nextVal = Number(e.target.value) || 0;
+                          setUpdatingPaymentItem({
+                            ...updatingPaymentItem,
+                            paid: nextVal,
+                            status:
+                              nextVal >= totalCost && totalCost > 0
+                                ? "paid"
+                                : nextVal > 0
+                                ? "partial"
+                                : "pending",
+                          });
+                        }}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl space-y-1.5">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-amber-900 font-medium">Total Amount:</span>
+                        <span className="font-bold text-slate-900">{formatCurrency(totalCost)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-amber-900 font-medium">Paid Amount:</span>
+                        <span className="font-bold text-emerald-700">{formatCurrency(updatingPaymentItem.paid || 0)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-amber-200 font-bold">
+                        <span className="text-amber-950">Remaining Amount:</span>
+                        <span className="text-amber-900 flex items-center gap-1.5">
+                          <span>{formatCurrency(Math.max(0, totalCost - (updatingPaymentItem.paid || 0)))}</span>
+                          {totalCost > 0 && (
+                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                              {Math.round((Math.max(0, totalCost - (updatingPaymentItem.paid || 0)) / totalCost) * 100)}% due
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                        Payment Note / Remarks (Direct Edit)
+                      </label>
+                      <input
+                        type="text"
+                        value={updatingPaymentItem.remarks || ""}
+                        onChange={(e) =>
+                          setUpdatingPaymentItem({
+                            ...updatingPaymentItem,
+                            remarks: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. Paid via UPI ref 9283921"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
                 )}
-                Save Payment
-              </button>
+
+                {/* Due Date (Optional) */}
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Payment Due Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={updatingPaymentItem.dueDate || ""}
+                    onChange={(e) =>
+                      setUpdatingPaymentItem({
+                        ...updatingPaymentItem,
+                        dueDate: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setUpdatingPaymentItem(null)}
+                  className="px-3.5 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleQuickPaymentSave}
+                  disabled={savingPayment}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-lg text-xs font-bold hover:bg-cyan-700 shadow-xs disabled:opacity-50 transition"
+                >
+                  {savingPayment ? (
+                    <RefreshCw size={13} className="animate-spin" />
+                  ) : (
+                    <Check size={13} className="stroke-[3]" />
+                  )}
+                  <span>
+                    {isAddMode && addNum > 0
+                      ? `Save +${formatCurrency(addNum)} Payment`
+                      : "Save Payment"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

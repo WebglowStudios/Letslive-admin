@@ -239,10 +239,22 @@ function PartialPaymentFields({
   paidAmount?: number;
   onChangePaidAmount: (val: number) => void;
 }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [addVal, setAddVal] = useState<number | "">("");
+
   const cost = Number(vendorCost) || 0;
   const paid = paidAmount !== undefined && paidAmount !== null ? Number(paidAmount) : 0;
   const remaining = Math.max(0, cost - paid);
   const percentage = cost > 0 ? Math.round((remaining / cost) * 100) : 0;
+
+  const handleApplyAdd = () => {
+    const num = Number(addVal) || 0;
+    if (num > 0) {
+      onChangePaidAmount(paid + num);
+      setAddVal("");
+      setShowAdd(false);
+    }
+  };
 
   return (
     <div className="mt-2.5 p-3.5 bg-amber-50/80 border border-amber-200/90 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
@@ -258,7 +270,13 @@ function PartialPaymentFields({
       <div>
         <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1 flex items-center justify-between">
           <span>Paid Amount (₹)</span>
-          <span className="text-[8px] font-normal text-amber-600">Advance paid</span>
+          <button
+            type="button"
+            onClick={() => setShowAdd(!showAdd)}
+            className="text-[9px] font-bold text-cyan-700 hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-1.5 py-0.5 rounded transition cursor-pointer"
+          >
+            {showAdd ? "Close" : "+ Add Payment"}
+          </button>
         </label>
         <Inp
           type="number"
@@ -266,6 +284,33 @@ function PartialPaymentFields({
           onChange={(v) => onChangePaidAmount(Number(v))}
           placeholder="e.g. 10000"
         />
+        {showAdd && (
+          <div className="mt-1.5 p-1.5 bg-white border border-cyan-300 rounded-lg shadow-sm flex items-center gap-1.5 animate-in fade-in">
+            <span className="text-[10px] font-bold text-emerald-700 pl-1">+₹</span>
+            <input
+              type="number"
+              value={addVal}
+              onChange={(e) => setAddVal(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="e.g. 100000"
+              className="w-full text-xs px-2 py-1 border border-slate-200 rounded outline-none focus:border-cyan-500"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleApplyAdd();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleApplyAdd}
+              disabled={!addVal || Number(addVal) <= 0}
+              className="px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10px] font-bold disabled:opacity-50 transition shrink-0"
+            >
+              Add
+            </button>
+          </div>
+        )}
       </div>
       <div>
         <label className="text-[9px] font-bold text-amber-900 uppercase block mb-1 flex items-center justify-between">
