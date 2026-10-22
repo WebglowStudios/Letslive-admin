@@ -8,11 +8,12 @@ import {
   ArrowLeft, User, Package, MapPin, Calendar, Users, CreditCard,
   CheckCircle, Clock, XCircle, AlertCircle, Phone, Mail,
   RefreshCw, MessageSquare, ExternalLink, ChevronRight, Link as LinkIcon,
-  Building2, Star, BedDouble, Edit2, Check
+  Building2, Star, BedDouble, Edit2, Check, Download
 } from "lucide-react";
 import Link from "next/link";
 import RoleGuard from "@/components/guards/RoleGuard";
 import { usePermission, useRole } from "@/hooks/usePermission";
+import { generateBookingPdf } from "@/lib/generateBookingPdf";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StayOption {
@@ -424,6 +425,15 @@ export default function BookingDetailPage() {
                   </div>
                 </>
               )}
+              <button
+                type="button"
+                onClick={() => generateBookingPdf(booking as any)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl border border-slate-200 transition-colors cursor-pointer self-end"
+                title="Download Booking Voucher PDF"
+              >
+                <Download size={15} />
+                <span>Download PDF</span>
+              </button>
             </div>
           </div>
         </div>

@@ -84,6 +84,7 @@ export interface VoucherData {
   packageSlug?: string;
   hasPolicies?: boolean;
   dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
+  travellersDetails?: { name: string; age?: number; dob?: string | Date; gender?: string; type?: string; phone?: string; passportNumber?: string }[];
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
@@ -345,7 +346,7 @@ const formatDateSafe = (d: any) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, trainsIncluded, hideTrainInfo, flights, trains, accommodations, transports, itinerary, activities, transferSummary } = data;
+  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, trainsIncluded, hideTrainInfo, flights, trains, accommodations, transports, itinerary, activities, transferSummary, travellersDetails } = data;
 
   const transfersByDay: Record<number | string, any[]> = {};
   
@@ -526,6 +527,42 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
             )}
           </View>
         </View>
+
+        {/* PASSENGER DETAILS */}
+        {travellersDetails && travellersDetails.length > 0 && (
+          <View style={s.sectionWrapper} wrap={false}>
+            <View style={s.sectionHeader}>
+              <Icon d={ICONS.location} color={C.gn3} size={14} />
+              <Text style={s.sectionTitle}>PASSENGER DETAILS</Text>
+            </View>
+            <View style={s.table}>
+              <View style={s.tableHeaderRow}>
+                <Text style={[s.th, { width: "8%" }]}>#</Text>
+                <Text style={[s.th, { width: "37%" }]}>PASSENGER NAME</Text>
+                <Text style={[s.th, { width: "15%" }]}>CATEGORY</Text>
+                <Text style={[s.th, { width: "20%" }]}>AGE / DOB</Text>
+                <Text style={[s.th, { width: "20%" }]}>CONTACT / PASSPORT</Text>
+              </View>
+              {travellersDetails.map((t: any, i: number) => {
+                const dobFormatted = t.dob ? formatDateSafe(t.dob) : "";
+                const ageText = t.age !== undefined && t.age !== null ? `${t.age} yrs` : "";
+                const ageOrDob = [ageText, dobFormatted ? `DOB: ${dobFormatted}` : ""].filter(Boolean).join(" · ") || "\u2014";
+                const contactOrPassport = [t.phone, t.passportNumber ? `PP: ${t.passportNumber}` : ""].filter(Boolean).join(" · ") || "\u2014";
+                return (
+                  <View style={s.tableRow} key={i}>
+                    <Text style={[s.td, { width: "8%", fontFamily: "Helvetica-Bold", color: C.gn2 }]}>{i + 1}.</Text>
+                    <Text style={[s.td, { width: "37%", fontFamily: "Helvetica-Bold" }]}>{t.name || "\u2014"}</Text>
+                    <Text style={[s.td, { width: "15%", textTransform: "capitalize", color: C.ink3 }]}>
+                      {t.type || "Adult"}
+                    </Text>
+                    <Text style={[s.td, { width: "20%" }]}>{ageOrDob}</Text>
+                    <Text style={[s.td, { width: "20%" }]}>{contactOrPassport}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* FLIGHT SCHEDULE */}
         {flights.length > 0 && (

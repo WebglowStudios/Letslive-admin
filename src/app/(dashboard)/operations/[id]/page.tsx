@@ -792,6 +792,7 @@ export default function OperationDetailPage() {
         packageSlug: op?.package?.slug || "",
         hasPolicies,
         dateChangeHistory: op?.booking?.dateChangeHistory,
+        travellersDetails: bkgDetails,
       });
 
     } catch (err) {
