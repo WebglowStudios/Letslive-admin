@@ -20,6 +20,7 @@ interface OperationItem {
   destination: string;
   travelDates: { start: string; end: string };
   assignedTo?: { _id?: string; firstName: string; lastName: string };
+  salesperson?: { _id?: string; firstName: string; lastName: string };
   sellingPrice: number;
   effectiveSelling?: number;   // live total billed (from CustomerPayments)
   totalReceived?: number;      // live total received
@@ -337,32 +338,48 @@ export default function OperationsPage() {
                       <td className="px-5 py-4 text-sm text-slate-600">{op.destination}</td>
                       <td className="px-5 py-4 text-sm text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"}</td>
                       <td className="px-5 py-4">
-                        {op.assignedTo ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200 uppercase">
-                              {op.assignedTo.firstName[0]}{op.assignedTo.lastName[0]}
+                        <div className="flex flex-col gap-1">
+                          {/* Salesperson */}
+                          {(op as any).salesperson ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-indigo-400 uppercase">Sale</span>
+                              <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-[9px] font-bold text-indigo-500 border border-indigo-200 uppercase">
+                                {(op as any).salesperson.firstName[0]}{(op as any).salesperson.lastName[0]}
+                              </div>
+                              <span className="text-xs font-medium text-slate-700 whitespace-nowrap">{(op as any).salesperson.firstName} {(op as any).salesperson.lastName}</span>
                             </div>
-                            <span className="text-xs font-medium text-slate-700 whitespace-nowrap">{op.assignedTo.firstName} {op.assignedTo.lastName}</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col gap-1 items-start">
-                            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">
-                              Unassigned
-                            </span>
-                            {isManager && staffList.length > 0 && (
-                              <select
-                                defaultValue=""
-                                onChange={(ev) => quickAssign(op._id, ev.target.value)}
-                                className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white text-slate-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyan-500 max-w-[130px]"
-                              >
-                                <option value="">Assign to...</option>
-                                {staffList.map((s) => (
-                                  <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
-                                ))}
-                              </select>
-                            )}
-                          </div>
-                        )}
+                          ) : (
+                            <span className="text-[9px] text-slate-300 italic">No salesperson</span>
+                          )}
+                          {/* Ops Person */}
+                          {op.assignedTo ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-cyan-400 uppercase">Ops</span>
+                              <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-500 border border-slate-200 uppercase">
+                                {op.assignedTo.firstName[0]}{op.assignedTo.lastName[0]}
+                              </div>
+                              <span className="text-xs font-medium text-slate-700 whitespace-nowrap">{op.assignedTo.firstName} {op.assignedTo.lastName}</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">
+                                Ops Unassigned
+                              </span>
+                              {isManager && staffList.length > 0 && (
+                                <select
+                                  defaultValue=""
+                                  onChange={(ev) => quickAssign(op._id, ev.target.value)}
+                                  className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white text-slate-600 cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyan-500 max-w-[130px]"
+                                >
+                                  <option value="">Assign ops...</option>
+                                  {staffList.map((s) => (
+                                    <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-sm font-semibold text-slate-700">{formatCurrency(op.effectiveSelling ?? op.sellingPrice)}</td>
                       <td className="px-5 py-4">

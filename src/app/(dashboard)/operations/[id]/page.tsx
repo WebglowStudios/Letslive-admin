@@ -73,7 +73,7 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 export const getWebsiteBaseUrl = (_brand?: string, _bookingId?: string, _operationId?: string) => {
   const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -386,6 +386,7 @@ export default function OperationDetailPage() {
   const [splitModalOpen, setSplitModalOpen] = useState(false);
   const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
+  const [allStaffList, setAllStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
   const calculateAgeFromDob = (dobStr?: string): number | undefined => {
     if (!dobStr) return undefined;
     const birthDate = new Date(dobStr);
@@ -425,9 +426,15 @@ export default function OperationDetailPage() {
   // Fetch ops staff list for assignment
   useEffect(() => {
     if (!isManager) return;
+    // Fetch ops staff for Ops Person dropdown
     api.get("/users/staff?department=ops").then((res) => {
       const list = res?.data || res || [];
       setStaffList(Array.isArray(list) ? list : []);
+    }).catch(() => {});
+    // Fetch all staff for Salesperson dropdown
+    api.get("/users/staff").then((res) => {
+      const list = res?.data || res || [];
+      setAllStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});
   }, [isManager]);
 
@@ -438,6 +445,16 @@ export default function OperationDetailPage() {
       fetchAll();
     } catch (err) {
       alert("Failed to assign operation");
+    }
+  }
+
+  async function assignSalesperson(staffId: string) {
+    if (!op) return;
+    try {
+      await api.put(`/operations/${op._id}`, { salesperson: staffId || null });
+      fetchAll();
+    } catch (err) {
+      alert("Failed to assign salesperson");
     }
   }
 
@@ -1081,27 +1098,63 @@ export default function OperationDetailPage() {
             {/* Assignment Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-1.5">
-                <User size={12} /> Assigned To
+                <User size={12} /> Assignment
               </p>
-              {isManager && staffList.length > 0 ? (
-                <select
-                  value={op.assignedTo?._id || ""}
-                  onChange={(e) => assignOperation(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                >
-                  <option value="">Unassigned</option>
-                  {staffList.map((s) => (
-                    <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm text-slate-700 font-medium">
-                  {op.assignedTo
-                    ? `${op.assignedTo.firstName} ${op.assignedTo.lastName}`
-                    : <span className="text-slate-400 italic font-medium bg-slate-100 px-2 py-0.5 rounded-full text-xs">Unassigned</span>
-                  }
+
+              {/* Salesperson */}
+              <div className="mb-3">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                  <span>💼</span> Salesperson
                 </p>
-              )}
+                {isManager && allStaffList.length > 0 ? (
+                  <select
+                    value={(op.salesperson as any)?._id || ""}
+                    onChange={(e) => assignSalesperson(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="">Unassigned</option>
+                    {allStaffList.map((s) => (
+                      <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-slate-700 font-medium">
+                    {(op.salesperson as any)
+                      ? `${(op.salesperson as any).firstName} ${(op.salesperson as any).lastName}`
+                      : <span className="text-slate-400 italic font-medium bg-slate-100 px-2 py-0.5 rounded-full text-xs">Unassigned</span>
+                    }
+                  </p>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-slate-100 my-3" />
+
+              {/* Ops Person */}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                  <span>🔧</span> Ops Person
+                </p>
+                {isManager && staffList.length > 0 ? (
+                  <select
+                    value={op.assignedTo?._id || ""}
+                    onChange={(e) => assignOperation(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="">Unassigned</option>
+                    {staffList.map((s) => (
+                      <option key={s._id} value={s._id}>{s.firstName} {s.lastName}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-slate-700 font-medium">
+                    {op.assignedTo
+                      ? `${op.assignedTo.firstName} ${op.assignedTo.lastName}`
+                      : <span className="text-slate-400 italic font-medium bg-slate-100 px-2 py-0.5 rounded-full text-xs">Unassigned</span>
+                    }
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
