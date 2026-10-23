@@ -387,6 +387,7 @@ export default function OperationDetailPage() {
   const [splitData, setSplitData] = useState({ primaryPaymentId: "", amount: "" });
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
   const [allStaffList, setAllStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
+  const [deleteSplitModal, setDeleteSplitModal] = useState<{ paymentId: string; amount: number; milestone: string } | null>(null);
   const calculateAgeFromDob = (dobStr?: string): number | undefined => {
     if (!dobStr) return undefined;
     const birthDate = new Date(dobStr);
@@ -493,6 +494,16 @@ export default function OperationDetailPage() {
     }
   }
   async function delItem(endpoint: string, itemId: string) { if (!confirm("Delete?")) return; await api.del(`/operations/${id}/${endpoint}/${itemId}`); fetchAll(); }
+
+  async function deleteSplitPayment(paymentId: string, restoreToParent: boolean) {
+    try {
+      await api.del(`/operations/${id}/customer-payments/${paymentId}?restoreToParent=${restoreToParent}`);
+      setDeleteSplitModal(null);
+      fetchAll();
+    } catch {
+      alert("Failed to delete installment.");
+    }
+  }
   async function updateStatus(s: string) { await api.put(`/operations/${id}`, { status: s }); fetchAll(); }
   async function recalculate() {
     try {
@@ -3176,9 +3187,16 @@ export default function OperationDetailPage() {
               }
             });
 
-            const renderPaymentCard = (p: any, idx: number) => (
+              const renderPaymentCard = (p: any, idx: number) => (
               <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => delItem("customer-payments", p._id)} className="text-red-400"><Trash2 size={14} /></button></div></div>
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}{(p as any).splitFrom&&<span className="ml-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[9px]">SPLIT</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => {
+                  // If it's a split child and unpaid, show the special modal
+                  if ((p as any).splitFrom && (p.paidAmount || 0) === 0) {
+                    setDeleteSplitModal({ paymentId: p._id, amount: p.amount, milestone: p.milestone });
+                  } else {
+                    delItem("customer-payments", p._id);
+                  }
+                }} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button></div></div>
                 <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-max mb-4">
                   <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: false}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${!p._isManual ? "bg-white shadow text-indigo-700" : "text-slate-500 hover:text-slate-700"}`}>Razorpay Link</button>
                   <button onClick={() => {const u=[...customerPayments]; u[idx]={...u[idx], _isManual: true}; setCustomerPayments(u);}} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${p._isManual ? "bg-white shadow text-cyan-700" : "text-slate-500 hover:text-slate-700"}`}>Manual / Offline</button>
@@ -3841,6 +3859,64 @@ export default function OperationDetailPage() {
               >
                 <Save size={14} />
                 {savingPassenger ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Split Installment Modal */}
+      {deleteSplitModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-800">Delete Split Installment</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                You're deleting <span className="font-semibold text-slate-700">"{deleteSplitModal.milestone}"</span> (₹{deleteSplitModal.amount.toLocaleString('en-IN')}). 
+                This was split from a parent installment. What should happen to this amount?
+              </p>
+            </div>
+
+            <div className="p-5 space-y-3">
+              {/* Option 1: Add Back */}
+              <button
+                onClick={() => deleteSplitPayment(deleteSplitModal.paymentId, true)}
+                className="w-full text-left p-4 border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700 flex-shrink-0 mt-0.5">↩</div>
+                  <div>
+                    <p className="text-sm font-bold text-emerald-800">Add Back to Parent</p>
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      Delete this installment and <strong>restore ₹{deleteSplitModal.amount.toLocaleString('en-IN')} back</strong> to the original installment it was split from. Customer's total stays the same.
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: Eliminate */}
+              <button
+                onClick={() => deleteSplitPayment(deleteSplitModal.paymentId, false)}
+                className="w-full text-left p-4 border-2 border-red-200 bg-red-50 hover:bg-red-100 rounded-xl transition-colors group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-red-100 border border-red-300 flex items-center justify-center text-red-700 flex-shrink-0 mt-0.5">✕</div>
+                  <div>
+                    <p className="text-sm font-bold text-red-800">Eliminate (Reduce Total)</p>
+                    <p className="text-xs text-red-700 mt-0.5">
+                      Delete this installment and <strong>reduce the customer's total by ₹{deleteSplitModal.amount.toLocaleString('en-IN')}</strong>. Use this if you're giving a discount or adjusting the booking amount.
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setDeleteSplitModal(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>
