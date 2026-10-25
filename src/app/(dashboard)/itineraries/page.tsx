@@ -101,7 +101,12 @@ export default function ItinerariesPage() {
 
   async function toggleShowOnDestination(id: string, current: boolean) {
     try {
-      await api.put(`/packages/${id}`, { showOnDestination: !current });
+      const res = await api.put(`/packages/${id}`, { showOnDestination: !current });
+      if (res?.approvalRequired) {
+        // Non-admin toggling ON — request sent for approval, don't update local state
+        alert("✅ Request submitted! An admin will review and approve this before it goes live on the website.");
+        return;
+      }
       setItineraries((prev) =>
         prev.map((it) => it._id === id ? { ...it, showOnDestination: !current } : it)
       );
