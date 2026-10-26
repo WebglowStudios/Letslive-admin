@@ -1486,8 +1486,12 @@ function OfflineBookingModal({
 
 // ─── Send Booking Link Modal ─────────────────────────────────────────────────
 function SendBookingLinkModal({ enquiry, onClose }: { enquiry: Enquiry; onClose: () => void }) {
+  const [recipientEmail, setRecipientEmail] = useState<string>(
+    enquiry.email && enquiry.email !== "info.letslive@gmail.com" ? enquiry.email : (enquiry.email || "")
+  );
   const [sendingLinkFor, setSendingLinkFor] = useState<string | null>(null);
   const [linkSentFor, setLinkSentFor] = useState<string | null>(null);
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   // Collect packages: linked itineraries + fallback to primary package if no linked itineraries
   let packagesToList: { _id: string; name: string; slug: string }[] = [];
@@ -1501,67 +1505,126 @@ function SendBookingLinkModal({ enquiry, onClose }: { enquiry: Enquiry; onClose:
     }
   }
 
+  function getBookingUrl(slug: string) {
+    let url = `https://letslivetours.com/book/${slug}`;
+    const params = new URLSearchParams();
+    params.append("guest", "true");
+    if (enquiry.departureId) params.append("departureId", enquiry.departureId.toString());
+    if (enquiry.travelDate) params.append("travelDate", new Date(enquiry.travelDate).toISOString().split('T')[0]);
+    params.append("enquiryId", enquiry._id);
+    return `${url}?${params.toString()}`;
+  }
+
   async function handleSendEmail(pkg: { slug: string; name: string; _id: string }) {
+    const targetEmail = recipientEmail.trim();
+    if (!targetEmail) {
+      alert("Please enter a valid customer email address.");
+      return;
+    }
     setSendingLinkFor(pkg._id);
     setLinkSentFor(null);
     try {
       await api.post(`/enquiries/${enquiry._id}/send-booking-link`, { 
         packageSlug: pkg.slug,
-        packageName: pkg.name
+        packageName: pkg.name,
+        customerEmail: targetEmail,
       });
       setLinkSentFor(pkg._id);
       setTimeout(() => setLinkSentFor(null), 3000);
-    } catch {
-      alert("Failed to send booking link.");
+    } catch (err: any) {
+      alert(err?.message || "Failed to send booking link.");
     } finally {
       setSendingLinkFor(null);
     }
   }
 
   function handleCopyLink(slug: string) {
-    let url = `https://letslivetours.com/book/${slug}`;
-    const params = new URLSearchParams();
-    if (enquiry.departureId) params.append("departureId", enquiry.departureId.toString());
-    if (enquiry.travelDate) params.append("travelDate", new Date(enquiry.travelDate).toISOString().split('T')[0]);
-    params.append("enquiryId", enquiry._id);
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
+    const url = getBookingUrl(slug);
     navigator.clipboard.writeText(url);
-    alert("Booking link copied to clipboard!");
+    setCopiedSlug(slug);
+    setTimeout(() => setCopiedSlug(null), 3000);
   }
 
+  function handleSendWhatsApp(pkg: { slug: string; name: string }) {
+    const url = getBookingUrl(pkg.slug);
+    const firstName = enquiry.firstName || "there";
+    const text = `Hi ${firstName},\n\nHere is your custom itinerary and booking link for *${pkg.name}*:\n\n${url}\n\nPlease click the link to review and complete your booking. LetsLive Tours.`;
+    const cleanPhone = (enquiry.phone || "").replace(/[^0-9]/g, "");
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, "_blank");
+  }
+
+  const isCompanyEmail = recipientEmail.toLowerCase().includes("info.letslive");
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div>
-            <h3 className="font-bold text-slate-800">Send Booking Link</h3>
-            <p className="text-xs text-slate-400">Choose an itinerary to share with {enquiry.firstName}</p>
+            <h3 className="font-bold text-slate-800 text-base">Send Booking Link</h3>
+            <p className="text-xs text-slate-500">Share itinerary booking link with {enquiry.firstName}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200/60 rounded-lg transition-colors"><X size={18} /></button>
         </div>
-        <div className="p-5 max-h-[60vh] overflow-y-auto">
+
+        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Recipient Email Field */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+              <span>Customer Email (Recipient)</span>
+              {isCompanyEmail && (
+                <span className="text-[11px] text-amber-600 font-medium">⚠️ Currently set to company email</span>
+              )}
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="customer@example.com"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 font-medium text-slate-800"
+              />
+            </div>
+            {isCompanyEmail && (
+              <p className="text-[11px] text-slate-500">
+                Replace with the customer&apos;s real email before clicking &quot;Send via Email&quot; so they receive it.
+              </p>
+            )}
+          </div>
+
           {packagesToList.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">No linked itineraries found. Please link an itinerary first.</p>
+            <p className="text-sm text-slate-500 text-center py-6">No linked itineraries found. Please link an itinerary first.</p>
           ) : (
             <div className="space-y-3">
               {packagesToList.map((pkg) => (
-                <div key={pkg._id} className="flex flex-col gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                  <p className="text-sm text-slate-800 font-semibold">{pkg.name}</p>
-                  <div className="flex gap-2">
+                <div key={pkg._id} className="flex flex-col gap-3 p-3.5 bg-slate-50/70 border border-slate-200 rounded-xl">
+                  <p className="text-xs font-semibold text-slate-800 leading-snug">{pkg.name}</p>
+                  
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => handleCopyLink(pkg.slug)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-100 transition-colors"
+                      className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-100 transition-colors shadow-sm"
                     >
-                      <Copy size={14} /> Copy Link
+                      <Copy size={13} />
+                      {copiedSlug === pkg.slug ? "✓ Copied!" : "Copy Link"}
                     </button>
+
+                    {enquiry.phone && (
+                      <button
+                        onClick={() => handleSendWhatsApp(pkg)}
+                        className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors shadow-sm"
+                      >
+                        <MessageCircle size={13} />
+                        WhatsApp
+                      </button>
+                    )}
+
                     <button
                       onClick={() => handleSendEmail(pkg)}
                       disabled={sendingLinkFor === pkg._id}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs font-semibold hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                      className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold hover:bg-amber-100 disabled:opacity-50 transition-colors shadow-sm"
                     >
-                      <Send size={14} />
+                      <Send size={13} />
                       {sendingLinkFor === pkg._id ? "Sending..." : linkSentFor === pkg._id ? "✓ Sent!" : "Send via Email"}
                     </button>
                   </div>
