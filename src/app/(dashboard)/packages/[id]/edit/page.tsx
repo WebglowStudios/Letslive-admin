@@ -2495,7 +2495,9 @@ export default function EditPackagePage() {
                               type="button"
                               onClick={() => {
                                 const updated = [...transfers];
-                                updated[i] = { ...updated[i], legs: [...updated[i].legs, { from: "", to: "", stops: [], transferType: "Shared Transfer", vehicleType: "" }] };
+                                const prevLegs = updated[i].legs;
+                                const lastLeg = prevLegs[prevLegs.length - 1];
+                                updated[i] = { ...updated[i], legs: [...prevLegs, { from: lastLeg ? lastLeg.to : "", to: "", stops: [], transferType: lastLeg ? lastLeg.transferType : "Shared Transfer", vehicleType: lastLeg ? lastLeg.vehicleType : "" }] };
                                 setTransfers(updated);
                               }}
                               className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-semibold hover:bg-slate-200"

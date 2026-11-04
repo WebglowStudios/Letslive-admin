@@ -2455,8 +2455,28 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
 // ─── Accommodation ────────────────────────────────────────────────────────────
 const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.stays || pkg.stays.length === 0) return null;
-  const hasDateInfo = pkg.stays.some(s => s.checkIn || s.checkOut);
-  const shouldWrapAll = pkg.stays.length <= 8;
+
+  // Group consecutive stays with the same hotel name + same check-in/check-out into
+  // one row, combining their room types. Handles "2x Superior + 3x Deluxe at same hotel".
+  type GroupedStay = Stay & { roomTypes: { roomType: string; rooms?: number }[] };
+  const groupedStays: GroupedStay[] = [];
+  for (const stay of pkg.stays) {
+    const last = groupedStays[groupedStays.length - 1];
+    const sameHotel =
+      last &&
+      last.name.trim().toLowerCase() === stay.name.trim().toLowerCase() &&
+      (last.checkIn || "") === (stay.checkIn || "") &&
+      (last.checkOut || "") === (stay.checkOut || "");
+    if (sameHotel) {
+      last.roomTypes.push({ roomType: stay.roomType, rooms: stay.rooms });
+      if (stay.rooms) last.rooms = (last.rooms || 0) + stay.rooms;
+    } else {
+      groupedStays.push({ ...stay, roomTypes: [{ roomType: stay.roomType, rooms: stay.rooms }] });
+    }
+  }
+
+  const hasDateInfo = groupedStays.some(s => s.checkIn || s.checkOut);
+  const shouldWrapAll = groupedStays.length <= 8;
 
   const tableHead = (
     <View style={s.tableHead} wrap={false}>
@@ -2488,9 +2508,17 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
     </View>
   );
 
-  const renderTableRows = (stays: typeof pkg.stays, startIndex = 0) =>
+  const renderTableRows = (stays: GroupedStay[], startIndex = 0) =>
     stays.map((stay, i) => {
       const idx = startIndex + i;
+      // Combine multiple room types: "2x Superior Room | 3x Deluxe Room"
+      const roomTypeLabel =
+        stay.roomTypes.length > 1
+          ? stay.roomTypes
+              .map(rt => `${rt.rooms ? `${rt.rooms}x ` : ""}${rt.roomType || ""}`.trim())
+              .filter(Boolean)
+              .join(" | ")
+          : `${stay.rooms ? `${stay.rooms}x ` : ""}${stay.roomType || "—"}`;
       return (
         <View key={idx} style={[s.tableRow, idx % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
           <View style={[s.tableCol, { width: hasDateInfo ? "20%" : "28%" }]}>
@@ -2506,7 +2534,7 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
             <Text style={s.tableCell}>{stay.nights ? `${stay.nights}N` : "—"}</Text>
           </View>
           <View style={[s.tableCol, { width: hasDateInfo ? "20%" : "28%" }, !hasDateInfo ? s.tableColLast : {}]}>
-            <Text style={s.tableCell}>{stay.rooms ? `${stay.rooms}x ` : ""}{stay.roomType || "—"}</Text>
+            <Text style={s.tableCell}>{roomTypeLabel}</Text>
           </View>
           {hasDateInfo && (
             <View style={[s.tableCol, { width: "13%" }]}>
@@ -2562,7 +2590,7 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
         <SectionTitle title="Accommodation" />
         <View style={s.tableWrap}>
           {tableHead}
-          {renderTableRows(pkg.stays)}
+          {renderTableRows(groupedStays)}
         </View>
         {extraDetails}
       </View>
@@ -2575,11 +2603,11 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
         <SectionTitle title="Accommodation" />
         <View style={s.tableWrap}>
           {tableHead}
-          {renderTableRows(pkg.stays.slice(0, 3))}
+          {renderTableRows(groupedStays.slice(0, 3))}
         </View>
       </View>
       <View style={s.tableWrap}>
-        {renderTableRows(pkg.stays.slice(3), 3)}
+        {renderTableRows(groupedStays.slice(3), 3)}
       </View>
       {extraDetails}
     </View>

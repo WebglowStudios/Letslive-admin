@@ -621,36 +621,63 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         )}
 
         {/* ACCOMMODATION DETAILS */}
-        {accommodations.length > 0 && (
-          <View style={s.sectionWrapper} wrap={false}>
-            <View style={s.sectionHeader}>
-              <Icon d={ICONS.hotel} color={C.cu} size={14} />
-              <Text style={s.sectionTitle}>ACCOMMODATION DETAILS</Text>
-            </View>
-            <View style={s.table}>
-              <View style={s.tableHeaderRow}>
-                <Text style={[s.th, { width: "15%" }]}>AREA</Text>
-                <Text style={[s.th, { width: "20%" }]}>HOTEL NAME</Text>
-                <Text style={[s.th, { width: "15%" }]}>ROOM CAT.</Text>
-                <Text style={[s.th, { width: "20%" }]}>CONF. NO.</Text>
-                <Text style={[s.th, { width: "10%" }]}>MEAL PLAN</Text>
-                <Text style={[s.th, { width: "10%" }]}>CHECK-IN</Text>
-                <Text style={[s.th, { width: "10%" }]}>CHECK-OUT</Text>
+        {accommodations.length > 0 && (() => {
+          // Group same-hotel entries (same name + same check-in/out) into one row
+          // so "2x Superior + 3x Deluxe at Pullman Phu Quoc" shows as a single line.
+          type AccGroup = { area: string; name: string; roomCategories: string[]; confirmationNumber: string; mealPlan: string; checkIn: any; checkOut: any };
+          const grouped: AccGroup[] = [];
+          for (const a of accommodations) {
+            const last = grouped[grouped.length - 1];
+            const sameHotel =
+              last &&
+              (last.name || "").trim().toLowerCase() === (a.name || "").trim().toLowerCase() &&
+              String(last.checkIn || "") === String(a.checkIn || "") &&
+              String(last.checkOut || "") === String(a.checkOut || "");
+            if (sameHotel) {
+              if (a.roomCategory) last.roomCategories.push(a.roomCategory);
+            } else {
+              grouped.push({
+                area: a.area,
+                name: a.name,
+                roomCategories: a.roomCategory ? [a.roomCategory] : [],
+                confirmationNumber: a.confirmationNumber,
+                mealPlan: a.mealPlan,
+                checkIn: a.checkIn,
+                checkOut: a.checkOut,
+              });
+            }
+          }
+          return (
+            <View style={s.sectionWrapper} wrap={false}>
+              <View style={s.sectionHeader}>
+                <Icon d={ICONS.hotel} color={C.cu} size={14} />
+                <Text style={s.sectionTitle}>ACCOMMODATION DETAILS</Text>
               </View>
-              {accommodations.map((a, i) => (
-                <View style={s.tableRow} key={i}>
-                  <Text style={[s.td, { width: "15%" }]}>{a.area}</Text>
-                  <Text style={[s.td, { width: "20%" }]}>{a.name}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{a.roomCategory}</Text>
-                  <Text style={[s.td, { width: "20%" }]}>{a.confirmationNumber}</Text>
-                  <Text style={[s.td, { width: "10%" }]}>{a.mealPlan}</Text>
-                  <Text style={[s.td, { width: "10%" }]}>{formatDateSafe(a.checkIn)}</Text>
-                  <Text style={[s.td, { width: "10%" }]}>{formatDateSafe(a.checkOut)}</Text>
+              <View style={s.table}>
+                <View style={s.tableHeaderRow}>
+                  <Text style={[s.th, { width: "15%" }]}>AREA</Text>
+                  <Text style={[s.th, { width: "20%" }]}>HOTEL NAME</Text>
+                  <Text style={[s.th, { width: "15%" }]}>ROOM CAT.</Text>
+                  <Text style={[s.th, { width: "20%" }]}>CONF. NO.</Text>
+                  <Text style={[s.th, { width: "10%" }]}>MEAL PLAN</Text>
+                  <Text style={[s.th, { width: "10%" }]}>CHECK-IN</Text>
+                  <Text style={[s.th, { width: "10%" }]}>CHECK-OUT</Text>
                 </View>
-              ))}
+                {grouped.map((a, i) => (
+                  <View style={s.tableRow} key={i}>
+                    <Text style={[s.td, { width: "15%" }]}>{a.area}</Text>
+                    <Text style={[s.td, { width: "20%" }]}>{a.name}</Text>
+                    <Text style={[s.td, { width: "15%" }]}>{a.roomCategories.join(" | ") || "—"}</Text>
+                    <Text style={[s.td, { width: "20%" }]}>{a.confirmationNumber}</Text>
+                    <Text style={[s.td, { width: "10%" }]}>{a.mealPlan}</Text>
+                    <Text style={[s.td, { width: "10%" }]}>{formatDateSafe(a.checkIn)}</Text>
+                    <Text style={[s.td, { width: "10%" }]}>{formatDateSafe(a.checkOut)}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          );
+        })()}
 
 
 

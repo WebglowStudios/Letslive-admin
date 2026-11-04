@@ -73,7 +73,7 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; visaCost?: number; miscCharges?: { label: string; amount: number; isVendorCost: boolean }[]; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 export const getWebsiteBaseUrl = (_brand?: string, _bookingId?: string, _operationId?: string) => {
   const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -3285,7 +3285,10 @@ export default function OperationDetailPage() {
           const transferCost = (a.transfers || []).reduce((ts, tr) => ts + (tr.hasPricing ? (tr.vendorCost || 0) : 0), 0);
           return s + base + transferCost;
         }, 0);
-        const total = tCost+aCost+actCost;
+        const visaCost = op.visaCost || 0;
+        const miscList = op.miscCharges || [];
+        const miscTotal = miscList.reduce((s, c) => s + (c.amount || 0), 0);
+        const total = tCost+aCost+actCost+visaCost+miscTotal;
         const profit = op.sellingPrice - total;
         const margin = op.sellingPrice>0?Math.round((profit/op.sellingPrice)*100):0;
         const custRcvd = customerPayments.reduce((s,p)=>s+(p.paidAmount||0),0);
@@ -3298,12 +3301,45 @@ export default function OperationDetailPage() {
         }, 0);
         const vendorPaid = tPaid+aPaid+actPaid;
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            {/* VISA + MISC CHARGES EDITOR */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-4">Additional Costs</h3>
+              <div className="space-y-4">
+                {/* Visa Cost */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-semibold text-slate-600 w-32 flex-shrink-0">Visa Cost (₹)</label>
+                  <input type="number" min="0" value={op.visaCost || 0} onChange={async (e) => { await api.put(`/operations/${id}`, { visaCost: Number(e.target.value) }); fetchAll(); }} className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-40" placeholder="0" />
+                  <span className="text-xs text-slate-400">Total visa/immigration fees</span>
+                </div>
+                {/* Misc Charges */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-600">Miscellaneous Charges</label>
+                    <button onClick={async () => { const updated = [...(op.miscCharges || []), { label: "", amount: 0, isVendorCost: false }]; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-semibold hover:bg-slate-200"><Plus size={11} /> Add Charge</button>
+                  </div>
+                  {(op.miscCharges || []).length === 0 && <p className="text-xs text-slate-400 italic">No misc charges yet. Click "+ Add Charge" to add.</p>}
+                  <div className="space-y-2">
+                    {(op.miscCharges || []).map((mc, mci) => (
+                      <div key={mci} className="flex items-center gap-2">
+                        <input type="text" value={mc.label} onChange={async (e) => { const updated = [...(op.miscCharges || [])]; updated[mci] = { ...updated[mci], label: e.target.value }; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} placeholder="Label (e.g. Tipping, Gratuity)" className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 flex-1" />
+                        <input type="number" min="0" value={mc.amount} onChange={async (e) => { const updated = [...(op.miscCharges || [])]; updated[mci] = { ...updated[mci], amount: Number(e.target.value) }; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} placeholder="Amount" className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-28" />
+                        <label className="flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap"><input type="checkbox" checked={mc.isVendorCost} onChange={async (e) => { const updated = [...(op.miscCharges || [])]; updated[mci] = { ...updated[mci], isVendorCost: e.target.checked }; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} className="rounded" /> Vendor Cost</label>
+                        <button onClick={async () => { const updated = (op.miscCharges || []).filter((_, fi) => fi !== mci); await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={13} /></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white rounded-xl border border-slate-200 p-6"><h3 className="text-sm font-bold text-slate-800 mb-4">Profit & Loss</h3><div className="space-y-2">
               <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">Selling Price</span><span className="text-sm font-bold">{formatCurrency(op.sellingPrice)}</span></div>
               <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">Flights & Trains ({transports.length})</span><span className="text-sm text-red-600">-{formatCurrency(tCost)}</span></div>
               <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">Accommodation ({accommodations.length})</span><span className="text-sm text-red-600">-{formatCurrency(aCost)}</span></div>
               <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">Itinerary Days & Transfers ({activities.length})</span><span className="text-sm text-red-600">-{formatCurrency(actCost)}</span></div>
+              {visaCost > 0 && <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">Visa Cost</span><span className="text-sm text-red-600">-{formatCurrency(visaCost)}</span></div>}
+              {miscList.map((c, ci) => (<div key={ci} className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">{c.label || "Misc Charge"}</span><span className="text-sm text-red-600">-{formatCurrency(c.amount)}</span></div>))}
               <div className="flex justify-between py-2 border-b border-slate-200"><span className="text-sm font-semibold">Total Cost</span><span className="text-sm font-bold text-red-600">-{formatCurrency(total)}</span></div>
               <div className="flex justify-between py-3 border-t-2 border-slate-300"><span className="font-bold">Profit</span><span className={`text-lg font-bold ${profit>=0?"text-emerald-600":"text-red-600"}`}>{formatCurrency(profit)}</span></div>
               <div className="flex justify-between"><span className="text-xs text-slate-500">Margin</span><span className="font-bold text-cyan-700">{margin}%</span></div>
@@ -3314,6 +3350,7 @@ export default function OperationDetailPage() {
               <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-sm text-slate-600">Vendor Pending</span><span className="text-sm text-amber-600">{formatCurrency(total-vendorPaid)}</span></div>
               <div className="flex justify-between py-3 border-t-2 border-slate-300"><span className="font-bold">Net in Hand</span><span className={`text-lg font-bold ${(custRcvd-vendorPaid)>=0?"text-emerald-600":"text-red-600"}`}>{formatCurrency(custRcvd-vendorPaid)}</span></div>
             </div></div>
+            </div>
           </div>);
       })()}
     </div>
