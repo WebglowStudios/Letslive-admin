@@ -59,6 +59,7 @@ interface BookingDetail {
     priceType?: string;
     priceUnit?: string;
     stays?: StayItem[];
+    customDestinationText?: string;
   };
   destination?: { _id: string; name: string };
   enquiry?: string | { _id: string; [key: string]: any };
@@ -457,10 +458,10 @@ export default function BookingDetailPage() {
                     )}
                   </div>
                 </div>
-                {dest && (
+                {(dest || (pkg as any)?.customDestinationText) && (
                   <div className="flex items-center gap-3">
                     <MapPin size={16} className="text-slate-400 shrink-0" />
-                    <p className="text-sm text-slate-600">{dest.name}</p>
+                    <p className="text-sm text-slate-600">{dest?.name || (pkg as any)?.customDestinationText}</p>
                   </div>
                 )}
                 <div className="flex items-start justify-between">

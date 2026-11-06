@@ -627,14 +627,17 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
           type AccGroup = { area: string; name: string; roomCategories: string[]; confirmationNumber: string; mealPlan: string; checkIn: any; checkOut: any };
           const grouped: AccGroup[] = [];
           for (const a of accommodations) {
-            const last = grouped[grouped.length - 1];
-            const sameHotel =
-              last &&
-              (last.name || "").trim().toLowerCase() === (a.name || "").trim().toLowerCase() &&
-              String(last.checkIn || "") === String(a.checkIn || "") &&
-              String(last.checkOut || "") === String(a.checkOut || "");
-            if (sameHotel) {
-              if (a.roomCategory) last.roomCategories.push(a.roomCategory);
+            // Group any entries with matching hotel name AND matching dates
+            const existing = grouped.find(
+              g =>
+                (g.name || "").trim().toLowerCase() === (a.name || "").trim().toLowerCase() &&
+                String(g.checkIn || "") === String(a.checkIn || "") &&
+                String(g.checkOut || "") === String(a.checkOut || "")
+            );
+            if (existing) {
+              if (a.roomCategory && !existing.roomCategories.includes(a.roomCategory)) {
+                existing.roomCategories.push(a.roomCategory);
+              }
             } else {
               grouped.push({
                 area: a.area,

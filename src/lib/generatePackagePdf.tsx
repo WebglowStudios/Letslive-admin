@@ -2461,15 +2461,16 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
   type GroupedStay = Stay & { roomTypes: { roomType: string; rooms?: number }[] };
   const groupedStays: GroupedStay[] = [];
   for (const stay of pkg.stays) {
-    const last = groupedStays[groupedStays.length - 1];
-    const sameHotel =
-      last &&
-      last.name.trim().toLowerCase() === stay.name.trim().toLowerCase() &&
-      (last.checkIn || "") === (stay.checkIn || "") &&
-      (last.checkOut || "") === (stay.checkOut || "");
-    if (sameHotel) {
-      last.roomTypes.push({ roomType: stay.roomType, rooms: stay.rooms });
-      if (stay.rooms) last.rooms = (last.rooms || 0) + stay.rooms;
+    // Group any stays matching the same hotel name AND exact same check-in / check-out dates
+    const existing = groupedStays.find(
+      s =>
+        (s.name || "").trim().toLowerCase() === (stay.name || "").trim().toLowerCase() &&
+        (s.checkIn || "") === (stay.checkIn || "") &&
+        (s.checkOut || "") === (stay.checkOut || "")
+    );
+    if (existing) {
+      existing.roomTypes.push({ roomType: stay.roomType, rooms: stay.rooms });
+      if (stay.rooms) existing.rooms = (existing.rooms || 0) + stay.rooms;
     } else {
       groupedStays.push({ ...stay, roomTypes: [{ roomType: stay.roomType, rooms: stay.rooms }] });
     }
