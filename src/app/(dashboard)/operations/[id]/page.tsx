@@ -388,6 +388,17 @@ export default function OperationDetailPage() {
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
   const [allStaffList, setAllStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
   const [deleteSplitModal, setDeleteSplitModal] = useState<{ paymentId: string; amount: number; milestone: string } | null>(null);
+  const [allotModalOpen, setAllotModalOpen] = useState(false);
+  const [allotting, setAllotting] = useState(false);
+  const [allotAmounts, setAllotAmounts] = useState<{
+    flight: number;
+    land: number;
+    hotel: number;
+    visa: number;
+    insurance: number;
+    misc: number;
+  }>({ flight: 0, land: 0, hotel: 0, visa: 0, insurance: 0, misc: 0 });
+  const [forceMergeHotelLand, setForceMergeHotelLand] = useState<boolean | null>(null);
   const calculateAgeFromDob = (dobStr?: string): number | undefined => {
     if (!dobStr) return undefined;
     const birthDate = new Date(dobStr);
@@ -984,50 +995,41 @@ export default function OperationDetailPage() {
   const paxCount = op.customers && op.customers.length > 0 ? op.customers.reduce((sum: number, c: any) => sum + (c.pax || 0), 0) : (op.customer?.pax || 1);
   const pkgData = op.booking?.package || op.package || op.bookings?.[0]?.package;
 
-  // 1. Flights Billed
-  const flightSellingFromItems = transports.reduce((s, t) => s + (t.sellingPrice || 0), 0);
-  const pkgFlightPrice = pkgData?.flightPrice ? (
-    pkgData.flightPrice * paxCount <= (op.sellingPrice || 0) && paxCount > 1 
-      ? pkgData.flightPrice * paxCount 
-      : pkgData.flightPrice
-  ) : 0;
-  const flightBilled = flightSellingFromItems > 0 ? flightSellingFromItems : pkgFlightPrice;
+  const priceUnit = (pkgData?.priceUnit || 'person').toLowerCase();
 
-  // 2. Hotels Billed
-  const hotelSellingFromItems = accommodations.reduce((s, a) => s + (a.sellingPrice || 0), 0);
-  const pkgHotelPrice = pkgData?.hotelPrice ? (
-    pkgData.hotelPrice * paxCount <= (op.sellingPrice || 0) && paxCount > 1 
-      ? pkgData.hotelPrice * paxCount 
-      : pkgData.hotelPrice
-  ) : 0;
-  const hotelBilled = hotelSellingFromItems > 0 ? hotelSellingFromItems : pkgHotelPrice;
+  // Extract raw component costs from package data
+  const rawFlight = pkgData?.flightPrice || 0;
+  const rawHotel = pkgData?.hotelPrice || 0;
+  const rawLand = (pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0);
+  const rawVisa = pkgData?.visaPrice || 0;
+  const rawExtraMeals = (pkgData?.extraMealsIncluded ? (pkgData?.extraMealsPrice || 0) : 0);
+  const rawTrain = pkgData?.trainPrice || 0;
+  const rawCruise = (pkgData?.cruiseIncluded ? (pkgData?.cruisePrice || 0) : 0);
+  const rawSum = rawFlight + rawHotel + rawLand + rawVisa + rawExtraMeals + rawTrain + rawCruise;
+  const opSelling = op.sellingPrice || 0;
 
-  // 3. Land / Activities Billed
-  const actSellingFromItems = activities.reduce((s, a) => {
-    const base = a.sellingPrice || 0;
-    const transferSelling = (a.transfers || []).reduce((ts: number, tr: any) => ts + (tr.hasPricing ? (tr.sellingPrice || 0) : 0), 0);
-    return s + base + transferSelling;
-  }, 0);
-  const pkgLandCost = ((pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0)) ? (
-    ((pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0)) * paxCount <= (op.sellingPrice || 0) && paxCount > 1
-      ? ((pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0)) * paxCount
-      : ((pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0))
-  ) : 0;
-  const landBilled = actSellingFromItems > 0 ? actSellingFromItems : pkgLandCost;
-
-  // 4. Visa Billed
-  const pkgVisaPrice = (pkgData?.visaPrice || 0) ? (
-    (pkgData?.visaPrice || 0) * paxCount <= (op.sellingPrice || 0) && paxCount > 1
-      ? (pkgData?.visaPrice || 0) * paxCount
-      : (pkgData?.visaPrice || 0)
-  ) : 0;
-  const visaBilled = (op.visaCost && op.visaCost > 0) ? op.visaCost : pkgVisaPrice;
-
-  // 5. Insurance Billed
-  const insuranceBilled = op.insuranceCost || 0;
-
-  // 6. Misc Billed
-  const miscBilled = op.miscTotal || (op.miscCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
+  // Determine whether itemized package numbers are per-person or already flat for the booking
+  let unitMultiplier = 1;
+  if (priceUnit === 'couple') {
+    // For couple packages, entered prices are already for a couple (2 pax)
+    unitMultiplier = Math.max(1, Math.round(paxCount / 2));
+  } else if (priceUnit === 'group' || priceUnit === 'family') {
+    // Total price is for the entire booking/group
+    unitMultiplier = 1;
+  } else {
+    // Per person vs flat detection:
+    if (rawSum > 0) {
+      if (rawSum * paxCount <= opSelling + 100 && opSelling > rawSum) {
+        // Items were entered per-person, and their sum multiplied by paxCount matches op.sellingPrice
+        unitMultiplier = paxCount;
+      } else {
+        // The raw items already add up to the package selling price, or multiplying by paxCount would exceed selling price
+        unitMultiplier = 1;
+      }
+    } else {
+      unitMultiplier = Math.max(1, paxCount);
+    }
+  }
 
   // Helper to safely extract paid amount (handles manual paid amount or marked as 'paid')
   const getPaidVal = (p: any) => (p.paidAmount !== undefined && p.paidAmount !== null && p.paidAmount > 0) ? p.paidAmount : (p.status === 'paid' ? (p.amount || 0) : 0);
@@ -1047,6 +1049,185 @@ export default function OperationDetailPage() {
   const insurancePaid = customerPayments.filter(isInsurancePayment).reduce((s, p) => s + getPaidVal(p), 0);
   const miscPaid = customerPayments.filter(isMiscPayment).reduce((s, p) => s + getPaidVal(p), 0);
   const generalPaid = customerPayments.filter(p => !isFlightPayment(p) && !isHotelPayment(p) && !isLandPayment(p) && !isVisaPayment(p) && !isInsurancePayment(p) && !isMiscPayment(p)).reduce((s, p) => s + getPaidVal(p), 0);
+
+  // 1. Flights Billed
+  const flightSellingFromItems = transports.reduce((s, t) => s + (t.sellingPrice || 0), 0);
+  const pkgFlightPrice = rawFlight * unitMultiplier;
+  const flightBilled = flightSellingFromItems > 0 ? flightSellingFromItems : pkgFlightPrice;
+
+  // 2. Visa Billed
+  const visaMilestoneAmount = customerPayments.filter(isVisaPayment).reduce((s, p) => s + (p.amount || 0), 0);
+  const pkgVisaPrice = rawVisa * unitMultiplier;
+  let visaBilled = pkgVisaPrice > 0 
+    ? pkgVisaPrice 
+    : (visaMilestoneAmount > 0 
+        ? visaMilestoneAmount 
+        : ((op.visaCost && op.visaCost > 0 && op.visaCost <= opSelling) ? op.visaCost : 0));
+
+  // 3. Insurance Billed
+  const insuranceBilled = op.insuranceCost || 0;
+
+  // 4. Misc Billed
+  const miscBilled = op.miscTotal || (op.miscCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
+
+  // 5. Hotels & Land Billed
+  const hotelSellingFromItems = accommodations.reduce((s, a) => s + (a.sellingPrice || 0), 0);
+  let hotelBilled = hotelSellingFromItems > 0 ? hotelSellingFromItems : (rawHotel * unitMultiplier);
+
+  const actSellingFromItems = activities.reduce((s, a) => {
+    const base = a.sellingPrice || 0;
+    const transferSelling = (a.transfers || []).reduce((ts: number, tr: any) => ts + (tr.hasPricing ? (tr.sellingPrice || 0) : 0), 0);
+    return s + base + transferSelling;
+  }, 0);
+  let landBilled = actSellingFromItems > 0 ? actSellingFromItems : (rawLand * unitMultiplier);
+
+  // Fixed external costs (Flights, Visa, Insurance, Misc)
+  const fixedExternal = flightBilled + visaBilled + insuranceBilled + miscBilled;
+
+  // Reconcile hotel & land against sellingPrice when not explicitly itemized in ops tabs
+  if (hotelSellingFromItems === 0 && actSellingFromItems === 0 && opSelling > 0) {
+    const availableForHotelAndLand = Math.max(0, opSelling - fixedExternal);
+
+    if (hotelBilled + landBilled > availableForHotelAndLand) {
+      if (landBilled === 0 && hotelBilled > 0) {
+        hotelBilled = availableForHotelAndLand;
+      } else if (hotelBilled === 0 && landBilled > 0) {
+        landBilled = availableForHotelAndLand;
+      } else if (hotelBilled > 0 && landBilled > 0) {
+        const totalHL = hotelBilled + landBilled;
+        hotelBilled = Math.round((hotelBilled / totalHL) * availableForHotelAndLand);
+        landBilled = availableForHotelAndLand - hotelBilled;
+      }
+    } else if (landBilled === 0 && hotelBilled === 0 && availableForHotelAndLand > 0) {
+      landBilled = availableForHotelAndLand;
+    }
+  }
+
+  // Check if Hotel and Land Package are merged (combined into one line)
+  const isMergedHotelLand = forceMergeHotelLand !== null 
+    ? forceMergeHotelLand 
+    : Boolean(
+        pkgData?.mergeHotelAndActivity || 
+        (hotelSellingFromItems === 0 && actSellingFromItems === 0 && (
+          (hotelBilled > 0 && landBilled > 0 && (flightBilled + hotelBilled + landBilled + visaBilled + insuranceBilled + miscBilled > opSelling)) ||
+          (rawLand > 0 && rawHotel > 0 && (rawFlight + rawHotel + rawLand > opSelling))
+        ))
+      );
+
+  const combinedLandHotelBilled = (hotelSellingFromItems > 0 || actSellingFromItems > 0)
+    ? (hotelSellingFromItems + actSellingFromItems)
+    : Math.max(0, opSelling - fixedExternal);
+  const combinedLandHotelPaid = hotelPaid + landPaid;
+
+  // Smart Virtual Pool distribution across components (Priority: Flight -> Visa -> Insurance -> Hotel/Land -> Misc)
+  let remainingPoolCalc = generalPaid;
+  const flightPoolCovered = Math.min(remainingPoolCalc, Math.max(0, flightBilled - flightPaid));
+  remainingPoolCalc = Math.max(0, remainingPoolCalc - flightPoolCovered);
+
+  const visaPoolCovered = Math.min(remainingPoolCalc, Math.max(0, visaBilled - visaPaid));
+  remainingPoolCalc = Math.max(0, remainingPoolCalc - visaPoolCovered);
+
+  const insPoolCovered = Math.min(remainingPoolCalc, Math.max(0, insuranceBilled - insurancePaid));
+  remainingPoolCalc = Math.max(0, remainingPoolCalc - insPoolCovered);
+
+  let hotelPoolCovered = 0;
+  let landPoolCovered = 0;
+  let combinedLandHotelPoolCovered = 0;
+
+  if (isMergedHotelLand) {
+    combinedLandHotelPoolCovered = Math.min(remainingPoolCalc, Math.max(0, combinedLandHotelBilled - combinedLandHotelPaid));
+    remainingPoolCalc = Math.max(0, remainingPoolCalc - combinedLandHotelPoolCovered);
+  } else {
+    hotelPoolCovered = Math.min(remainingPoolCalc, Math.max(0, hotelBilled - hotelPaid));
+    remainingPoolCalc = Math.max(0, remainingPoolCalc - hotelPoolCovered);
+
+    landPoolCovered = Math.min(remainingPoolCalc, Math.max(0, landBilled - landPaid));
+    remainingPoolCalc = Math.max(0, remainingPoolCalc - landPoolCovered);
+  }
+
+  const miscPoolCovered = Math.min(remainingPoolCalc, Math.max(0, miscBilled - miscPaid));
+  remainingPoolCalc = Math.max(0, remainingPoolCalc - miscPoolCovered);
+
+  const netFlightPending = Math.max(0, flightBilled - flightPaid - flightPoolCovered);
+  const netHotelPending = Math.max(0, hotelBilled - hotelPaid - hotelPoolCovered);
+  const netLandPending = Math.max(0, landBilled - landPaid - landPoolCovered);
+  const netCombinedLandHotelPending = Math.max(0, combinedLandHotelBilled - combinedLandHotelPaid - combinedLandHotelPoolCovered);
+  const netVisaPending = Math.max(0, visaBilled - visaPaid - visaPoolCovered);
+  const netInsPending = Math.max(0, insuranceBilled - insurancePaid - insPoolCovered);
+  const netMiscPending = Math.max(0, miscBilled - miscPaid - miscPoolCovered);
+
+  const openAllotModal = () => {
+    let pool = generalPaid;
+    const f = Math.min(pool, Math.max(0, flightBilled - flightPaid));
+    pool = Math.max(0, pool - f);
+
+    const v = Math.min(pool, Math.max(0, visaBilled - visaPaid));
+    pool = Math.max(0, pool - v);
+
+    const ins = Math.min(pool, Math.max(0, insuranceBilled - insurancePaid));
+    pool = Math.max(0, pool - ins);
+
+    let h = 0;
+    let l = 0;
+    if (isMergedHotelLand) {
+      l = Math.min(pool, Math.max(0, combinedLandHotelBilled - combinedLandHotelPaid));
+      pool = Math.max(0, pool - l);
+    } else {
+      h = Math.min(pool, Math.max(0, hotelBilled - hotelPaid));
+      pool = Math.max(0, pool - h);
+
+      l = Math.min(pool, Math.max(0, landBilled - landPaid));
+      pool = Math.max(0, pool - l);
+    }
+
+    const m = Math.min(pool, Math.max(0, miscBilled - miscPaid));
+    pool = Math.max(0, pool - m);
+
+    setAllotAmounts({ flight: f, land: l, hotel: h, visa: v, insurance: ins, misc: m });
+    setAllotModalOpen(true);
+  };
+
+  const handleConfirmAllot = async () => {
+    setAllotting(true);
+    try {
+      const allocations = [
+        { category: 'flight', amount: allotAmounts.flight, milestone: 'Flights & Trains (Allotted from Advance)' },
+        { category: 'land', amount: allotAmounts.land, milestone: 'Land Package & Activities (Allotted from Advance)' },
+        { category: 'hotel', amount: allotAmounts.hotel, milestone: 'Hotel Stay (Allotted from Advance)' },
+        { category: 'visa', amount: allotAmounts.visa, milestone: 'Visa Fees (Allotted from Advance)' },
+        { category: 'insurance', amount: allotAmounts.insurance, milestone: 'Travel Insurance (Allotted from Advance)' },
+        { category: 'misc', amount: allotAmounts.misc, milestone: 'Misc Charges (Allotted from Advance)' },
+      ].filter(a => a.amount > 0);
+
+      if (allocations.length === 0) {
+        alert("Please allocate an amount greater than 0 to at least one component.");
+        setAllotting(false);
+        return;
+      }
+
+      await api.post(`/operations/${id}/customer-payments/allot`, { allocations });
+      setAllotModalOpen(false);
+      fetchAll();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to allot advances");
+    } finally {
+      setAllotting(false);
+    }
+  };
+
+  const handleResetToPool = async () => {
+    if (!confirm("Are you sure you want to merge all categorized payments back into the general advance pool?")) return;
+    setAllotting(true);
+    try {
+      await api.post(`/operations/${id}/customer-payments/allot`, { resetToPool: true });
+      setAllotModalOpen(false);
+      fetchAll();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to reset payments to pool");
+    } finally {
+      setAllotting(false);
+    }
+  };
 
   const tabs = [
     { id: "overview", label: "Overview", icon: <FileText size={14} /> },
@@ -3344,7 +3525,7 @@ export default function OperationDetailPage() {
 
           {/* PAYMENT SEPARATION & COMPONENT BREAKDOWN TABLE */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 gap-2">
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   <span>📊</span> Payment Separation (Component Breakdown)
@@ -3353,14 +3534,36 @@ export default function OperationDetailPage() {
                   What the customer was quoted vs what has been paid for each component
                 </p>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setForceMergeHotelLand(!isMergedHotelLand)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold border transition flex items-center gap-1 ${
+                    isMergedHotelLand 
+                      ? "bg-sky-50 border-sky-300 text-sky-800" 
+                      : "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                  }`}
+                  title="Toggle between combined Stay + Land row vs separate rows"
+                >
+                  <span>{isMergedHotelLand ? "🔗 Merged (Stay + Land)" : "➦ Separate (Stay & Land)"}</span>
+                </button>
+                {generalPaid > 0 && (
+                  <button
+                    type="button"
+                    onClick={openAllotModal}
+                    className="px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                    title="Allot unassigned general advance pool to Flights, Land, etc."
+                  >
+                    <span>⚡ Allot Advances ({formatCurrency(generalPaid)})</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={async () => {
                     await api.post(`/operations/${id}/customer-payments`, {
                       milestone: "Flight Ticket Payment",
                       category: "flight",
-                      amount: Math.max(0, flightBilled - flightPaid),
+                      amount: Math.max(0, netFlightPending),
                     });
                     fetchAll();
                   }}
@@ -3369,21 +3572,39 @@ export default function OperationDetailPage() {
                 >
                   <span>+ ✈️ Flight</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await api.post(`/operations/${id}/customer-payments`, {
-                      milestone: "Hotel Booking Payment",
-                      category: "hotel",
-                      amount: Math.max(0, hotelBilled - hotelPaid),
-                    });
-                    fetchAll();
-                  }}
-                  className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold transition flex items-center gap-1"
-                  title="Add payment installment specifically for hotels"
-                >
-                  <span>+ 🏨 Hotel</span>
-                </button>
+                {isMergedHotelLand ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await api.post(`/operations/${id}/customer-payments`, {
+                        milestone: "Land Package & Hotel Payment",
+                        category: "land",
+                        amount: Math.max(0, netCombinedLandHotelPending),
+                      });
+                      fetchAll();
+                    }}
+                    className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold transition flex items-center gap-1"
+                    title="Add payment installment specifically for Land Package & Stay"
+                  >
+                    <span>+ 🏨🚗 Land & Stay</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await api.post(`/operations/${id}/customer-payments`, {
+                        milestone: "Hotel Booking Payment",
+                        category: "hotel",
+                        amount: Math.max(0, netHotelPending),
+                      });
+                      fetchAll();
+                    }}
+                    className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold transition flex items-center gap-1"
+                    title="Add payment installment specifically for hotels"
+                  >
+                    <span>+ 🏨 Hotel</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -3405,62 +3626,142 @@ export default function OperationDetailPage() {
                       <span>✈️</span> Flights & Trains
                     </td>
                     <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(flightBilled)}</td>
-                    <td className="py-2.5 text-right font-bold text-emerald-600">{formatCurrency(flightPaid)}</td>
-                    <td className={`py-2.5 text-right font-bold ${flightBilled - flightPaid > 0 ? "text-red-600" : "text-slate-400"}`}>
-                      {formatCurrency(Math.max(0, flightBilled - flightPaid))}
+                    <td className="py-2.5 text-right font-bold text-emerald-600">
+                      {flightPaid > 0 ? (
+                        <span>{formatCurrency(flightPaid)}</span>
+                      ) : flightPoolCovered > 0 ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-emerald-700">{formatCurrency(flightPoolCovered)}</span>
+                          <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                        </div>
+                      ) : (
+                        <span>₹0</span>
+                      )}
+                    </td>
+                    <td className={`py-2.5 text-right font-bold ${netFlightPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                      {formatCurrency(netFlightPending)}
                     </td>
                     <td className="py-2.5 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                         flightBilled === 0 ? "bg-slate-100 text-slate-500" :
                         flightPaid >= flightBilled ? "bg-emerald-100 text-emerald-800" :
-                        flightPaid > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                        flightPaid + flightPoolCovered >= flightBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                        flightPaid + flightPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
                       }`}>
-                        {flightBilled === 0 ? "N/A" : flightPaid >= flightBilled ? "PAID" : flightPaid > 0 ? "PARTIAL" : "PENDING"}
+                        {flightBilled === 0 ? "N/A" : flightPaid >= flightBilled ? "PAID" : flightPaid + flightPoolCovered >= flightBilled ? "PAID (POOL)" : flightPaid + flightPoolCovered > 0 ? "PARTIAL" : "PENDING"}
                       </span>
                     </td>
                   </tr>
 
-                  {/* Hotels */}
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
-                      <span>🏨</span> Hotel & Accommodation
-                    </td>
-                    <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(hotelBilled)}</td>
-                    <td className="py-2.5 text-right font-bold text-emerald-600">{formatCurrency(hotelPaid)}</td>
-                    <td className={`py-2.5 text-right font-bold ${hotelBilled - hotelPaid > 0 ? "text-red-600" : "text-slate-400"}`}>
-                      {formatCurrency(Math.max(0, hotelBilled - hotelPaid))}
-                    </td>
-                    <td className="py-2.5 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        hotelBilled === 0 ? "bg-slate-100 text-slate-500" :
-                        hotelPaid >= hotelBilled ? "bg-emerald-100 text-emerald-800" :
-                        hotelPaid > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
-                      }`}>
-                        {hotelBilled === 0 ? "N/A" : hotelPaid >= hotelBilled ? "PAID" : hotelPaid > 0 ? "PARTIAL" : "PENDING"}
-                      </span>
-                    </td>
-                  </tr>
+                  {/* Stay & Land: Either Merged or Separate */}
+                  {isMergedHotelLand ? (
+                    /* Combined Land Package & Stay Row */
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
+                        <span>🏨🚗</span>
+                        <div>
+                          <span className="font-semibold">Land Package & Accommodations</span>
+                          <span className="text-[10px] text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded font-semibold border border-sky-100 ml-2">
+                            Combined
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(combinedLandHotelBilled)}</td>
+                      <td className="py-2.5 text-right font-bold text-emerald-600">
+                        {combinedLandHotelPaid > 0 ? (
+                          <span>{formatCurrency(combinedLandHotelPaid)}</span>
+                        ) : combinedLandHotelPoolCovered > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-emerald-700">{formatCurrency(combinedLandHotelPoolCovered)}</span>
+                            <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                          </div>
+                        ) : (
+                          <span>₹0</span>
+                        )}
+                      </td>
+                      <td className={`py-2.5 text-right font-bold ${netCombinedLandHotelPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                        {formatCurrency(netCombinedLandHotelPending)}
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          combinedLandHotelBilled === 0 ? "bg-slate-100 text-slate-500" :
+                          combinedLandHotelPaid >= combinedLandHotelBilled ? "bg-emerald-100 text-emerald-800" :
+                          combinedLandHotelPaid + combinedLandHotelPoolCovered >= combinedLandHotelBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                          combinedLandHotelPaid + combinedLandHotelPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                        }`}>
+                          {combinedLandHotelBilled === 0 ? "N/A" : combinedLandHotelPaid >= combinedLandHotelBilled ? "PAID" : combinedLandHotelPaid + combinedLandHotelPoolCovered >= combinedLandHotelBilled ? "PAID (POOL)" : combinedLandHotelPaid + combinedLandHotelPoolCovered > 0 ? "PARTIAL" : "PENDING"}
+                        </span>
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      {/* Separate Hotels Row */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
+                          <span>🏨</span> Hotel & Accommodation
+                        </td>
+                        <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(hotelBilled)}</td>
+                        <td className="py-2.5 text-right font-bold text-emerald-600">
+                          {hotelPaid > 0 ? (
+                            <span>{formatCurrency(hotelPaid)}</span>
+                          ) : hotelPoolCovered > 0 ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-emerald-700">{formatCurrency(hotelPoolCovered)}</span>
+                              <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                            </div>
+                          ) : (
+                            <span>₹0</span>
+                          )}
+                        </td>
+                        <td className={`py-2.5 text-right font-bold ${netHotelPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                          {formatCurrency(netHotelPending)}
+                        </td>
+                        <td className="py-2.5 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            hotelBilled === 0 ? "bg-slate-100 text-slate-500" :
+                            hotelPaid >= hotelBilled ? "bg-emerald-100 text-emerald-800" :
+                            hotelPaid + hotelPoolCovered >= hotelBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                            hotelPaid + hotelPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                          }`}>
+                            {hotelBilled === 0 ? "N/A" : hotelPaid >= hotelBilled ? "PAID" : hotelPaid + hotelPoolCovered >= hotelBilled ? "PAID (POOL)" : hotelPaid + hotelPoolCovered > 0 ? "PARTIAL" : "PENDING"}
+                          </span>
+                        </td>
+                      </tr>
 
-                  {/* Land Package / Activities */}
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
-                      <span>🚗</span> Land Package & Activities
-                    </td>
-                    <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(landBilled)}</td>
-                    <td className="py-2.5 text-right font-bold text-emerald-600">{formatCurrency(landPaid)}</td>
-                    <td className={`py-2.5 text-right font-bold ${landBilled - landPaid > 0 ? "text-red-600" : "text-slate-400"}`}>
-                      {formatCurrency(Math.max(0, landBilled - landPaid))}
-                    </td>
-                    <td className="py-2.5 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        landBilled === 0 ? "bg-slate-100 text-slate-500" :
-                        landPaid >= landBilled ? "bg-emerald-100 text-emerald-800" :
-                        landPaid > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
-                      }`}>
-                        {landBilled === 0 ? "N/A" : landPaid >= landBilled ? "PAID" : landPaid > 0 ? "PARTIAL" : "PENDING"}
-                      </span>
-                    </td>
-                  </tr>
+                      {/* Separate Land Package / Activities Row */}
+                      <tr className="hover:bg-slate-50/50">
+                        <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
+                          <span>🚗</span> Land Package & Activities
+                        </td>
+                        <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(landBilled)}</td>
+                        <td className="py-2.5 text-right font-bold text-emerald-600">
+                          {landPaid > 0 ? (
+                            <span>{formatCurrency(landPaid)}</span>
+                          ) : landPoolCovered > 0 ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-emerald-700">{formatCurrency(landPoolCovered)}</span>
+                              <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                            </div>
+                          ) : (
+                            <span>₹0</span>
+                          )}
+                        </td>
+                        <td className={`py-2.5 text-right font-bold ${netLandPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                          {formatCurrency(netLandPending)}
+                        </td>
+                        <td className="py-2.5 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            landBilled === 0 ? "bg-slate-100 text-slate-500" :
+                            landPaid >= landBilled ? "bg-emerald-100 text-emerald-800" :
+                            landPaid + landPoolCovered >= landBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                            landPaid + landPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                          }`}>
+                            {landBilled === 0 ? "N/A" : landPaid >= landBilled ? "PAID" : landPaid + landPoolCovered >= landBilled ? "PAID (POOL)" : landPaid + landPoolCovered > 0 ? "PARTIAL" : "PENDING"}
+                          </span>
+                        </td>
+                      </tr>
+                    </>
+                  )}
 
                   {/* Visa */}
                   {visaBilled > 0 && (
@@ -3469,16 +3770,28 @@ export default function OperationDetailPage() {
                         <span>🛂</span> Visa Fees
                       </td>
                       <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(visaBilled)}</td>
-                      <td className="py-2.5 text-right font-bold text-emerald-600">{formatCurrency(visaPaid)}</td>
-                      <td className={`py-2.5 text-right font-bold ${visaBilled - visaPaid > 0 ? "text-red-600" : "text-slate-400"}`}>
-                        {formatCurrency(Math.max(0, visaBilled - visaPaid))}
+                      <td className="py-2.5 text-right font-bold text-emerald-600">
+                        {visaPaid > 0 ? (
+                          <span>{formatCurrency(visaPaid)}</span>
+                        ) : visaPoolCovered > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-emerald-700">{formatCurrency(visaPoolCovered)}</span>
+                            <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                          </div>
+                        ) : (
+                          <span>₹0</span>
+                        )}
+                      </td>
+                      <td className={`py-2.5 text-right font-bold ${netVisaPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                        {formatCurrency(netVisaPending)}
                       </td>
                       <td className="py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           visaPaid >= visaBilled ? "bg-emerald-100 text-emerald-800" :
-                          visaPaid > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                          visaPaid + visaPoolCovered >= visaBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                          visaPaid + visaPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
                         }`}>
-                          {visaPaid >= visaBilled ? "PAID" : visaPaid > 0 ? "PARTIAL" : "PENDING"}
+                          {visaPaid >= visaBilled ? "PAID" : visaPaid + visaPoolCovered >= visaBilled ? "PAID (POOL)" : visaPaid + visaPoolCovered > 0 ? "PARTIAL" : "PENDING"}
                         </span>
                       </td>
                     </tr>
@@ -3491,16 +3804,28 @@ export default function OperationDetailPage() {
                         <span>🛡️</span> Travel Insurance
                       </td>
                       <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(insuranceBilled)}</td>
-                      <td className="py-2.5 text-right font-bold text-emerald-600">{formatCurrency(insurancePaid)}</td>
-                      <td className={`py-2.5 text-right font-bold ${insuranceBilled - insurancePaid > 0 ? "text-red-600" : "text-slate-400"}`}>
-                        {formatCurrency(Math.max(0, insuranceBilled - insurancePaid))}
+                      <td className="py-2.5 text-right font-bold text-emerald-600">
+                        {insurancePaid > 0 ? (
+                          <span>{formatCurrency(insurancePaid)}</span>
+                        ) : insPoolCovered > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-emerald-700">{formatCurrency(insPoolCovered)}</span>
+                            <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                          </div>
+                        ) : (
+                          <span>₹0</span>
+                        )}
+                      </td>
+                      <td className={`py-2.5 text-right font-bold ${netInsPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                        {formatCurrency(netInsPending)}
                       </td>
                       <td className="py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           insurancePaid >= insuranceBilled ? "bg-emerald-100 text-emerald-800" :
-                          insurancePaid > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                          insurancePaid + insPoolCovered >= insuranceBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                          insurancePaid + insPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
                         }`}>
-                          {insurancePaid >= insuranceBilled ? "PAID" : insurancePaid > 0 ? "PARTIAL" : "PENDING"}
+                          {insurancePaid >= insuranceBilled ? "PAID" : insurancePaid + insPoolCovered >= insuranceBilled ? "PAID (POOL)" : insurancePaid + insPoolCovered > 0 ? "PARTIAL" : "PENDING"}
                         </span>
                       </td>
                     </tr>
@@ -3513,16 +3838,28 @@ export default function OperationDetailPage() {
                         <span>🏷️</span> Misc Charges
                       </td>
                       <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(miscBilled)}</td>
-                      <td className="py-2.5 text-right font-bold text-emerald-600">{formatCurrency(miscPaid)}</td>
-                      <td className={`py-2.5 text-right font-bold ${miscBilled - miscPaid > 0 ? "text-red-600" : "text-slate-400"}`}>
-                        {formatCurrency(Math.max(0, miscBilled - miscPaid))}
+                      <td className="py-2.5 text-right font-bold text-emerald-600">
+                        {miscPaid > 0 ? (
+                          <span>{formatCurrency(miscPaid)}</span>
+                        ) : miscPoolCovered > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-emerald-700">{formatCurrency(miscPoolCovered)}</span>
+                            <span className="text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1 rounded">via Advance Pool</span>
+                          </div>
+                        ) : (
+                          <span>₹0</span>
+                        )}
+                      </td>
+                      <td className={`py-2.5 text-right font-bold ${netMiscPending > 0 ? "text-red-600" : "text-slate-400"}`}>
+                        {formatCurrency(netMiscPending)}
                       </td>
                       <td className="py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           miscPaid >= miscBilled ? "bg-emerald-100 text-emerald-800" :
-                          miscPaid > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                          miscPaid + miscPoolCovered >= miscBilled ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
+                          miscPaid + miscPoolCovered > 0 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
                         }`}>
-                          {miscPaid >= miscBilled ? "PAID" : miscPaid > 0 ? "PARTIAL" : "PENDING"}
+                          {miscPaid >= miscBilled ? "PAID" : miscPaid + miscPoolCovered >= miscBilled ? "PAID (POOL)" : miscPaid + miscPoolCovered > 0 ? "PARTIAL" : "PENDING"}
                         </span>
                       </td>
                     </tr>
@@ -3530,15 +3867,38 @@ export default function OperationDetailPage() {
 
                   {/* General Advance pool if any */}
                   {generalPaid > 0 && (
-                    <tr className="bg-slate-50/70">
-                      <td className="py-2 font-medium text-slate-600 flex items-center gap-2 italic">
-                        <span>📦</span> General / Unassigned Advance
+                    <tr className="bg-amber-50/40">
+                      <td className="py-2.5 font-medium text-slate-700 flex items-center gap-2">
+                        <span>📦</span>
+                        <div>
+                          <div className="font-semibold text-slate-800">General / Unassigned Advance (POOL)</div>
+                          <div className="text-[10px] text-slate-500 font-normal">
+                            Customer paid advance without component tag
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-2 text-right text-slate-400">—</td>
-                      <td className="py-2 text-right font-bold text-emerald-600">{formatCurrency(generalPaid)}</td>
-                      <td className="py-2 text-right text-slate-400">—</td>
-                      <td className="py-2 text-center">
-                        <span className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[9px] font-bold">POOL</span>
+                      <td className="py-2.5 text-right text-slate-400">—</td>
+                      <td className="py-2.5 text-right">
+                        <div className="font-bold text-emerald-600">{formatCurrency(generalPaid)}</div>
+                        {generalPaid - remainingPoolCalc > 0 && (
+                          <div className="text-[9px] text-slate-500 font-medium">
+                            {formatCurrency(generalPaid - remainingPoolCalc)} covered to components
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={openAllotModal}
+                          className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[10px] font-bold transition flex items-center gap-1 ml-auto"
+                        >
+                          <span>⚡ Allot to Components</span>
+                        </button>
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <span className="px-1.5 py-0.5 bg-amber-200 text-amber-800 border border-amber-300 rounded text-[9px] font-bold">
+                          {remainingPoolCalc === 0 ? "POOL FULLY COVERED" : "POOL (AVAILABLE)"}
+                        </span>
                       </td>
                     </tr>
                   )}
@@ -3546,9 +3906,13 @@ export default function OperationDetailPage() {
 
                 <tfoot>
                   {(() => {
-                    const totalSepQuoted = flightBilled + hotelBilled + landBilled + visaBilled + insuranceBilled + miscBilled;
+                    const totalSepQuoted = isMergedHotelLand
+                      ? (flightBilled + combinedLandHotelBilled + visaBilled + insuranceBilled + miscBilled)
+                      : (flightBilled + hotelBilled + landBilled + visaBilled + insuranceBilled + miscBilled);
                     const totalSepPaid = flightPaid + hotelPaid + landPaid + visaPaid + insurancePaid + miscPaid + generalPaid;
-                    const effectiveTotalQuoted = totalSepQuoted > 0 ? totalSepQuoted : (op.sellingPrice || 0);
+                    const effectiveTotalQuoted = (op.sellingPrice && op.sellingPrice > 0 && totalSepQuoted > op.sellingPrice)
+                      ? op.sellingPrice
+                      : (totalSepQuoted > 0 ? totalSepQuoted : (op.sellingPrice || 0));
                     const pendingTotal = Math.max(0, effectiveTotalQuoted - totalSepPaid);
                     return (
                       <tr className="border-t-2 border-slate-200 font-bold bg-slate-50/80">
@@ -4382,6 +4746,320 @@ export default function OperationDetailPage() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Allot Advance to Components Modal */}
+      {allotModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200">
+            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <span>⚡</span> Allot Advance Payments to Components
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Transfer unassigned general advances to Flights, Land Package, Hotels, etc.
+                </p>
+              </div>
+              <button
+                onClick={() => setAllotModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Pool Status Box */}
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-amber-800 block">Total Unassigned Advance Pool</span>
+                  <span className="text-lg font-black text-amber-900">{formatCurrency(generalPaid)}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      let pool = generalPaid;
+                      const f = Math.min(pool, Math.max(0, flightBilled - flightPaid));
+                      pool = Math.max(0, pool - f);
+                      const v = Math.min(pool, Math.max(0, visaBilled - visaPaid));
+                      pool = Math.max(0, pool - v);
+                      const ins = Math.min(pool, Math.max(0, insuranceBilled - insurancePaid));
+                      pool = Math.max(0, pool - ins);
+                      const h = Math.min(pool, Math.max(0, hotelBilled - hotelPaid));
+                      pool = Math.max(0, pool - h);
+                      const l = Math.min(pool, Math.max(0, landBilled - landPaid));
+                      pool = Math.max(0, pool - l);
+                      const m = Math.min(pool, Math.max(0, miscBilled - miscPaid));
+                      setAllotAmounts({ flight: f, land: l, hotel: h, visa: v, insurance: ins, misc: m });
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-xs"
+                  >
+                    <span>⚡ 1-Click Auto-Allot</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Component Rows */}
+              <div className="space-y-3">
+                {/* Flight */}
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">✈️</span>
+                      <span className="text-xs font-bold text-slate-800">Flights & Trains</span>
+                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                        Quoted: {formatCurrency(flightBilled)} | Paid: {formatCurrency(flightPaid)}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-700 font-medium block mt-0.5">
+                      Pending needed: {formatCurrency(Math.max(0, flightBilled - flightPaid))}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 sm:w-48">
+                    <span className="text-xs font-bold text-slate-500">₹</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={allotAmounts.flight || ""}
+                      onChange={(e) => setAllotAmounts({ ...allotAmounts, flight: Math.max(0, Number(e.target.value)) })}
+                      placeholder="0"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Land & Hotel Rows: Either Merged or Separate */}
+                {isMergedHotelLand ? (
+                  /* Combined Land Package & Stay */
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🏨🚗</span>
+                        <span className="text-xs font-bold text-slate-800">Land Package & Accommodations</span>
+                        <span className="text-[10px] text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded font-semibold border border-sky-100">Combined</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                        Quoted: {formatCurrency(combinedLandHotelBilled)} | Paid: {formatCurrency(combinedLandHotelPaid)}
+                      </span>
+                      <span className="text-[10px] text-amber-700 font-medium block">
+                        Pending needed: {formatCurrency(Math.max(0, combinedLandHotelBilled - combinedLandHotelPaid))}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 sm:w-48">
+                      <span className="text-xs font-bold text-slate-500">₹</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={allotAmounts.land || ""}
+                        onChange={(e) => setAllotAmounts({ ...allotAmounts, land: Math.max(0, Number(e.target.value)), hotel: 0 })}
+                        placeholder="0"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Separate Land Package */}
+                    <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">🚗</span>
+                          <span className="text-xs font-bold text-slate-800">Land Package & Activities</span>
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            Quoted: {formatCurrency(landBilled)} | Paid: {formatCurrency(landPaid)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-amber-700 font-medium block mt-0.5">
+                          Pending needed: {formatCurrency(Math.max(0, landBilled - landPaid))}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 sm:w-48">
+                        <span className="text-xs font-bold text-slate-500">₹</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={allotAmounts.land || ""}
+                          onChange={(e) => setAllotAmounts({ ...allotAmounts, land: Math.max(0, Number(e.target.value)) })}
+                          placeholder="0"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Separate Hotel */}
+                    <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">🏨</span>
+                          <span className="text-xs font-bold text-slate-800">Hotel & Stay</span>
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            Quoted: {formatCurrency(hotelBilled)} | Paid: {formatCurrency(hotelPaid)}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-amber-700 font-medium block mt-0.5">
+                          Pending needed: {formatCurrency(Math.max(0, hotelBilled - hotelPaid))}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 sm:w-48">
+                        <span className="text-xs font-bold text-slate-500">₹</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={allotAmounts.hotel || ""}
+                          onChange={(e) => setAllotAmounts({ ...allotAmounts, hotel: Math.max(0, Number(e.target.value)) })}
+                          placeholder="0"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Visa */}
+                {(visaBilled > 0 || allotAmounts.visa > 0) && (
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🛂</span>
+                        <span className="text-xs font-bold text-slate-800">Visa Fees</span>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          Quoted: {formatCurrency(visaBilled)} | Paid: {formatCurrency(visaPaid)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-700 font-medium block mt-0.5">
+                        Pending needed: {formatCurrency(Math.max(0, visaBilled - visaPaid))}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 sm:w-48">
+                      <span className="text-xs font-bold text-slate-500">₹</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={allotAmounts.visa || ""}
+                        onChange={(e) => setAllotAmounts({ ...allotAmounts, visa: Math.max(0, Number(e.target.value)) })}
+                        placeholder="0"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Insurance */}
+                {(insuranceBilled > 0 || allotAmounts.insurance > 0) && (
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🛡️</span>
+                        <span className="text-xs font-bold text-slate-800">Travel Insurance</span>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          Quoted: {formatCurrency(insuranceBilled)} | Paid: {formatCurrency(insurancePaid)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-700 font-medium block mt-0.5">
+                        Pending needed: {formatCurrency(Math.max(0, insuranceBilled - insurancePaid))}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 sm:w-48">
+                      <span className="text-xs font-bold text-slate-500">₹</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={allotAmounts.insurance || ""}
+                        onChange={(e) => setAllotAmounts({ ...allotAmounts, insurance: Math.max(0, Number(e.target.value)) })}
+                        placeholder="0"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Misc */}
+                {(miscBilled > 0 || allotAmounts.misc > 0) && (
+                  <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🏷️</span>
+                        <span className="text-xs font-bold text-slate-800">Misc Charges</span>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          Quoted: {formatCurrency(miscBilled)} | Paid: {formatCurrency(miscPaid)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-700 font-medium block mt-0.5">
+                        Pending needed: {formatCurrency(Math.max(0, miscBilled - miscPaid))}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 sm:w-48">
+                      <span className="text-xs font-bold text-slate-500">₹</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={allotAmounts.misc || ""}
+                        onChange={(e) => setAllotAmounts({ ...allotAmounts, misc: Math.max(0, Number(e.target.value)) })}
+                        placeholder="0"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Total Summary */}
+              {(() => {
+                const totalAllot = (allotAmounts.flight || 0) + (allotAmounts.land || 0) + (allotAmounts.hotel || 0) + (allotAmounts.visa || 0) + (allotAmounts.insurance || 0) + (allotAmounts.misc || 0);
+                const rem = generalPaid - totalAllot;
+                const isOver = rem < 0;
+                return (
+                  <div className={`p-3 rounded-xl border flex items-center justify-between ${isOver ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-200'}`}>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Total Being Allotted</span>
+                      <span className={`text-sm font-bold ${isOver ? 'text-red-700' : 'text-slate-800'}`}>
+                        {formatCurrency(totalAllot)} of {formatCurrency(generalPaid)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                        {isOver ? "Exceeds Pool By" : "Remaining in Pool"}
+                      </span>
+                      <span className={`text-sm font-bold ${isOver ? 'text-red-700' : 'text-emerald-700'}`}>
+                        {formatCurrency(Math.abs(rem))}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleResetToPool}
+                disabled={allotting}
+                className="text-xs font-semibold text-slate-500 hover:text-red-600 transition underline disabled:opacity-50"
+              >
+                Reset All Payments to Pool
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAllotModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAllot}
+                  disabled={allotting || ((allotAmounts.flight || 0) + (allotAmounts.land || 0) + (allotAmounts.hotel || 0) + (allotAmounts.visa || 0) + (allotAmounts.insurance || 0) + (allotAmounts.misc || 0)) <= 0 || ((allotAmounts.flight || 0) + (allotAmounts.land || 0) + (allotAmounts.hotel || 0) + (allotAmounts.visa || 0) + (allotAmounts.insurance || 0) + (allotAmounts.misc || 0)) > generalPaid}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-600 hover:bg-cyan-700 text-white transition flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                >
+                  {allotting ? "Allotting..." : "Confirm & Allot in Database"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

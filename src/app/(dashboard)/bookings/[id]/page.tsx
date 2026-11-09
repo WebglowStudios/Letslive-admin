@@ -191,6 +191,7 @@ export default function BookingDetailPage() {
     const adults = booking.travellers?.adults || 1;
     const children = booking.travellers?.children || 0;
     const isPerGroup = booking.package.priceUnit === 'group' || booking.package.priceUnit === 'family';
+    const isCouple = booking.package.priceUnit === 'couple';
 
     let perPaxDelta = 0;
     booking.package.stays.forEach((stay, idx) => {
@@ -200,7 +201,11 @@ export default function BookingDetailPage() {
       perPaxDelta += Number(opt?.priceDifference || 0);
     });
 
-    const newUpgradeTotal = isPerGroup ? perPaxDelta : perPaxDelta * (adults + children);
+    const newUpgradeTotal = isPerGroup
+      ? perPaxDelta
+      : isCouple
+      ? perPaxDelta * Math.max(1, Math.round((adults + children) / 2))
+      : perPaxDelta * (adults + children);
     const delta = newUpgradeTotal - (booking.hotelUpgradeTotal || 0);
     return { newUpgradeTotal, delta };
   };
