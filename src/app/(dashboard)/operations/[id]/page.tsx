@@ -73,7 +73,7 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; category?: 'all' | 'flight' | 'hotel' | 'land' | 'visa' | 'insurance' | 'misc'; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; visaCost?: number; insuranceCost?: number; miscCharges?: { label: string; amount: number; isVendorCost: boolean }[]; miscTotal?: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; priceUnit?: string; customPricing?: { flightPrice?: number; hotelPrice?: number; landPrice?: number; visaPrice?: number; insurancePrice?: number; }; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; priceUnit?: string; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; priceUnit?: string; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; visaCost?: number; insuranceCost?: number; miscCharges?: { label: string; amount: number; isVendorCost: boolean }[]; miscTotal?: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 export const getWebsiteBaseUrl = (_brand?: string, _bookingId?: string, _operationId?: string) => {
   const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -419,7 +419,38 @@ export default function OperationDetailPage() {
   const [newPassengerPhone, setNewPassengerPhone] = useState("");
   const [billExtra, setBillExtra] = useState(false);
   const [extraAmount, setExtraAmount] = useState("");
+  const [passengerFlightEnabled, setPassengerFlightEnabled] = useState(false);
+  const [passengerFlightPrice, setPassengerFlightPrice] = useState("");
+  const [passengerLandEnabled, setPassengerLandEnabled] = useState(false);
+  const [passengerLandPrice, setPassengerLandPrice] = useState("");
+  const [passengerVisaEnabled, setPassengerVisaEnabled] = useState(false);
+  const [passengerVisaPrice, setPassengerVisaPrice] = useState("");
   const [addingPassenger, setAddingPassenger] = useState(false);
+  const [syncingPricing, setSyncingPricing] = useState(false);
+  const [editingPriceComp, setEditingPriceComp] = useState<string | null>(null);
+  const [editPriceValue, setEditPriceValue] = useState("");
+
+  const handleSyncPricing = async (payload: {
+    priceUnit?: string;
+    adults?: number;
+    children?: number;
+    pax?: number;
+    component?: string;
+    price?: number;
+    customPricing?: any;
+  }) => {
+    setSyncingPricing(true);
+    try {
+      await api.post(`/operations/${id}/sync-pricing`, payload);
+      setEditingPriceComp(null);
+      setEditPriceValue("");
+      fetchAll();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to update pricing");
+    } finally {
+      setSyncingPricing(false);
+    }
+  };
   
   const currentRole = useRole();
   const isAdmin = currentRole === "admin";
@@ -487,6 +518,9 @@ export default function OperationDetailPage() {
         await api.put(`/operations/${id}/${endpoint}/${itemId}`, payload); 
       } else {
         await api.put(`/operations/${id}/${endpoint}/${itemId}`, data); 
+      }
+      if (['accommodations', 'transports', 'activities'].includes(endpoint)) {
+        try { await api.put(`/operations/${id}/recalculate`); } catch {}
       }
       fetchAll();
       
@@ -920,8 +954,14 @@ export default function OperationDetailPage() {
   const handleAddPassenger = async () => {
     if (!newPassenger.name) return alert("Please enter passenger name");
 
-    if (billExtra && (!extraAmount || Number(extraAmount) <= 0)) {
-      return alert("Please enter a valid extra amount to charge for this passenger");
+    const flightExtra = passengerFlightEnabled ? (Number(passengerFlightPrice) || 0) : 0;
+    const landExtra = passengerLandEnabled ? (Number(passengerLandPrice) || 0) : 0;
+    const visaExtra = passengerVisaEnabled ? (Number(passengerVisaPrice) || 0) : 0;
+    const totalComponentExtra = flightExtra + landExtra + visaExtra;
+    const finalExtraAmount = totalComponentExtra > 0 ? totalComponentExtra : (Number(extraAmount) || 0);
+
+    if (billExtra && finalExtraAmount <= 0) {
+      return alert("Please enter a valid extra amount or select components to charge for this passenger");
     }
     
     const isGroupTour = !!(op?.departureId || (op?.bookings && op.bookings.length > 1));
@@ -955,8 +995,11 @@ export default function OperationDetailPage() {
         bookingId: modeToUse === "existing" ? targetBookingId : undefined,
         email: modeToUse === "new" ? newPassengerEmail : undefined,
         phone: modeToUse === "new" ? newPassengerPhone : undefined,
-        billExtra: modeToUse === "existing" ? billExtra : false,
-        extraAmount: modeToUse === "existing" && billExtra ? Number(extraAmount) : (modeToUse === "new" && extraAmount ? Number(extraAmount) : undefined),
+        billExtra: billExtra || totalComponentExtra > 0,
+        extraAmount: finalExtraAmount,
+        flightPrice: flightExtra,
+        landPrice: landExtra,
+        visaPrice: visaExtra,
       });
       setPassengerModalOpen(false);
       setNewPassenger({ name: "", age: "", dob: "", gender: "", type: "adult", passportNumber: "", passportExpiry: "", issuingCountry: "", panCard: "" });
@@ -964,6 +1007,12 @@ export default function OperationDetailPage() {
       setNewPassengerPhone("");
       setBillExtra(false);
       setExtraAmount("");
+      setPassengerFlightEnabled(false);
+      setPassengerFlightPrice("");
+      setPassengerLandEnabled(false);
+      setPassengerLandPrice("");
+      setPassengerVisaEnabled(false);
+      setPassengerVisaPrice("");
       fetchAll();
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to add passenger");
@@ -982,6 +1031,7 @@ export default function OperationDetailPage() {
       await api.put(`/bookings/${targetBooking._id}/passengers`, {
         travellersDetails: updatedTravellers
       });
+      await api.put(`/operations/${id}/recalculate`);
       fetchAll();
     } catch (err: any) {
       alert("Failed to remove passenger");
@@ -992,43 +1042,24 @@ export default function OperationDetailPage() {
   if (!op) return <div className="text-center py-20 text-sm text-slate-400">Operation not found</div>;
 
   // ── PAYMENT SEPARATION & COMPONENT BREAKDOWN ──
-  const paxCount = op.customers && op.customers.length > 0 ? op.customers.reduce((sum: number, c: any) => sum + (c.pax || 0), 0) : (op.customer?.pax || 1);
+  const currentAdults = op.customers?.[0]?.adults ?? (op as any).customer?.adults ?? 1;
+  const currentChildren = op.customers?.[0]?.children ?? (op as any).customer?.children ?? 0;
+  const paxCount = op.customers && op.customers.length > 0 ? op.customers.reduce((sum: number, c: any) => sum + (c.pax || 0), 0) : (op.customer?.pax || (currentAdults + currentChildren));
   const pkgData = op.booking?.package || op.package || op.bookings?.[0]?.package;
 
-  const priceUnit = (pkgData?.priceUnit || 'person').toLowerCase();
-
-  // Extract raw component costs from package data
-  const rawFlight = pkgData?.flightPrice || 0;
-  const rawHotel = pkgData?.hotelPrice || 0;
-  const rawLand = (pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0);
-  const rawVisa = pkgData?.visaPrice || 0;
-  const rawExtraMeals = (pkgData?.extraMealsIncluded ? (pkgData?.extraMealsPrice || 0) : 0);
-  const rawTrain = pkgData?.trainPrice || 0;
-  const rawCruise = (pkgData?.cruiseIncluded ? (pkgData?.cruisePrice || 0) : 0);
-  const rawSum = rawFlight + rawHotel + rawLand + rawVisa + rawExtraMeals + rawTrain + rawCruise;
+  const priceUnit = (op.priceUnit || pkgData?.priceUnit || 'person').toLowerCase();
   const opSelling = op.sellingPrice || 0;
 
-  // Determine whether itemized package numbers are per-person or already flat for the booking
   let unitMultiplier = 1;
   if (priceUnit === 'couple') {
     // For couple packages, entered prices are already for a couple (2 pax)
-    unitMultiplier = Math.max(1, Math.round(paxCount / 2));
+    unitMultiplier = Math.max(1, Math.ceil(paxCount / 2));
   } else if (priceUnit === 'group' || priceUnit === 'family') {
     // Total price is for the entire booking/group
     unitMultiplier = 1;
   } else {
-    // Per person vs flat detection:
-    if (rawSum > 0) {
-      if (rawSum * paxCount <= opSelling + 100 && opSelling > rawSum) {
-        // Items were entered per-person, and their sum multiplied by paxCount matches op.sellingPrice
-        unitMultiplier = paxCount;
-      } else {
-        // The raw items already add up to the package selling price, or multiplying by paxCount would exceed selling price
-        unitMultiplier = 1;
-      }
-    } else {
-      unitMultiplier = Math.max(1, paxCount);
-    }
+    // Per person
+    unitMultiplier = Math.max(1, paxCount);
   }
 
   // Helper to safely extract paid amount (handles manual paid amount or marked as 'paid')
@@ -1052,56 +1083,52 @@ export default function OperationDetailPage() {
 
   // 1. Flights Billed
   const flightSellingFromItems = transports.reduce((s, t) => s + (t.sellingPrice || 0), 0);
-  const pkgFlightPrice = rawFlight * unitMultiplier;
-  const flightBilled = flightSellingFromItems > 0 ? flightSellingFromItems : pkgFlightPrice;
+  const rawFlight = op.customPricing?.flightPrice !== undefined
+    ? op.customPricing.flightPrice
+    : (pkgData?.flightPrice || 0);
+  const pkgFlightPrice = rawFlight * (priceUnit === 'group' ? 1 : unitMultiplier);
+  const flightMilestoneAmount = customerPayments.filter(isFlightPayment).reduce((s, p) => s + (p.amount || 0), 0);
+  const flightBilled = Math.max(flightSellingFromItems > 0 ? flightSellingFromItems : pkgFlightPrice, flightMilestoneAmount);
 
   // 2. Visa Billed
+  const rawVisa = op.customPricing?.visaPrice !== undefined
+    ? op.customPricing.visaPrice
+    : (pkgData?.visaPrice || 0);
+  const pkgVisaPrice = rawVisa * (priceUnit === 'group' ? 1 : unitMultiplier);
   const visaMilestoneAmount = customerPayments.filter(isVisaPayment).reduce((s, p) => s + (p.amount || 0), 0);
-  const pkgVisaPrice = rawVisa * unitMultiplier;
-  let visaBilled = pkgVisaPrice > 0 
-    ? pkgVisaPrice 
-    : (visaMilestoneAmount > 0 
-        ? visaMilestoneAmount 
-        : ((op.visaCost && op.visaCost > 0 && op.visaCost <= opSelling) ? op.visaCost : 0));
+  let visaBilled = Math.max(
+    pkgVisaPrice > 0 ? pkgVisaPrice : ((op.visaCost && op.visaCost > 0 && op.visaCost <= opSelling) ? op.visaCost : 0),
+    visaMilestoneAmount
+  );
 
   // 3. Insurance Billed
-  const insuranceBilled = op.insuranceCost || 0;
+  const insuranceBilled = op.customPricing?.insurancePrice !== undefined
+    ? op.customPricing.insurancePrice
+    : (op.insuranceCost || 0);
 
   // 4. Misc Billed
   const miscBilled = op.miscTotal || (op.miscCharges || []).reduce((s, c) => s + (c.amount || 0), 0);
 
   // 5. Hotels & Land Billed
   const hotelSellingFromItems = accommodations.reduce((s, a) => s + (a.sellingPrice || 0), 0);
-  let hotelBilled = hotelSellingFromItems > 0 ? hotelSellingFromItems : (rawHotel * unitMultiplier);
+  const rawHotel = op.customPricing?.hotelPrice !== undefined
+    ? op.customPricing.hotelPrice
+    : (pkgData?.hotelPrice || 0);
+  let hotelBilled = hotelSellingFromItems > 0 ? hotelSellingFromItems : (rawHotel * (priceUnit === 'group' ? 1 : unitMultiplier));
 
   const actSellingFromItems = activities.reduce((s, a) => {
     const base = a.sellingPrice || 0;
     const transferSelling = (a.transfers || []).reduce((ts: number, tr: any) => ts + (tr.hasPricing ? (tr.sellingPrice || 0) : 0), 0);
     return s + base + transferSelling;
   }, 0);
-  let landBilled = actSellingFromItems > 0 ? actSellingFromItems : (rawLand * unitMultiplier);
+  const rawLand = op.customPricing?.landPrice !== undefined
+    ? op.customPricing.landPrice
+    : ((pkgData?.landCost || 0) + (pkgData?.activityAndTransportPrice || 0));
+  let landBilled = actSellingFromItems > 0 ? actSellingFromItems : (rawLand * (priceUnit === 'group' ? 1 : unitMultiplier));
 
   // Fixed external costs (Flights, Visa, Insurance, Misc)
   const fixedExternal = flightBilled + visaBilled + insuranceBilled + miscBilled;
-
-  // Reconcile hotel & land against sellingPrice when not explicitly itemized in ops tabs
-  if (hotelSellingFromItems === 0 && actSellingFromItems === 0 && opSelling > 0) {
-    const availableForHotelAndLand = Math.max(0, opSelling - fixedExternal);
-
-    if (hotelBilled + landBilled > availableForHotelAndLand) {
-      if (landBilled === 0 && hotelBilled > 0) {
-        hotelBilled = availableForHotelAndLand;
-      } else if (hotelBilled === 0 && landBilled > 0) {
-        landBilled = availableForHotelAndLand;
-      } else if (hotelBilled > 0 && landBilled > 0) {
-        const totalHL = hotelBilled + landBilled;
-        hotelBilled = Math.round((hotelBilled / totalHL) * availableForHotelAndLand);
-        landBilled = availableForHotelAndLand - hotelBilled;
-      }
-    } else if (landBilled === 0 && hotelBilled === 0 && availableForHotelAndLand > 0) {
-      landBilled = availableForHotelAndLand;
-    }
-  }
+  const availableForHotelAndLand = Math.max(0, opSelling - fixedExternal);
 
   // Check if Hotel and Land Package are merged (combined into one line)
   const isMergedHotelLand = forceMergeHotelLand !== null 
@@ -1110,14 +1137,37 @@ export default function OperationDetailPage() {
         pkgData?.mergeHotelAndActivity || 
         (hotelSellingFromItems === 0 && actSellingFromItems === 0 && (
           (hotelBilled > 0 && landBilled > 0 && (flightBilled + hotelBilled + landBilled + visaBilled + insuranceBilled + miscBilled > opSelling)) ||
-          (rawLand > 0 && rawHotel > 0 && (rawFlight + rawHotel + rawLand > opSelling))
+          (rawLand > 0 && rawHotel > 0 && (rawFlight + rawHotel + rawLand > (opSelling / (priceUnit === 'group' ? 1 : unitMultiplier)))) ||
+          (rawHotel > 0 && rawLand === 0 && hotelBilled === availableForHotelAndLand)
         ))
       );
 
   const combinedLandHotelBilled = (hotelSellingFromItems > 0 || actSellingFromItems > 0)
     ? (hotelSellingFromItems + actSellingFromItems)
-    : Math.max(0, opSelling - fixedExternal);
+    : availableForHotelAndLand;
   const combinedLandHotelPaid = hotelPaid + landPaid;
+
+  // Reconcile separate hotel & land against availableForHotelAndLand
+  if (!isMergedHotelLand && hotelSellingFromItems === 0 && actSellingFromItems === 0 && opSelling > 0) {
+    if (hotelBilled + landBilled > availableForHotelAndLand) {
+      if (landBilled === 0 && hotelBilled > 0) {
+        hotelBilled = availableForHotelAndLand;
+      } else if (hotelBilled === 0 && landBilled > 0) {
+        landBilled = availableForHotelAndLand;
+      } else if (hotelBilled > 0 && landBilled > 0) {
+        if (hotelBilled <= availableForHotelAndLand) {
+          landBilled = availableForHotelAndLand - hotelBilled;
+        } else {
+          hotelBilled = availableForHotelAndLand;
+          landBilled = 0;
+        }
+      }
+    } else if (landBilled === 0 && hotelBilled === 0 && availableForHotelAndLand > 0) {
+      landBilled = availableForHotelAndLand;
+    } else if (hotelBilled > 0 && landBilled === 0) {
+      landBilled = Math.max(0, availableForHotelAndLand - hotelBilled);
+    }
+  }
 
   // Smart Virtual Pool distribution across components (Priority: Flight -> Visa -> Insurance -> Hotel/Land -> Misc)
   let remainingPoolCalc = generalPaid;
@@ -1185,6 +1235,59 @@ export default function OperationDetailPage() {
 
     setAllotAmounts({ flight: f, land: l, hotel: h, visa: v, insurance: ins, misc: m });
     setAllotModalOpen(true);
+  };
+
+  const handleDirectAutoAllot = async () => {
+    let pool = generalPaid;
+    const f = Math.min(pool, Math.max(0, flightBilled - flightPaid));
+    pool = Math.max(0, pool - f);
+
+    const v = Math.min(pool, Math.max(0, visaBilled - visaPaid));
+    pool = Math.max(0, pool - v);
+
+    const ins = Math.min(pool, Math.max(0, insuranceBilled - insurancePaid));
+    pool = Math.max(0, pool - ins);
+
+    let h = 0;
+    let l = 0;
+    if (isMergedHotelLand) {
+      l = Math.min(pool, Math.max(0, combinedLandHotelBilled - combinedLandHotelPaid));
+      pool = Math.max(0, pool - l);
+    } else {
+      h = Math.min(pool, Math.max(0, hotelBilled - hotelPaid));
+      pool = Math.max(0, pool - h);
+
+      l = Math.min(pool, Math.max(0, landBilled - landPaid));
+      pool = Math.max(0, pool - l);
+    }
+
+    const m = Math.min(pool, Math.max(0, miscBilled - miscPaid));
+
+    const allocations = [
+      { category: 'flight', amount: f, milestone: 'Flights & Trains Payment (Advance Allotment)' },
+      { category: 'visa', amount: v, milestone: 'Visa Fees Payment (Advance Allotment)' },
+      { category: 'insurance', amount: ins, milestone: 'Insurance Payment (Advance Allotment)' },
+      ...(isMergedHotelLand ? [{ category: 'land', amount: l, milestone: 'Land & Stay (Advance Allotment)' }] : [
+        { category: 'hotel', amount: h, milestone: 'Hotel Stay (Advance Allotment)' },
+        { category: 'land', amount: l, milestone: 'Land Package (Advance Allotment)' },
+      ]),
+      { category: 'misc', amount: m, milestone: 'Misc Charges (Advance Allotment)' },
+    ].filter(a => a.amount > 0);
+
+    if (allocations.length === 0) {
+      alert("All service components are already covered.");
+      return;
+    }
+
+    setAllotting(true);
+    try {
+      await api.post(`/operations/${id}/customer-payments/allot`, { allocations });
+      fetchAll();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to allot advances");
+    } finally {
+      setAllotting(false);
+    }
   };
 
   const handleConfirmAllot = async () => {
@@ -1507,7 +1610,16 @@ export default function OperationDetailPage() {
                   </p>
                 </div>
                 <button onClick={() => {
-                  setBillExtra(false);
+                  const defaultFlight = priceUnit === 'person' && paxCount > 0 ? Math.round(flightBilled / paxCount) : (rawFlight || 0);
+                  const defaultLand = priceUnit === 'person' && paxCount > 0 ? Math.round(landBilled / paxCount) : (rawLand || 0);
+                  const defaultVisa = priceUnit === 'person' && paxCount > 0 && visaBilled > 0 ? Math.round(visaBilled / paxCount) : (rawVisa || 0);
+                  setPassengerFlightEnabled(defaultFlight > 0);
+                  setPassengerFlightPrice(defaultFlight > 0 ? String(defaultFlight) : "");
+                  setPassengerLandEnabled(defaultLand > 0);
+                  setPassengerLandPrice(defaultLand > 0 ? String(defaultLand) : "");
+                  setPassengerVisaEnabled(defaultVisa > 0);
+                  setPassengerVisaPrice(defaultVisa > 0 ? String(defaultVisa) : "");
+                  setBillExtra(defaultFlight > 0 || defaultLand > 0 || defaultVisa > 0);
                   setExtraAmount("");
                   setPassengerModalOpen(true);
                 }} className="px-3 py-1.5 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
@@ -1794,6 +1906,20 @@ export default function OperationDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const val = prompt("Update Quoted Flight Price (₹):", String(flightBilled));
+                  if (val !== null && val.trim() !== "" && !isNaN(Number(val))) {
+                    handleSyncPricing({ component: "flight", price: Number(val) });
+                  }
+                }}
+                className="px-2.5 py-1 bg-white border border-sky-300 hover:bg-sky-50 text-sky-800 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                title="Edit Quoted Flight Price"
+              >
+                <Edit2 size={12} />
+                <span>✏️ Quoted Flight: {formatCurrency(flightBilled)}</span>
+              </button>
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                 flightBilled === 0
                   ? "bg-slate-200 text-slate-700"
@@ -2296,6 +2422,20 @@ export default function OperationDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const val = prompt("Update Quoted Hotel Price (₹):", String(hotelBilled));
+                  if (val !== null && val.trim() !== "" && !isNaN(Number(val))) {
+                    handleSyncPricing({ component: "hotel", price: Number(val) });
+                  }
+                }}
+                className="px-2.5 py-1 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-800 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                title="Edit Quoted Hotel Price"
+              >
+                <Edit2 size={12} />
+                <span>✏️ Quoted Hotel: {formatCurrency(hotelBilled)}</span>
+              </button>
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                 hotelBilled === 0
                   ? "bg-slate-200 text-slate-700"
@@ -3523,8 +3663,199 @@ export default function OperationDetailPage() {
                   </div>
                 </div>
 
+          {/* PRICING & PERSON QUANTITY CONFIGURATION BAR */}
+          <div className="bg-gradient-to-r from-slate-50 via-sky-50/40 to-indigo-50/30 border border-slate-200 rounded-xl p-4 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">⚙️</span>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Pricing Configuration & Person Quantity
+                  </h4>
+                  {syncingPricing && (
+                    <span className="text-[10px] text-cyan-600 animate-pulse font-bold bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+                      Recalculating & Updating Billing...
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Changing price unit or person quantity automatically scales rates and updates the customer pending balance.
+                </p>
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {/* Price Unit Selector */}
+                <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-2xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase px-1">Unit:</span>
+                  <button
+                    type="button"
+                    disabled={syncingPricing}
+                    onClick={() => handleSyncPricing({ priceUnit: "person" })}
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 ${
+                      priceUnit === "person"
+                        ? "bg-cyan-600 text-white shadow-xs"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                    title="Scale prices per person"
+                  >
+                    <span>👤 Per Person</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={syncingPricing}
+                    onClick={() => handleSyncPricing({ priceUnit: "couple" })}
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 ${
+                      priceUnit === "couple"
+                        ? "bg-cyan-600 text-white shadow-xs"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                    title="Base flight/rates are for a couple (2 pax)"
+                  >
+                    <span>👥 Couple</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={syncingPricing}
+                    onClick={() => handleSyncPricing({ priceUnit: "group" })}
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition flex items-center gap-1 ${
+                      priceUnit === "group" || priceUnit === "family"
+                        ? "bg-cyan-600 text-white shadow-xs"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                    title="Flat price for the whole group"
+                  >
+                    <span>👨‍👩‍👧‍👦 Group (Flat)</span>
+                  </button>
+                </div>
+
+                {/* Pax Quantity Inputs */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Adults:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      disabled={syncingPricing}
+                      defaultValue={currentAdults}
+                      key={`adults-${currentAdults}`}
+                      onBlur={(e) => {
+                        const val = Math.max(1, Number(e.target.value));
+                        if (val !== currentAdults) {
+                          handleSyncPricing({ adults: val, children: currentChildren });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = Math.max(1, Number((e.target as any).value));
+                          handleSyncPricing({ adults: val, children: currentChildren });
+                        }
+                      }}
+                      className="w-10 px-1 py-0.5 border border-slate-200 rounded text-xs font-bold text-center text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <span className="text-slate-300">|</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Kids:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      disabled={syncingPricing}
+                      defaultValue={currentChildren}
+                      key={`children-${currentChildren}`}
+                      onBlur={(e) => {
+                        const val = Math.max(0, Number(e.target.value));
+                        if (val !== currentChildren) {
+                          handleSyncPricing({ adults: currentAdults, children: val });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const val = Math.max(0, Number((e.target as any).value));
+                          handleSyncPricing({ adults: currentAdults, children: val });
+                        }
+                      }}
+                      className="w-10 px-1 py-0.5 border border-slate-200 rounded text-xs font-bold text-center text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
+                    {paxCount} Pax
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* PAYMENT SEPARATION & COMPONENT BREAKDOWN TABLE */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+          {(() => {
+            const renderQuotedCell = (compKey: string, currentVal: number, compName: string) => {
+              const isEditing = editingPriceComp === compKey;
+
+              if (isEditing) {
+                return (
+                  <td className="py-2 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-[10px] text-slate-400 font-semibold">₹</span>
+                      <input
+                        type="number"
+                        min={0}
+                        autoFocus
+                        value={editPriceValue}
+                        onChange={(e) => setEditPriceValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSyncPricing({ component: compKey, price: Number(editPriceValue) });
+                          } else if (e.key === "Escape") {
+                            setEditingPriceComp(null);
+                          }
+                        }}
+                        className="w-24 px-1.5 py-0.5 border border-cyan-400 rounded text-xs font-bold text-right text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={syncingPricing}
+                        onClick={() => handleSyncPricing({ component: compKey, price: Number(editPriceValue) })}
+                        className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition"
+                        title="Save Quoted Price"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPriceComp(null)}
+                        className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition"
+                        title="Cancel"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </td>
+                );
+              }
+
+              return (
+                <td className="py-2.5 text-right font-semibold text-slate-700 group">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>{formatCurrency(currentVal)}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPriceComp(compKey);
+                        setEditPriceValue(currentVal.toString());
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-cyan-700 hover:bg-cyan-50 rounded transition"
+                      title={`Edit ${compName} Quoted Price`}
+                    >
+                      <Edit2 size={11} />
+                    </button>
+                  </div>
+                </td>
+              );
+            };
+
+            return (
+              <>
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 gap-2">
               <div>
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -3548,14 +3879,25 @@ export default function OperationDetailPage() {
                   <span>{isMergedHotelLand ? "🔗 Merged (Stay + Land)" : "➦ Separate (Stay & Land)"}</span>
                 </button>
                 {generalPaid > 0 && (
-                  <button
-                    type="button"
-                    onClick={openAllotModal}
-                    className="px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded text-[11px] font-bold shadow-xs transition flex items-center gap-1"
-                    title="Allot unassigned general advance pool to Flights, Land, etc."
-                  >
-                    <span>⚡ Allot Advances ({formatCurrency(generalPaid)})</span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={allotting}
+                      onClick={handleDirectAutoAllot}
+                      className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                      title="Automatically allot unassigned advance pool to pending services"
+                    >
+                      <span>⚡ 1-Click Auto-Allot ({formatCurrency(generalPaid)})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openAllotModal}
+                      className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[11px] font-bold transition flex items-center gap-1"
+                      title="Custom manual advance allocation"
+                    >
+                      <span>Manual Allot</span>
+                    </button>
+                  </div>
                 )}
                 <button
                   type="button"
@@ -3625,7 +3967,7 @@ export default function OperationDetailPage() {
                     <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
                       <span>✈️</span> Flights & Trains
                     </td>
-                    <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(flightBilled)}</td>
+                    {renderQuotedCell("flight", flightBilled, "Flights & Trains")}
                     <td className="py-2.5 text-right font-bold text-emerald-600">
                       {flightPaid > 0 ? (
                         <span>{formatCurrency(flightPaid)}</span>
@@ -3666,7 +4008,7 @@ export default function OperationDetailPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(combinedLandHotelBilled)}</td>
+                      {renderQuotedCell("land", combinedLandHotelBilled, "Land Package & Accommodations")}
                       <td className="py-2.5 text-right font-bold text-emerald-600">
                         {combinedLandHotelPaid > 0 ? (
                           <span>{formatCurrency(combinedLandHotelPaid)}</span>
@@ -3700,7 +4042,7 @@ export default function OperationDetailPage() {
                         <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
                           <span>🏨</span> Hotel & Accommodation
                         </td>
-                        <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(hotelBilled)}</td>
+                        {renderQuotedCell("hotel", hotelBilled, "Hotel & Accommodation")}
                         <td className="py-2.5 text-right font-bold text-emerald-600">
                           {hotelPaid > 0 ? (
                             <span>{formatCurrency(hotelPaid)}</span>
@@ -3733,7 +4075,7 @@ export default function OperationDetailPage() {
                         <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
                           <span>🚗</span> Land Package & Activities
                         </td>
-                        <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(landBilled)}</td>
+                        {renderQuotedCell("land", landBilled, "Land Package & Activities")}
                         <td className="py-2.5 text-right font-bold text-emerald-600">
                           {landPaid > 0 ? (
                             <span>{formatCurrency(landPaid)}</span>
@@ -3769,7 +4111,7 @@ export default function OperationDetailPage() {
                       <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
                         <span>🛂</span> Visa Fees
                       </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(visaBilled)}</td>
+                      {renderQuotedCell("visa", visaBilled, "Visa Fees")}
                       <td className="py-2.5 text-right font-bold text-emerald-600">
                         {visaPaid > 0 ? (
                           <span>{formatCurrency(visaPaid)}</span>
@@ -3803,7 +4145,7 @@ export default function OperationDetailPage() {
                       <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
                         <span>🛡️</span> Travel Insurance
                       </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(insuranceBilled)}</td>
+                      {renderQuotedCell("insurance", insuranceBilled, "Travel Insurance")}
                       <td className="py-2.5 text-right font-bold text-emerald-600">
                         {insurancePaid > 0 ? (
                           <span>{formatCurrency(insurancePaid)}</span>
@@ -3837,7 +4179,7 @@ export default function OperationDetailPage() {
                       <td className="py-2.5 font-medium text-slate-800 flex items-center gap-2">
                         <span>🏷️</span> Misc Charges
                       </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-700">{formatCurrency(miscBilled)}</td>
+                      {renderQuotedCell("misc", miscBilled, "Misc Charges")}
                       <td className="py-2.5 text-right font-bold text-emerald-600">
                         {miscPaid > 0 ? (
                           <span>{formatCurrency(miscPaid)}</span>
@@ -3887,13 +4229,24 @@ export default function OperationDetailPage() {
                         )}
                       </td>
                       <td className="py-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={openAllotModal}
-                          className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[10px] font-bold transition flex items-center gap-1 ml-auto"
-                        >
-                          <span>⚡ Allot to Components</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <button
+                            type="button"
+                            disabled={allotting}
+                            onClick={handleDirectAutoAllot}
+                            className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold transition flex items-center gap-1 shadow-2xs"
+                            title="Automatically allot pool across pending Flights, Visa, Hotel, and Land"
+                          >
+                            <span>⚡ 1-Click Auto-Allot</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={openAllotModal}
+                            className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded text-[10px] font-bold transition flex items-center gap-1"
+                          >
+                            <span>Manual Allot</span>
+                          </button>
+                        </div>
                       </td>
                       <td className="py-2.5 text-center">
                         <span className="px-1.5 py-0.5 bg-amber-200 text-amber-800 border border-amber-300 rounded text-[9px] font-bold">
@@ -3910,7 +4263,7 @@ export default function OperationDetailPage() {
                       ? (flightBilled + combinedLandHotelBilled + visaBilled + insuranceBilled + miscBilled)
                       : (flightBilled + hotelBilled + landBilled + visaBilled + insuranceBilled + miscBilled);
                     const totalSepPaid = flightPaid + hotelPaid + landPaid + visaPaid + insurancePaid + miscPaid + generalPaid;
-                    const effectiveTotalQuoted = (op.sellingPrice && op.sellingPrice > 0 && totalSepQuoted > op.sellingPrice)
+                    const effectiveTotalQuoted = (op.sellingPrice && op.sellingPrice > 0)
                       ? op.sellingPrice
                       : (totalSepQuoted > 0 ? totalSepQuoted : (op.sellingPrice || 0));
                     const pendingTotal = Math.max(0, effectiveTotalQuoted - totalSepPaid);
@@ -3941,19 +4294,22 @@ export default function OperationDetailPage() {
             </div>
           </div>
 
-                {isOutOfSync && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
-                    <p className="text-xs text-amber-800">
-                      Payment schedule total ({formatCurrency(totalBilled)}) differs from current billed amount ({formatCurrency((op as any).effectiveSelling ?? op.sellingPrice)}).
-                    </p>
-                    <button onClick={recalculate} className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1 rounded-lg flex items-center gap-1 transition-colors">
-                      <RefreshCw size={12} /> Sync Now
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {isOutOfSync && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 flex items-center justify-between">
+              <p className="text-xs text-amber-800">
+                Payment schedule total ({formatCurrency(totalBilled)}) differs from current billed amount ({formatCurrency((op as any).effectiveSelling ?? op.sellingPrice)}).
+              </p>
+              <button onClick={recalculate} className="text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1 rounded-lg flex items-center gap-1 transition-colors">
+                <RefreshCw size={12} /> Sync Now
+              </button>
+            </div>
+          )}
+        </>
+      );
+    })()}
+  </div>
+);
+})()}
           
           {(() => {
             const groupedPayments: Record<string, any[]> = {};
@@ -4330,58 +4686,158 @@ export default function OperationDetailPage() {
               </div>
 
               {/* Extra Billing / Group Booking Setting */}
-              {addPassengerMode === "existing" ? (
-                <div className="pt-3 border-t border-slate-100 bg-slate-50/70 -mx-5 px-5 py-3 rounded-b-none">
-                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={billExtra}
-                      onChange={(e) => setBillExtra(e.target.checked)}
-                      className="mt-0.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
-                    />
-                    <div>
-                      <span className="text-xs font-bold text-slate-800">Charge extra for this passenger</span>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Keep unchecked if this passenger is already included in the group or package price.
-                      </p>
-                    </div>
-                  </label>
-
-                  {billExtra && (
-                    <div className="mt-3 pl-6">
-                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">
-                        Extra Amount (₹) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={extraAmount}
-                        onChange={(e) => setExtraAmount(e.target.value)}
-                        placeholder="e.g. 25000"
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                      />
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        This will add an extra installment milestone to the customer payment schedule.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="pt-3 border-t border-slate-100">
-                  <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">
-                    Booking Price (₹)
-                  </label>
+              <div className="pt-3 border-t border-slate-100 bg-slate-50/70 -mx-5 px-5 py-3 rounded-b-none space-y-3">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
                   <input
-                    type="number"
-                    value={extraAmount}
-                    onChange={(e) => setExtraAmount(e.target.value)}
-                    placeholder={op?.package?.price ? String(op.package.price) : "0"}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    type="checkbox"
+                    checked={billExtra}
+                    onChange={(e) => setBillExtra(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-4 h-4 cursor-pointer"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Leave blank to use default package price (₹{op?.package?.price?.toLocaleString('en-IN') || 0}).
-                  </p>
-                </div>
-              )}
+                  <div>
+                    <span className="text-xs font-bold text-slate-800">Charge extra for this passenger</span>
+                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                      Add flight tickets, land package, or visa cost. This will increase the quoted amount and be added as an upcoming payment.
+                    </p>
+                  </div>
+                </label>
+
+                {billExtra && (
+                  <div className="mt-2 pl-6 space-y-3">
+                    {/* Flight component */}
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
+                      <label className="flex items-center justify-between cursor-pointer select-none">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={passengerFlightEnabled}
+                            onChange={(e) => setPassengerFlightEnabled(e.target.checked)}
+                            className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs font-bold text-slate-800">✈️ Flight Cost for this Passenger</span>
+                        </div>
+                        {passengerFlightEnabled && (
+                          <span className="text-[10px] text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded font-bold">
+                            Adds to Quoted Flights
+                          </span>
+                        )}
+                      </label>
+                      {passengerFlightEnabled && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={passengerFlightPrice}
+                            onChange={(e) => setPassengerFlightPrice(e.target.value)}
+                            placeholder="e.g. 150000"
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Land / Stay component */}
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
+                      <label className="flex items-center justify-between cursor-pointer select-none">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={passengerLandEnabled}
+                            onChange={(e) => setPassengerLandEnabled(e.target.checked)}
+                            className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs font-bold text-slate-800">🚗 Land Package & Stay for this Passenger</span>
+                        </div>
+                        {passengerLandEnabled && (
+                          <span className="text-[10px] text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded font-bold">
+                            Adds to Quoted Land
+                          </span>
+                        )}
+                      </label>
+                      {passengerLandEnabled && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={passengerLandPrice}
+                            onChange={(e) => setPassengerLandPrice(e.target.value)}
+                            placeholder="e.g. 80000"
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Visa component */}
+                    <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
+                      <label className="flex items-center justify-between cursor-pointer select-none">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={passengerVisaEnabled}
+                            onChange={(e) => setPassengerVisaEnabled(e.target.checked)}
+                            className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 w-3.5 h-3.5"
+                          />
+                          <span className="text-xs font-bold text-slate-800">🛂 Visa Fee for this Passenger</span>
+                        </div>
+                        {passengerVisaEnabled && (
+                          <span className="text-[10px] text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded font-bold">
+                            Adds to Quoted Visa
+                          </span>
+                        )}
+                      </label>
+                      {passengerVisaEnabled && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={passengerVisaPrice}
+                            onChange={(e) => setPassengerVisaPrice(e.target.value)}
+                            placeholder="e.g. 10000"
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lump-Sum if components not selected */}
+                    {!passengerFlightEnabled && !passengerLandEnabled && !passengerVisaEnabled && (
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">
+                          Lump-Sum Extra Amount (₹) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={extraAmount}
+                          onChange={(e) => setExtraAmount(e.target.value)}
+                          placeholder="e.g. 50000"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        />
+                      </div>
+                    )}
+
+                    {/* Total Summary */}
+                    {(() => {
+                      const totalPaxCharge = (passengerFlightEnabled ? Number(passengerFlightPrice) || 0 : 0) +
+                        (passengerLandEnabled ? Number(passengerLandPrice) || 0 : 0) +
+                        (passengerVisaEnabled ? Number(passengerVisaPrice) || 0 : 0) +
+                        (!passengerFlightEnabled && !passengerLandEnabled && !passengerVisaEnabled ? Number(extraAmount) || 0 : 0);
+                      return (
+                        <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between text-xs">
+                          <div>
+                            <span className="text-slate-700 font-bold block">Total Billed for Passenger:</span>
+                            <span className="text-[10px] text-sky-800 font-medium">Increases Quoted & Pending Balance</span>
+                          </div>
+                          <span className="text-base font-black text-sky-950">{formatCurrency(totalPaxCharge)}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="px-5 py-4 border-t border-slate-100 flex justify-end">
