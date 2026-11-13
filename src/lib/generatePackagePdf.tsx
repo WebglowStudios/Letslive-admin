@@ -86,6 +86,7 @@ interface ItineraryDay {
 interface Stay {
   name: string; rating: string; nights: number; roomType: string; amenities: string[];
   rooms?: number;
+  roomCategories?: { roomType: string; rooms: number }[];
   checkIn?: string; checkOut?: string; address?: string; confirmationNo?: string;
   remark?: string; showRemarkToCustomer?: boolean;
 }
@@ -1207,7 +1208,8 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
       const last = routeStops[routeStops.length - 1];
       if (last && last.city.toLowerCase() === city.toLowerCase()) {
-        last.nights += n;
+        // Same city consecutive stay — use max (parallel/concurrent rooms share same nights)
+        last.nights = Math.max(last.nights, n);
       } else {
         routeStops.push({ city, nights: n });
       }
@@ -2461,6 +2463,12 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
   type GroupedStay = Stay & { roomTypes: { roomType: string; rooms?: number }[] };
   const groupedStays: GroupedStay[] = [];
   for (const stay of pkg.stays) {
+    // Expand roomCategories into roomTypes list for this stay
+    const stayRoomTypes: { roomType: string; rooms?: number }[] =
+      stay.roomCategories && stay.roomCategories.length > 0
+        ? stay.roomCategories
+        : [{ roomType: stay.roomType, rooms: stay.rooms }];
+
     // Group any stays matching the same hotel name AND exact same check-in / check-out dates
     const existing = groupedStays.find(
       s =>
@@ -2469,10 +2477,11 @@ const AccommodationSection = ({ pkg }: { pkg: PackageData }) => {
         (s.checkOut || "") === (stay.checkOut || "")
     );
     if (existing) {
-      existing.roomTypes.push({ roomType: stay.roomType, rooms: stay.rooms });
-      if (stay.rooms) existing.rooms = (existing.rooms || 0) + stay.rooms;
+      stayRoomTypes.forEach(rt => existing.roomTypes.push(rt));
+      const addedRooms = stayRoomTypes.reduce((sum, rt) => sum + (rt.rooms || 0), 0);
+      if (addedRooms) existing.rooms = (existing.rooms || 0) + addedRooms;
     } else {
-      groupedStays.push({ ...stay, roomTypes: [{ roomType: stay.roomType, rooms: stay.rooms }] });
+      groupedStays.push({ ...stay, roomTypes: stayRoomTypes });
     }
   }
 

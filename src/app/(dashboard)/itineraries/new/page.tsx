@@ -32,8 +32,14 @@ export interface StayOption {
   address?: string;
 }
 
+interface RoomCategory {
+  roomType: string;
+  rooms: number;
+}
+
 interface Stay {
   _key: number; name: string; rating: string; nights: number; roomType: string; rooms?: number;
+  roomCategories?: RoomCategory[];
   checkIn: string; checkOut: string; address: string; confirmationNo: string; amenities: string[];
   remark?: string; showRemarkToCustomer?: boolean;
   hasOptions?: boolean;
@@ -2187,11 +2193,24 @@ export default function NewCustomItineraryPage() {
                       </div>
                       <input type="text" value={stay.name} onChange={(e) => updateStay(i, "name", e.target.value)} placeholder="Hotel/Resort name" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                       <input type="text" value={stay.address || ""} onChange={(e) => updateStay(i, "address", e.target.value)} placeholder="Location / City / Address (e.g. Ubud, Bali or Manali)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         <input type="text" value={stay.rating} onChange={(e) => updateStay(i, "rating", e.target.value)} placeholder="Rating (e.g. 5-Star)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                         <input type="number" value={stay.nights || ""} onChange={(e) => updateStay(i, "nights", Number(e.target.value) || 0)} placeholder="Nights" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <input type="text" value={stay.roomType} onChange={(e) => updateStay(i, "roomType", e.target.value)} placeholder="Room type" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                        <input type="number" value={stay.rooms || ""} onChange={(e) => updateStay(i, "rooms", Number(e.target.value) || 0)} placeholder="Rooms" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                      </div>
+                      {/* Room Categories */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Room Categories</span>
+                          <button type="button" onClick={() => { const base = stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }]); updateStay(i, 'roomCategories', [...base, { roomType: '', rooms: 1 }]); }} className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-800 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 flex items-center gap-1"><Plus size={11} /> Add Room Type</button>
+                        </div>
+                        {(stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }])).map((cat, ci) => (
+                          <div key={ci} className="flex items-center gap-2">
+                            <input type="text" value={cat.roomType} onChange={(e) => { const base = stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : [{ roomType: stay.roomType, rooms: stay.rooms || 1 }]; const cats = [...base]; cats[ci] = { ...cats[ci], roomType: e.target.value }; updateStay(i, 'roomCategories', cats); if (ci === 0) updateStay(i, 'roomType', e.target.value); }} placeholder="Room type (e.g. Deluxe Room)" className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                            <input type="number" min={1} value={cat.rooms || 1} onChange={(e) => { const base = stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : [{ roomType: stay.roomType, rooms: stay.rooms || 1 }]; const cats = [...base]; cats[ci] = { ...cats[ci], rooms: Number(e.target.value) || 1 }; updateStay(i, 'roomCategories', cats); if (ci === 0) updateStay(i, 'rooms', Number(e.target.value) || 1); }} placeholder="Qty" className="w-16 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                            <span className="text-xs text-slate-400 shrink-0">rm</span>
+                            {(stay.roomCategories || []).length > 1 && <button type="button" onClick={() => { const cats = (stay.roomCategories || []).filter((_, idx) => idx !== ci); updateStay(i, 'roomCategories', cats); }} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>}
+                          </div>
+                        ))}
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><label className="text-xs font-medium text-slate-500 mb-1 block">Check-in</label><input type="date" value={stay.checkIn} onChange={(e) => updateStay(i, "checkIn", e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
