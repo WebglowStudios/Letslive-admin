@@ -490,7 +490,7 @@ export default function EditCustomItineraryPage() {
               meals: d.meals || [],
               accommodation: d.accommodation || "",
               images: d.images || [],
-            }))
+            })).sort((a: { day?: number }, b: { day?: number }) => (a.day || 0) - (b.day || 0))
           : [{ day: 1, title: "", description: "", activities: [], recommendations: [], meals: [], accommodation: "", images: [] }]
       );
       setStays(
@@ -546,7 +546,17 @@ export default function EditCustomItineraryPage() {
 
   function addItineraryDay() { setItinerary([...itinerary, { day: itinerary.length + 1, title: "", description: "", activities: [], recommendations: [], meals: [], accommodation: "", images: [] }]); }
   function removeItineraryDay(index: number) { setItinerary(itinerary.filter((_, i) => i !== index).map((d, i) => ({ ...d, day: i + 1 }))); }
-  function updateItinerary(index: number, field: string, value: unknown) { setItinerary(prev => { const u = [...prev]; u[index] = { ...u[index], [field]: value }; return u; }); }
+  function updateItinerary(index: number, field: string, value: unknown) {
+    setItinerary(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      // Auto-sort by day number whenever the day field changes
+      if (field === 'day') {
+        return [...updated].sort((a, b) => (Number(a.day) || 0) - (Number(b.day) || 0));
+      }
+      return updated;
+    });
+  }
   function moveItineraryDay(index: number, direction: 'up' | 'down') {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === itinerary.length - 1) return;

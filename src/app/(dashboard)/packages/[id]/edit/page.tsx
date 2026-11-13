@@ -525,7 +525,7 @@ export default function EditPackagePage() {
                 meals: d.meals || [],
                 accommodation: d.accommodation || "",
                 images: d.images || [],
-              }))
+              })).sort((a: { day?: number }, b: { day?: number }) => (a.day || 0) - (b.day || 0))
             : [{ day: 1, title: "", description: "", activities: [], recommendations: [], meals: [], accommodation: "", images: [] }]
         );
         setStays(
@@ -622,6 +622,10 @@ export default function EditPackagePage() {
     setItinerary(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+      // Auto-sort by day number whenever the day field changes
+      if (field === 'day') {
+        return [...updated].sort((a, b) => (Number(a.day) || 0) - (Number(b.day) || 0));
+      }
       return updated;
     });
   }

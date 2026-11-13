@@ -224,7 +224,7 @@ export default function NewPackagePage() {
               accommodation: day.accommodation || "",
               images: Array.isArray(day.images) ? day.images.filter(Boolean) : [],
               _key: Date.now() + i + Math.random(),
-            }))
+            })).sort((a: { day?: number }, b: { day?: number }) => (a.day || 0) - (b.day || 0))
         );
       }
 
@@ -655,6 +655,10 @@ export default function NewPackagePage() {
     setItinerary(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+      // Auto-sort by day number whenever the day field changes
+      if (field === "day") {
+        return [...updated].sort((a, b) => (Number(a.day) || 0) - (Number(b.day) || 0));
+      }
       return updated;
     });
   }
