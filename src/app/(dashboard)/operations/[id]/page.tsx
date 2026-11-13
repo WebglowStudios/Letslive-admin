@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2, RefreshCw, List } from "lucide-react";
+import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2, RefreshCw, List, Building2, BedDouble, Star } from "lucide-react";
 import Link from "next/link";
 import { useRole } from "@/hooks/usePermission";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
@@ -76,7 +76,7 @@ interface Activity {
   transfers?: ActivityTransfer[];
 }
 interface CPayment { _id: string; milestone: string; category?: 'all' | 'flight' | 'hotel' | 'land' | 'visa' | 'insurance' | 'misc'; amount: number; paidAmount: number; dueDate: string; paidDate: string; status: string; financeStatus: string; paymentLinkEnabled: boolean; paymentLink: string; paymentMode: string; transactionId: string; remarks?: string; _isManual?: boolean; booking?: any; }
-interface OpData { _id: string; operationId: string; departureId?: string; priceUnit?: string; customPricing?: { flightPrice?: number; hotelPrice?: number; landPrice?: number; visaPrice?: number; insurancePrice?: number; }; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; priceUnit?: string; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; adultCount?: number; childCount?: number; priceUnit?: string; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; visaCost?: number; insuranceCost?: number; miscCharges?: { label: string; amount: number; isVendorCost: boolean }[]; miscTotal?: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
+interface OpData { _id: string; operationId: string; departureId?: string; priceUnit?: string; customPricing?: { flightPrice?: number; hotelPrice?: number; landPrice?: number; visaPrice?: number; insurancePrice?: number; }; booking?: { _id: string; bookingId: string; brand?: string; paymentStatus: string; totalAmount?: number; paidAmount?: number; dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[]; selectedHotelOptions?: any[]; hotelUpgradeTotal?: number; package?: { _id: string; name: string; slug: string; price?: number; isCustom: boolean; description?: string; itinerary?: any[]; stays?: any[]; adultCount?: number; childCount?: number; priceUnit?: string; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; travellers?: { adults?: number; children?: number; infants?: number }; travellersDetails?: any[]; primaryTraveller?: { firstName: string; lastName: string; email: string; phone: string; panCard: string; passportNumber?: string; passportExpiry?: string; issuingCountry?: string; dob?: string; gender?: string; age?: number } }; bookings?: any[]; package?: { _id: string; name: string; slug: string; price?: number; isCustom?: boolean; description?: string; itinerary?: any[]; stays?: any[]; adultCount?: number; childCount?: number; priceUnit?: string; isInternational?: boolean; visaIncluded?: boolean; flightsIncluded?: boolean; trainsIncluded?: boolean; hideTrainInfo?: boolean; flightPrice?: number; landCost?: number; hotelPrice?: number; activityPrice?: number; transferPrice?: number; activityAndTransportPrice?: number; mergeHotelAndActivity?: boolean; flights?: any[]; }; customer: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }; customers: { name: string; email: string; phone: string; pax: number; adults?: number; children?: number }[]; destination: string; travelDates: { start: string; end: string }; assignedTo?: { _id?: string; firstName: string; lastName: string }; salesperson?: { _id?: string; firstName: string; lastName: string }; sellingPrice: number; totalVendorCost: number; visaCost?: number; insuranceCost?: number; miscCharges?: { label: string; amount: number; isVendorCost: boolean }[]; miscTotal?: number; grossProfit: number; profitPercentage: number; incentiveAmount?: number; status: string; }
 
 export const getWebsiteBaseUrl = (_brand?: string, _bookingId?: string, _operationId?: string) => {
   const envUrl = process.env.NEXT_PUBLIC_FRONTEND_URL;
@@ -1411,6 +1411,17 @@ export default function OperationDetailPage() {
               <p className="text-sm font-semibold text-slate-800">{displayCustomerName}</p>
               <p className="text-xs text-slate-500">{displayCustomerEmail} | {displayCustomerPhone}</p>
               <p className="text-xs text-slate-400 mt-1">{displayPax} pax</p>
+              {(() => {
+                const singleB = (op.bookings && op.bookings.length > 0 ? op.bookings[0] : op.booking) as any;
+                const pan = singleB?.primaryTraveller?.panCard || (op.customers?.[0] as any)?.panCard;
+                if (!pan) return null;
+                return (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-1.5 text-xs text-slate-600">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase">PAN:</span>
+                    <span className="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded tracking-wide">{pan}</span>
+                  </div>
+                );
+              })()}
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-5">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
@@ -1705,12 +1716,18 @@ export default function OperationDetailPage() {
                       );
                     })()}
                     {(t.email || t.phone) && <p className="text-[10px] text-slate-400 mt-0.5">{[t.email, t.phone].filter(Boolean).join(' · ')}</p>}
+                    {t.panCard && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-1.5 text-xs text-slate-700">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase">PAN:</span>
+                        <span className="font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded tracking-wide text-[11px]">{t.panCard}</span>
+                      </div>
+                    )}
                     {(t.passportNumber || t.issuingCountry) && (
-                      <div className="mt-2 pt-2 border-t border-slate-100">
-                        <p className="text-[10px] text-slate-500">Passport: <span className="text-slate-700 font-medium">{t.passportNumber || '—'}</span></p>
+                      <div className={`mt-2 pt-2 ${!t.panCard ? "border-t border-slate-100" : ""}`}>
+                        <p className="text-[10px] text-slate-500">Passport: <span className="text-slate-800 font-bold font-mono text-[11px]">{t.passportNumber || '—'}</span></p>
                         <div className="flex gap-3 mt-0.5">
-                          <p className="text-[10px] text-slate-500">Exp: {t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</p>
-                          <p className="text-[10px] text-slate-500">Country: {t.issuingCountry || '—'}</p>
+                          <p className="text-[10px] text-slate-500">Exp: <span className="text-slate-700 font-medium">{t.passportExpiry ? formatDate(t.passportExpiry) : '—'}</span></p>
+                          <p className="text-[10px] text-slate-500">Country: <span className="text-slate-700 font-medium">{t.issuingCountry || '—'}</span></p>
                         </div>
                       </div>
                     )}
@@ -1844,6 +1861,101 @@ export default function OperationDetailPage() {
               })()}
             </div>
           )}
+
+          {/* ACCOMMODATIONS & HOTELS FROM PACKAGE / BOOKING */}
+          {(() => {
+            const singleB = (op.bookings && op.bookings.length > 0 ? op.bookings[0] : op.booking) as any;
+            const bookedStays: any[] = singleB?.package?.stays || op.package?.stays || op.booking?.package?.stays || [];
+            const selectedOptions: any[] = singleB?.selectedHotelOptions || op.booking?.selectedHotelOptions || [];
+
+            if (!bookedStays || bookedStays.length === 0) return null;
+
+            return (
+              <div className="bg-white rounded-xl border border-slate-200 p-5 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-cyan-600" />
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Accommodations & Hotels ({bookedStays.length})
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTab("accommodation")}
+                    className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <Home size={13} />
+                    Manage in Stay Tab ({accommodations.length})
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {bookedStays.map((stay: any, idx: number) => {
+                    const selected = selectedOptions.find((s: any) => s.stayIndex === idx || (s.stayName && (s.stayName === stay.name || s.stayName === stay.hotelName || s.stayName === stay.stayLocation)));
+                    const hotelName = selected?.hotelName || stay.hotelName || stay.name || "Standard Accommodation";
+                    const roomType = selected?.roomType || stay.roomType;
+                    const rating = selected?.hotelRating || selected?.rating || stay.hotelRating || stay.rating;
+                    const priceDiff = selected?.priceDifferenceApplied || 0;
+
+                    return (
+                      <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/60 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-cyan-100 text-cyan-700 font-bold text-xs flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">{stay.stayLocation || stay.address || stay.city || stay.name || `Stay ${idx + 1}`}</span>
+                            {stay.nights && (
+                              <span className="text-xs text-slate-400">({stay.nights} {stay.nights > 1 ? "Nights" : "Night"})</span>
+                            )}
+                          </div>
+                          {stay.hasOptions && stay.options && stay.options.length > 1 && (
+                            <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                              {stay.options.length} options available
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-200/60">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                              <Building2 size={14} className="text-slate-400" />
+                              {hotelName}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                              {rating && (
+                                <span className="flex items-center gap-1 text-amber-500 font-semibold">
+                                  <Star size={12} className="fill-amber-400 text-amber-400" />
+                                  {rating} Star
+                                </span>
+                              )}
+                              {roomType && (
+                                <span className="flex items-center gap-1 text-slate-600">
+                                  <BedDouble size={12} className="text-slate-400" />
+                                  {roomType}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            {priceDiff > 0 ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+                                +₹{priceDiff.toLocaleString()} / person upgrade
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                                Included (Base Hotel)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
 
           {(op.booking?.package?.description || op.package?.description || op.bookings?.[0]?.package?.description) && (
@@ -2566,6 +2678,67 @@ export default function OperationDetailPage() {
                       ? "⚠️ Partially Paid"
                       : "⚠️ Hotel Payment Pending"}
                   </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* BOOKED PACKAGE HOTEL SELECTION REFERENCE */}
+          {(() => {
+            const singleB = (op.bookings && op.bookings.length > 0 ? op.bookings[0] : op.booking) as any;
+            const bookedStays: any[] = singleB?.package?.stays || op.package?.stays || op.booking?.package?.stays || [];
+            const selectedOptions: any[] = singleB?.selectedHotelOptions || op.booking?.selectedHotelOptions || [];
+            if (!bookedStays || bookedStays.length === 0) return null;
+
+            return (
+              <div className="bg-slate-50/90 rounded-xl border border-slate-200 p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={15} className="text-cyan-700" />
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                      Customer Booked Accommodations ({bookedStays.length})
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">Package / Booking Reference</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {bookedStays.map((stay: any, idx: number) => {
+                    const selected = selectedOptions.find((s: any) => s.stayIndex === idx || (s.stayName && (s.stayName === stay.name || s.stayName === stay.hotelName || s.stayName === stay.stayLocation)));
+                    const hotelName = selected?.hotelName || stay.hotelName || stay.name || "Standard Accommodation";
+                    const roomType = selected?.roomType || stay.roomType;
+                    const rating = selected?.hotelRating || selected?.rating || stay.hotelRating || stay.rating;
+                    const priceDiff = selected?.priceDifferenceApplied || 0;
+
+                    return (
+                      <div key={idx} className="bg-white rounded-lg border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="w-4 h-4 rounded-full bg-cyan-100 text-cyan-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <p className="text-xs font-bold text-slate-800 truncate" title={hotelName}>{hotelName}</p>
+                            {stay.nights && <span className="text-[10px] text-slate-400 shrink-0">({stay.nights}N)</span>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 ml-5.5 flex-wrap">
+                            {roomType && <span className="flex items-center gap-1"><BedDouble size={11} className="text-slate-400" /> {roomType}</span>}
+                            {rating && <span className="flex items-center gap-0.5 text-amber-500 font-medium"><Star size={10} className="fill-amber-400" /> {rating}★</span>}
+                            {stay.stayLocation && <span className="text-slate-400 truncate max-w-[140px]">· {stay.stayLocation}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {priceDiff > 0 ? (
+                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                              +₹{priceDiff.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                              Included
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
