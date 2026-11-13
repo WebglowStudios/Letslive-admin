@@ -373,6 +373,30 @@ export default function OperationDetailPage() {
     panCard: string;
   } | null>(null);
   const [savingPassenger, setSavingPassenger] = useState(false);
+
+  // Hotel Change Modal State
+  const [hotelModalOpen, setHotelModalOpen] = useState(false);
+  const [editingStayIdx, setEditingStayIdx] = useState<number | null>(null);
+  const [hotelModalData, setHotelModalData] = useState<{
+    stayIndex: number;
+    stayLocation: string;
+    hotelName: string;
+    roomType: string;
+    hotelRating: string;
+    optionId?: string;
+    options?: any[];
+    isCustom: boolean;
+  }>({
+    stayIndex: 0,
+    stayLocation: "",
+    hotelName: "",
+    roomType: "",
+    hotelRating: "",
+    optionId: "",
+    options: [],
+    isCustom: false,
+  });
+  const [savingHotelModal, setSavingHotelModal] = useState(false);
   
   const [transports, setTransports] = useState<Transport[]>([]);
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
@@ -688,6 +712,99 @@ export default function OperationDetailPage() {
       alert(err.response?.data?.message || "Failed to update passenger details");
     } finally {
       setSavingPassenger(false);
+    }
+  }
+
+  function openChangeHotelModal(idx: number, stay: any, selectedOption: any, opsAcc: any) {
+    setEditingStayIdx(idx);
+    const currentName = opsAcc?.name || selectedOption?.hotelName || stay?.hotelName || stay?.name || "";
+    const currentRoom = opsAcc?.roomCategory || selectedOption?.roomType || stay?.roomType || "";
+    const currentRating = selectedOption?.hotelRating || selectedOption?.rating || stay?.hotelRating || stay?.rating || "";
+    const currentOptId = selectedOption?.optionId || selectedOption?.selectedOptionId || "";
+    
+    const hasMatchingOpt = stay?.options?.some((o: any) => o.optionId === currentOptId || o.hotelName === currentName);
+
+    setHotelModalData({
+      stayIndex: idx,
+      stayLocation: stay?.stayLocation || stay?.address || stay?.city || stay?.name || `Stay ${idx + 1}`,
+      hotelName: currentName,
+      roomType: currentRoom,
+      hotelRating: currentRating,
+      optionId: currentOptId,
+      options: stay?.options || [],
+      isCustom: !hasMatchingOpt && (stay?.options?.length > 0 ? true : false),
+    });
+    setHotelModalOpen(true);
+  }
+
+  async function handleSaveHotelModal() {
+    if (editingStayIdx === null) return;
+    if (!hotelModalData.hotelName.trim()) {
+      alert("Hotel name is required");
+      return;
+    }
+    setSavingHotelModal(true);
+    try {
+      const idx = editingStayIdx;
+      const singleB = (op?.bookings && op.bookings.length > 0 ? op.bookings[0] : op?.booking) as any;
+
+      // 1. Update Ops accommodation if it exists
+      const opsAcc = accommodations[idx];
+      if (opsAcc?._id) {
+        await api.put(`/operations/${id}/accommodations/${opsAcc._id}`, {
+          name: hotelModalData.hotelName,
+          roomCategory: hotelModalData.roomType,
+        });
+      }
+
+      // 2. Update booking selectedHotelOptions if booking exists
+      if (singleB?._id) {
+        const currentOpts = [...(singleB.selectedHotelOptions || [])];
+        let optIdx = currentOpts.findIndex(o => o.stayIndex === idx);
+        
+        const priceDiff = hotelModalData.optionId
+          ? (hotelModalData.options?.find(o => o.optionId === hotelModalData.optionId)?.priceDifference || 0)
+          : (optIdx !== -1 ? currentOpts[optIdx].priceDifferenceApplied : 0);
+
+        const newEntry = {
+          stayIndex: idx,
+          hotelName: hotelModalData.hotelName,
+          roomType: hotelModalData.roomType,
+          hotelRating: hotelModalData.hotelRating,
+          priceDifferenceApplied: Number(priceDiff) || 0,
+          optionId: hotelModalData.optionId || (optIdx !== -1 ? currentOpts[optIdx].optionId : undefined),
+        };
+
+        if (optIdx !== -1) {
+          currentOpts[optIdx] = { ...currentOpts[optIdx], ...newEntry };
+        } else {
+          currentOpts.push(newEntry);
+        }
+
+        try {
+          await api.put(`/bookings/${singleB._id}/hotel-options`, {
+            selectedHotelOptions: currentOpts,
+          });
+        } catch (bErr) {
+          console.warn("Could not update booking hotel options directly:", bErr);
+        }
+      }
+
+      setHotelModalOpen(false);
+      fetchAll();
+
+      const existing = document.getElementById('save-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'save-toast';
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-emerald-600 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2';
+      toast.innerHTML = '<span>✓</span> Hotel updated successfully';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Failed to update hotel");
+    } finally {
+      setSavingHotelModal(false);
     }
   }
 
@@ -1892,10 +2009,12 @@ export default function OperationDetailPage() {
                 <div className="space-y-3">
                   {bookedStays.map((stay: any, idx: number) => {
                     const selected = selectedOptions.find((s: any) => s.stayIndex === idx || (s.stayName && (s.stayName === stay.name || s.stayName === stay.hotelName || s.stayName === stay.stayLocation)));
-                    const hotelName = selected?.hotelName || stay.hotelName || stay.name || "Standard Accommodation";
-                    const roomType = selected?.roomType || stay.roomType;
+                    const opsAcc = accommodations[idx];
+                    const hotelName = opsAcc?.name || selected?.hotelName || stay.hotelName || stay.name || "Standard Accommodation";
+                    const roomType = opsAcc?.roomCategory || selected?.roomType || stay.roomType;
                     const rating = selected?.hotelRating || selected?.rating || stay.hotelRating || stay.rating;
                     const priceDiff = selected?.priceDifferenceApplied || 0;
+                    const isOverriddenInOps = opsAcc?.name && selected?.hotelName && opsAcc.name.trim().toLowerCase() !== selected.hotelName.trim().toLowerCase();
 
                     return (
                       <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/60 space-y-2.5">
@@ -1909,19 +2028,36 @@ export default function OperationDetailPage() {
                               <span className="text-xs text-slate-400">({stay.nights} {stay.nights > 1 ? "Nights" : "Night"})</span>
                             )}
                           </div>
-                          {stay.hasOptions && stay.options && stay.options.length > 1 && (
-                            <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                              {stay.options.length} options available
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {stay.hasOptions && stay.options && stay.options.length > 1 && (
+                              <span className="text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                {stay.options.length} options available
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openChangeHotelModal(idx, stay, selected, opsAcc)}
+                              className="flex items-center gap-1 text-[11px] font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                              title="Change Hotel Selection"
+                            >
+                              <Edit2 size={11} /> Change Hotel
+                            </button>
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-200/60">
                           <div>
-                            <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                              <Building2 size={14} className="text-slate-400" />
-                              {hotelName}
-                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                                <Building2 size={14} className="text-slate-400" />
+                                {hotelName}
+                              </p>
+                              {isOverriddenInOps && (
+                                <span className="text-[10px] text-cyan-700 bg-cyan-50 border border-cyan-200 px-1.5 py-0.2 rounded font-bold">
+                                  Assigned in Ops
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                               {rating && (
                                 <span className="flex items-center gap-1 text-amber-500 font-semibold">
@@ -1933,6 +2069,11 @@ export default function OperationDetailPage() {
                                 <span className="flex items-center gap-1 text-slate-600">
                                   <BedDouble size={12} className="text-slate-400" />
                                   {roomType}
+                                </span>
+                              )}
+                              {isOverriddenInOps && (
+                                <span className="text-[11px] text-slate-400">
+                                  (Original: {selected?.hotelName || stay.hotelName || stay.name})
                                 </span>
                               )}
                             </div>
@@ -2704,10 +2845,12 @@ export default function OperationDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   {bookedStays.map((stay: any, idx: number) => {
                     const selected = selectedOptions.find((s: any) => s.stayIndex === idx || (s.stayName && (s.stayName === stay.name || s.stayName === stay.hotelName || s.stayName === stay.stayLocation)));
-                    const hotelName = selected?.hotelName || stay.hotelName || stay.name || "Standard Accommodation";
-                    const roomType = selected?.roomType || stay.roomType;
+                    const opsAcc = accommodations[idx];
+                    const hotelName = opsAcc?.name || selected?.hotelName || stay.hotelName || stay.name || "Standard Accommodation";
+                    const roomType = opsAcc?.roomCategory || selected?.roomType || stay.roomType;
                     const rating = selected?.hotelRating || selected?.rating || stay.hotelRating || stay.rating;
                     const priceDiff = selected?.priceDifferenceApplied || 0;
+                    const isOverriddenInOps = opsAcc?.name && selected?.hotelName && opsAcc.name.trim().toLowerCase() !== selected.hotelName.trim().toLowerCase();
 
                     return (
                       <div key={idx} className="bg-white rounded-lg border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-3">
@@ -2718,6 +2861,11 @@ export default function OperationDetailPage() {
                             </span>
                             <p className="text-xs font-bold text-slate-800 truncate" title={hotelName}>{hotelName}</p>
                             {stay.nights && <span className="text-[10px] text-slate-400 shrink-0">({stay.nights}N)</span>}
+                            {isOverriddenInOps && (
+                              <span className="text-[9px] text-cyan-700 bg-cyan-50 border border-cyan-200 px-1.5 py-0.2 rounded font-bold">
+                                In Ops
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 ml-5.5 flex-wrap">
                             {roomType && <span className="flex items-center gap-1"><BedDouble size={11} className="text-slate-400" /> {roomType}</span>}
@@ -2725,7 +2873,7 @@ export default function OperationDetailPage() {
                             {stay.stayLocation && <span className="text-slate-400 truncate max-w-[140px]">· {stay.stayLocation}</span>}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           {priceDiff > 0 ? (
                             <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
                               +₹{priceDiff.toLocaleString()}
@@ -2735,6 +2883,14 @@ export default function OperationDetailPage() {
                               Included
                             </span>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => openChangeHotelModal(idx, stay, selected, opsAcc)}
+                            className="p-1 text-slate-400 hover:text-cyan-700 hover:bg-slate-100 rounded transition cursor-pointer"
+                            title="Change Hotel"
+                          >
+                            <Edit2 size={12} />
+                          </button>
                         </div>
                       </div>
                     );
@@ -5431,6 +5587,170 @@ export default function OperationDetailPage() {
               >
                 <Save size={14} />
                 {savingPassenger ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Hotel Selection Modal */}
+      {hotelModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-cyan-100 text-cyan-700 rounded-xl">
+                  <Building2 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">Change Hotel Selection</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Stay #{hotelModalData.stayIndex + 1} — {hotelModalData.stayLocation}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setHotelModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {/* If package options exist, show them */}
+              {hotelModalData.options && hotelModalData.options.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Available Package Hotel Options ({hotelModalData.options.length}):
+                  </p>
+                  <div className="space-y-2">
+                    {hotelModalData.options.map((opt: any) => {
+                      const isSelected = !hotelModalData.isCustom && (
+                        hotelModalData.optionId === opt.optionId ||
+                        hotelModalData.hotelName.trim().toLowerCase() === opt.hotelName?.trim().toLowerCase()
+                      );
+                      const diff = Number(opt.priceDifference || 0);
+
+                      return (
+                        <div
+                          key={opt.optionId || opt.hotelName}
+                          onClick={() => {
+                            setHotelModalData({
+                              ...hotelModalData,
+                              hotelName: opt.hotelName || "",
+                              roomType: opt.roomType || "",
+                              hotelRating: opt.rating || "",
+                              optionId: opt.optionId || "",
+                              isCustom: false,
+                            });
+                          }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? "border-cyan-500 bg-cyan-50/60 ring-2 ring-cyan-500/20"
+                              : "border-slate-200 hover:border-slate-300 bg-white"
+                          }`}
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              {opt.hotelName}
+                              {opt.isDefault && (
+                                <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                                  Default Base
+                                </span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                              {opt.rating && <span>{opt.rating}★</span>}
+                              {opt.roomType && <span>• {opt.roomType}</span>}
+                            </div>
+                          </div>
+                          <div>
+                            {diff > 0 ? (
+                              <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">
+                                +₹{diff.toLocaleString()} / person
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                                Included (Base)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom or Override Inputs */}
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {hotelModalData.options && hotelModalData.options.length > 0 ? "Or Specify Custom / Different Hotel:" : "Hotel Details:"}
+                  </p>
+                  {hotelModalData.options && hotelModalData.options.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setHotelModalData({ ...hotelModalData, isCustom: true, optionId: "" })}
+                      className="text-[11px] font-semibold text-cyan-600 hover:underline"
+                    >
+                      Use Custom
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Hotel / Property Name <span className="text-red-500">*</span>
+                    </label>
+                    <Inp
+                      value={hotelModalData.hotelName}
+                      onChange={(v) => setHotelModalData({ ...hotelModalData, hotelName: v, isCustom: true })}
+                      placeholder="e.g. The Ecotel Bangkok, Ramada D'MA Bangkok"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Room Category</label>
+                      <Inp
+                        value={hotelModalData.roomType}
+                        onChange={(v) => setHotelModalData({ ...hotelModalData, roomType: v })}
+                        placeholder="e.g. Superior Room, Deluxe Room"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Star Rating</label>
+                      <Inp
+                        value={hotelModalData.hotelRating}
+                        onChange={(v) => setHotelModalData({ ...hotelModalData, hotelRating: v })}
+                        placeholder="e.g. 4 Star, 5 Star"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setHotelModalOpen(false)}
+                disabled={savingHotelModal}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveHotelModal}
+                disabled={savingHotelModal}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                <Save size={14} />
+                {savingHotelModal ? "Saving..." : "Save Hotel Selection"}
               </button>
             </div>
           </div>
