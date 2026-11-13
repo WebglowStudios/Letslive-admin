@@ -2094,7 +2094,7 @@ const ItinerarySection = ({ pkg }: { pkg: PackageData }) => {
         <SectionTitle title="Day-wise Itinerary" />
       </View>
 
-      {pkg.itinerary.map((day) => {
+      {[...pkg.itinerary].sort((a, b) => (a.day || 0) - (b.day || 0)).map((day) => {
         const dayTransfers = transfersByDay[day.day] || [];
         // Calculate actual date for this day if travelDates provided
         const dayDate = pkg.travelDates?.startDate
@@ -2336,8 +2336,8 @@ const TransferSummarySection = ({ pkg }: { pkg: PackageData }) => {
 const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
   if (!pkg.flights || pkg.flights.length === 0) return null;
 
-  const flightEntries = pkg.flights.filter(f => (f.type ?? "flight") === "flight");
-  const trainEntries = pkg.hideTrainInfo ? [] : pkg.flights.filter(f => f.type === "train");
+  const flightEntries = [...pkg.flights].filter(f => (f.type ?? "flight") === "flight").sort((a, b) => ((a as any).day || 999) - ((b as any).day || 999));
+  const trainEntries = pkg.hideTrainInfo ? [] : [...pkg.flights].filter(f => f.type === "train").sort((a, b) => ((a as any).day || 999) - ((b as any).day || 999));
 
   const renderTable = (entries: Flight[], label: string, colLabels: { airline: string; number: string }) => {
     if (entries.length === 0) return null;

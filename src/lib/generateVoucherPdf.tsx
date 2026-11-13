@@ -579,7 +579,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                 <Text style={[s.th, { width: "15%" }]}>DEP.</Text>
                 <Text style={[s.th, { width: "15%" }]}>ARR.</Text>
               </View>
-              {flights.map((f, i) => (
+              {[...flights].sort((a: any, b: any) => (a.day || 999) - (b.day || 999)).map((f, i) => (
                 <View style={s.tableRow} key={i}>
                   <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "\u2014"}</Text>
                   <Text style={[s.td, { width: "20%" }]}>{formatDateSafe(f.date)}</Text>
@@ -693,7 +693,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
               <Text style={s.sectionTitle}>DAY-WISE ITINERARY</Text>
             </View>
             <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 16 }}>
-              {itinerary.map((day, i) => (
+              {[...itinerary].sort((a: any, b: any) => (a.day || 0) - (b.day || 0)).map((day, i) => (
                 <View style={s.dayBlock} key={i} wrap={false}>
                   <View style={s.dayLine} />
                   <View style={s.dayContent}>
