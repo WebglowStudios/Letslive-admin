@@ -1135,6 +1135,11 @@ export default function OperationDetailPage() {
     ? forceMergeHotelLand 
     : Boolean(
         pkgData?.mergeHotelAndActivity || 
+        customerPayments.some(p => {
+          const m = (p.milestone || '').toLowerCase();
+          return (m.includes('land') && (m.includes('stay') || m.includes('hotel'))) ||
+                 (m.includes('stay') && m.includes('activit'));
+        }) ||
         (hotelSellingFromItems === 0 && actSellingFromItems === 0 && (
           (hotelBilled > 0 && landBilled > 0 && (flightBilled + hotelBilled + landBilled + visaBilled + insuranceBilled + miscBilled > opSelling)) ||
           (rawLand > 0 && rawHotel > 0 && (rawFlight + rawHotel + rawLand > (opSelling / (priceUnit === 'group' ? 1 : unitMultiplier)))) ||
@@ -1542,13 +1547,23 @@ export default function OperationDetailPage() {
                         Paid: {formatCurrency(flightPaid)}
                       </p>
                     </div>
-                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                      <p className="text-[10px] text-slate-500 flex items-center gap-1 font-medium"><span>🏨</span> Hotel Charge</p>
-                      <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(hotelBilled)}</p>
-                      <p className={`text-[10px] font-semibold mt-0.5 ${hotelPaid >= hotelBilled && hotelBilled > 0 ? "text-emerald-600" : "text-amber-600"}`}>
-                        Paid: {formatCurrency(hotelPaid)}
-                      </p>
-                    </div>
+                    {isMergedHotelLand ? (
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1 font-medium"><span>🏨🚗</span> Land & Stay</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(combinedLandHotelBilled)}</p>
+                        <p className={`text-[10px] font-semibold mt-0.5 ${(combinedLandHotelPaid + combinedLandHotelPoolCovered) >= combinedLandHotelBilled && combinedLandHotelBilled > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                          Paid: {formatCurrency(combinedLandHotelPaid + combinedLandHotelPoolCovered)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1 font-medium"><span>🏨</span> Hotel Charge</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(hotelBilled)}</p>
+                        <p className={`text-[10px] font-semibold mt-0.5 ${(hotelPaid + hotelPoolCovered) >= hotelBilled && hotelBilled > 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                          Paid: {formatCurrency(hotelPaid + hotelPoolCovered)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2397,64 +2412,77 @@ export default function OperationDetailPage() {
       {tab === "accommodation" && (
         <div className="space-y-3">
           {/* HOTEL PAYMENT STATUS BANNER */}
-          <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
-            hotelBilled === 0
-              ? "bg-slate-50 border-slate-200"
-              : hotelPaid >= hotelBilled
-              ? "bg-emerald-50 border-emerald-200"
-              : hotelPaid > 0
-              ? "bg-amber-50 border-amber-200"
-              : "bg-red-200 border-red-300"
-          }`}>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🏨</span>
-              <div>
-                <p className="text-xs font-bold text-slate-800">
-                  Hotel Charges & Payment Status (Customer)
-                </p>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Customer Hotel Charge: <strong className="text-slate-900 font-semibold">{formatCurrency(hotelBilled)}</strong>
-                  {" · "}
-                  Customer Paid: <strong className={hotelPaid >= hotelBilled && hotelBilled > 0 ? "text-emerald-700 font-bold" : "text-amber-700 font-bold"}>{formatCurrency(hotelPaid)}</strong>
-                  {" · "}
-                  Pending: <strong className={hotelBilled - hotelPaid > 0 ? "text-red-700 font-bold" : "text-slate-700 font-medium"}>{formatCurrency(Math.max(0, hotelBilled - hotelPaid))}</strong>
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const val = prompt("Update Quoted Hotel Price (₹):", String(hotelBilled));
-                  if (val !== null && val.trim() !== "" && !isNaN(Number(val))) {
-                    handleSyncPricing({ component: "hotel", price: Number(val) });
-                  }
-                }}
-                className="px-2.5 py-1 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-800 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
-                title="Edit Quoted Hotel Price"
-              >
-                <Edit2 size={12} />
-                <span>✏️ Quoted Hotel: {formatCurrency(hotelBilled)}</span>
-              </button>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                hotelBilled === 0
-                  ? "bg-slate-200 text-slate-700"
-                  : hotelPaid >= hotelBilled
-                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  : hotelPaid > 0
-                  ? "bg-amber-100 text-amber-800 border border-amber-300"
-                  : "bg-red-100 text-red-800 border border-red-300"
+          {(() => {
+            const effectiveHotelBilled = isMergedHotelLand ? combinedLandHotelBilled : hotelBilled;
+            const effectiveHotelPaid = isMergedHotelLand 
+              ? (combinedLandHotelPaid + combinedLandHotelPoolCovered) 
+              : (hotelPaid + hotelPoolCovered);
+            const pendingHotel = Math.max(0, effectiveHotelBilled - effectiveHotelPaid);
+            const isFullyPaid = effectiveHotelBilled > 0 && effectiveHotelPaid >= effectiveHotelBilled;
+            const isPartial = effectiveHotelPaid > 0 && effectiveHotelPaid < effectiveHotelBilled;
+
+            return (
+              <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
+                effectiveHotelBilled === 0
+                  ? "bg-slate-50 border-slate-200"
+                  : isFullyPaid
+                  ? "bg-emerald-50 border-emerald-200"
+                  : isPartial
+                  ? "bg-amber-50 border-amber-200"
+                  : "bg-red-200 border-red-300"
               }`}>
-                {hotelBilled === 0
-                  ? "No Hotel Charge"
-                  : hotelPaid >= hotelBilled
-                  ? "✓ Hotel Fully Paid (Ready to Confirm)"
-                  : hotelPaid > 0
-                  ? "⚠️ Partially Paid"
-                  : "⚠️ Hotel Payment Pending"}
-              </span>
-            </div>
-          </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🏨</span>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">
+                      {isMergedHotelLand ? "Hotel & Land Charges & Payment Status (Customer)" : "Hotel Charges & Payment Status (Customer)"}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Customer {isMergedHotelLand ? "Land & Stay" : "Hotel"} Charge: <strong className="text-slate-900 font-semibold">{formatCurrency(effectiveHotelBilled)}</strong>
+                      {isMergedHotelLand && <span className="text-[10px] text-indigo-600 font-semibold ml-1">(Merged Land & Stay)</span>}
+                      {" · "}
+                      Customer Paid: <strong className={isFullyPaid ? "text-emerald-700 font-bold" : isPartial ? "text-amber-700 font-bold" : "text-slate-700 font-medium"}>{formatCurrency(effectiveHotelPaid)}</strong>
+                      {" · "}
+                      Pending: <strong className={pendingHotel > 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"}>{formatCurrency(pendingHotel)}</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const val = prompt(isMergedHotelLand ? "Update Quoted Land & Stay Price (₹):" : "Update Quoted Hotel Price (₹):", String(effectiveHotelBilled));
+                      if (val !== null && val.trim() !== "" && !isNaN(Number(val))) {
+                        handleSyncPricing({ component: isMergedHotelLand ? "land" : "hotel", price: Number(val) });
+                      }
+                    }}
+                    className="px-2.5 py-1 bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-800 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                    title={isMergedHotelLand ? "Edit Quoted Land & Stay Price" : "Edit Quoted Hotel Price"}
+                  >
+                    <Edit2 size={12} />
+                    <span>✏️ Quoted {isMergedHotelLand ? "Land & Stay" : "Hotel"}: {formatCurrency(effectiveHotelBilled)}</span>
+                  </button>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    effectiveHotelBilled === 0
+                      ? "bg-slate-200 text-slate-700"
+                      : isFullyPaid
+                      ? (isMergedHotelLand ? "✓ Land & Stay Fully Paid (Ready to Confirm)" : "✓ Hotel Fully Paid (Ready to Confirm)")
+                      : isPartial
+                      ? "⚠️ Partially Paid"
+                      : "⚠️ Hotel Payment Pending"
+                  }`}>
+                    {effectiveHotelBilled === 0
+                      ? "No Hotel Charge"
+                      : isFullyPaid
+                      ? (isMergedHotelLand ? "✓ Land & Stay Fully Paid (Ready to Confirm)" : "✓ Hotel Fully Paid (Ready to Confirm)")
+                      : isPartial
+                      ? "⚠️ Partially Paid"
+                      : "⚠️ Hotel Payment Pending"}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex justify-between items-center">
             <p className="text-sm font-semibold text-slate-700">{accommodations.length} accommodation(s)</p>
