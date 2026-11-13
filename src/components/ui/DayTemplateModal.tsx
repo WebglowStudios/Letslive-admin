@@ -18,7 +18,10 @@ import {
   Bed,
   Search,
   Plus,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
+  Sparkles,
+  Image as ImageIcon
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -81,6 +84,9 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
 
+  // Preview template overlay
+  const [previewTemplate, setPreviewTemplate] = useState<DayTemplate | null>(null);
+
   function setCurrentFolder(folder: string | null) {
     _cachedFolder = folder;
     persistFolder(folder);
@@ -89,6 +95,7 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
     setIsSelectMode(false);
     setSelectedFolders([]);
     setSelectedTemplates([]);
+    setPreviewTemplate(null);
   }
 
   useEffect(() => { setMounted(true); }, []);
@@ -121,11 +128,15 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPreviewTemplate(null);
+      return;
+    }
     setCurrentFolderState(_cachedFolder);
     setIsSelectMode(false);
     setSelectedFolders([]);
     setSelectedTemplates([]);
+    setPreviewTemplate(null);
   }, [open]);
 
   useEffect(() => {
@@ -300,54 +311,54 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-4xl max-h-[88vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6">
+      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full max-w-4xl max-h-[88vh] bg-white rounded-2xl shadow-2xl ring-1 ring-slate-900/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70 gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 sm:px-6 py-3.5 border-b border-slate-100 bg-slate-50/80 gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {currentFolder ? (
               <button 
                 onClick={() => setCurrentFolder(null)} 
-                className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-xs"
+                className="p-1.5 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-xs shrink-0"
                 title="Back to all folders"
               >
                 <ArrowLeft size={16} />
               </button>
             ) : (
-              <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shadow-xs">
+              <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shadow-xs shrink-0">
                 <Folder size={18} />
               </div>
             )}
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-                <span>{currentFolder ? currentFolder : "Day Templates Library"}</span>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2 truncate">
+                <span className="truncate">{currentFolder ? currentFolder : "Day Templates Library"}</span>
                 {currentFolder && (
-                  <span className="text-xs font-normal text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-normal text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full shrink-0">
                     {templates.length} {templates.length === 1 ? "template" : "templates"}
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 truncate hidden sm:block">
                 {currentFolder
-                  ? "Select a template to insert, or manage templates in this folder"
+                  ? "Select a template to preview or insert into your itinerary"
                   : "Browse, create, or manage template folders"}
               </p>
             </div>
           </div>
 
-          {/* HEADER TOOLBAR ACTIONS */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* HEADER TOOLBAR ACTIONS & CLOSE BUTTON */}
+          <div className="flex items-center gap-2 shrink-0">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
               <input
                 type="text"
-                placeholder={currentFolder ? "Search templates..." : "Search folders..."}
+                placeholder={currentFolder ? "Search..." : "Search folders..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8.5 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-36 sm:w-48 bg-white"
+                className="pl-8 pr-2.5 py-1.5 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 w-28 sm:w-44 bg-white"
               />
             </div>
 
@@ -356,10 +367,11 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
               <button
                 type="button"
                 onClick={() => setShowCreateFolder(true)}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+                className="px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
               >
                 <FolderPlus size={14} />
-                <span>+ New Folder</span>
+                <span className="hidden sm:inline">+ New Folder</span>
+                <span className="sm:hidden">New</span>
               </button>
             )}
 
@@ -372,7 +384,7 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                   setSelectedFolders([]);
                   setSelectedTemplates([]);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 shrink-0 ${
                   isSelectMode
                     ? "bg-indigo-50 text-indigo-700 border-indigo-300"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
@@ -389,7 +401,7 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                 type="button"
                 onClick={(e) => handleDeleteFolder(e, currentFolder)}
                 disabled={deleting === currentFolder}
-                className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+                className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors shrink-0"
                 title="Delete this entire folder and all templates"
               >
                 {deleting === currentFolder ? (
@@ -397,13 +409,18 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                 ) : (
                   <Trash2 size={13} />
                 )}
-                <span>Delete Folder</span>
+                <span className="hidden sm:inline">Delete Folder</span>
               </button>
             )}
 
+            <div className="h-5 w-px bg-slate-200 mx-0.5 shrink-0" />
+
+            {/* Close Modal Button - ALWAYS Pinned to Top-Right Corner */}
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors ml-1"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 rounded-lg transition-colors shrink-0"
+              title="Close modal"
             >
               <X size={18} />
             </button>
@@ -621,13 +638,13 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                       className={`relative bg-white border rounded-xl p-4 flex flex-col transition-all cursor-pointer group select-none ${
                         isSelected
                           ? "border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-500/30 shadow-xs"
-                          : "border-slate-200 hover:border-indigo-300 hover:shadow-xs"
+                          : "border-slate-200 hover:border-indigo-300 hover:shadow-md"
                       }`}
                       onClick={() => {
                         if (isSelectMode) {
                           toggleTemplateSelect(template._id);
                         } else {
-                          onSelect(template);
+                          setPreviewTemplate(template);
                         }
                       }}
                     >
@@ -643,14 +660,14 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                             type="checkbox"
                             checked={isSelected}
                             onChange={(e) => toggleTemplateSelect(template._id, e as any)}
-                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
                           />
                         ) : (
                           <button
                             type="button"
                             onClick={(e) => handleDeleteTemplate(e, template._id)}
                             disabled={deleting === template._id}
-                            className="text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                             title="Delete template"
                           >
                             {deleting === template._id ? (
@@ -672,7 +689,7 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                       </p>
 
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-medium text-slate-500 mt-auto pt-3 border-t border-slate-100">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                             <Clock size={11} /> {template.activities?.length || 0} Acts
                           </span>
@@ -680,16 +697,44 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                             <Utensils size={11} /> {template.meals?.length || 0} Meals
                           </span>
                           {template.accommodation && (
-                            <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 truncate max-w-[120px]">
+                            <span className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 truncate max-w-[110px]" title={template.accommodation}>
                               <Bed size={11} /> {template.accommodation}
+                            </span>
+                          )}
+                          {template.images && template.images.length > 0 && (
+                            <span className="flex items-center gap-1 bg-indigo-50/70 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100" title={`${template.images.length} photos`}>
+                              <ImageIcon size={11} /> {template.images.length}
                             </span>
                           )}
                         </div>
 
                         {!isSelectMode && (
-                          <span className="text-[10px] text-indigo-600 font-bold group-hover:underline">
-                            Insert ↵
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewTemplate(template);
+                              }}
+                              className="px-2 py-1 rounded-md bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 font-semibold flex items-center gap-1 transition-colors border border-slate-200/60"
+                              title="Preview full details & activities"
+                            >
+                              <Eye size={11} />
+                              <span>Preview</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelect(template);
+                              }}
+                              className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex items-center gap-0.5 transition-colors shadow-xs"
+                              title="Directly insert this template"
+                            >
+                              <span>Insert</span>
+                              <span className="text-[10px]">↵</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -699,6 +744,192 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
             )
           )}
         </div>
+
+        {/* TEMPLATE PREVIEW OVERLAY */}
+        {previewTemplate && (
+          <div className="absolute inset-0 z-50 bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+              {/* Preview Header */}
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/80 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                      {previewTemplate.folder || "Template"}
+                    </span>
+                    <span className="text-xs text-slate-400">• Day Template Preview</span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 truncate">
+                    {previewTemplate.name}
+                  </h3>
+                  {previewTemplate.title && (
+                    <p className="text-xs font-semibold text-slate-600 mt-0.5">
+                      {previewTemplate.title}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors shrink-0"
+                  title="Close preview"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Preview Body */}
+              <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+                {/* Description */}
+                {previewTemplate.description && (
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 leading-relaxed">
+                    <span className="font-semibold text-slate-800 block mb-1">Day Overview</span>
+                    <p className="whitespace-pre-line text-slate-600">{previewTemplate.description}</p>
+                  </div>
+                )}
+
+                {/* Stays & Meals Info Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center gap-2.5">
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
+                      <Bed size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Accommodation</span>
+                      <span className="text-xs font-semibold text-slate-800 truncate block">
+                        {previewTemplate.accommodation || "Not specified / Same hotel"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center gap-2.5">
+                    <div className="p-2 bg-amber-50 text-amber-600 rounded-lg shrink-0">
+                      <Utensils size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Meals Included</span>
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        {previewTemplate.meals && previewTemplate.meals.length > 0 ? (
+                          previewTemplate.meals.map((m, idx) => (
+                            <span key={idx} className="bg-amber-100/70 text-amber-800 font-medium px-1.5 py-0.5 rounded text-[10px]">
+                              {m}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-slate-400">None specified</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activities List */}
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Clock size={13} className="text-indigo-600" />
+                    <span>Activities & Sightseeing ({previewTemplate.activities?.length || 0})</span>
+                  </h4>
+
+                  {!previewTemplate.activities || previewTemplate.activities.length === 0 ? (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-slate-400 text-center">
+                      No activities added to this day template.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {previewTemplate.activities.map((act: any, idx: number) => {
+                        const actTitle = typeof act === "string" ? act : (act.title || act.name || `Activity #${idx + 1}`);
+                        const actDesc = typeof act === "string" ? "" : (act.description || "");
+                        const actImg = typeof act === "string" ? "" : (act.image || (act.images && act.images[0]) || "");
+
+                        return (
+                          <div key={idx} className="p-3 bg-white border border-slate-200 rounded-xl flex gap-3 items-start">
+                            {actImg ? (
+                              <img src={actImg} alt={actTitle} className="w-14 h-14 rounded-lg object-cover shrink-0 border border-slate-100" />
+                            ) : (
+                              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center shrink-0 text-xs">
+                                {idx + 1}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <span className="font-bold text-slate-800 block text-xs">{actTitle}</span>
+                              {actDesc && (
+                                <p className="text-slate-500 mt-1 leading-normal text-[11px]">{actDesc}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recommendations */}
+                {previewTemplate.recommendations && previewTemplate.recommendations.length > 0 && (
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-amber-500" />
+                      <span>Recommendations ({previewTemplate.recommendations.length})</span>
+                    </h4>
+                    <div className="space-y-1.5">
+                      {previewTemplate.recommendations.map((rec: any, idx: number) => {
+                        const recTitle = typeof rec === "string" ? rec : (rec.title || rec.name || "");
+                        const recDesc = typeof rec === "string" ? "" : (rec.description || "");
+                        return (
+                          <div key={idx} className="p-2.5 bg-amber-50/50 border border-amber-200/50 rounded-lg">
+                            <span className="font-semibold text-slate-800 block">{recTitle}</span>
+                            {recDesc && <p className="text-slate-600 text-[11px] mt-0.5">{recDesc}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Day Images (if any) */}
+                {previewTemplate.images && previewTemplate.images.length > 0 && (
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <ImageIcon size={13} className="text-indigo-500" />
+                      <span>Day Photos ({previewTemplate.images.length})</span>
+                    </h4>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {previewTemplate.images.map((imgUrl, idx) => (
+                        <img
+                          key={idx}
+                          src={imgUrl}
+                          alt={`Template photo ${idx + 1}`}
+                          className="h-16 w-full object-cover rounded-lg border border-slate-200"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview Footer */}
+              <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate(null)}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                  Back to List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toInsert = previewTemplate;
+                    setPreviewTemplate(null);
+                    onSelect(toInsert);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-colors"
+                >
+                  <span>Insert into Itinerary</span>
+                  <span className="text-sm">↵</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body
