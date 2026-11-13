@@ -573,19 +573,23 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
             </View>
             <View style={s.table}>
               <View style={s.tableHeaderRow}>
-                <Text style={[s.th, { width: "20%" }]}>AIRLINE</Text>
-                <Text style={[s.th, { width: "20%" }]}>DATE</Text>
-                <Text style={[s.th, { width: "30%" }]}>ROUTE</Text>
-                <Text style={[s.th, { width: "15%" }]}>DEP.</Text>
-                <Text style={[s.th, { width: "15%" }]}>ARR.</Text>
+                <Text style={[s.th, { width: "18%" }]}>AIRLINE</Text>
+                <Text style={[s.th, { width: "14%" }]}>FLIGHT NO.</Text>
+                <Text style={[s.th, { width: "14%" }]}>PNR</Text>
+                <Text style={[s.th, { width: "16%" }]}>DATE</Text>
+                <Text style={[s.th, { width: "22%" }]}>ROUTE</Text>
+                <Text style={[s.th, { width: "8%" }]}>DEP.</Text>
+                <Text style={[s.th, { width: "8%" }]}>ARR.</Text>
               </View>
               {[...flights].sort((a: any, b: any) => (a.day || 999) - (b.day || 999)).map((f, i) => (
                 <View style={s.tableRow} key={i}>
-                  <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "\u2014"}</Text>
-                  <Text style={[s.td, { width: "20%" }]}>{formatDateSafe(f.date)}</Text>
-                  <Text style={[s.td, { width: "30%" }]}>{f.from && f.to ? `${f.from} \u2192 ${f.to}` : (f.route || "\u2014")}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.departure || f.departureTime || "\u2014"}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "18%", fontFamily: "Helvetica-Bold" }]}>{f.airline || f.name || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "14%" }]}>{f.flightNumber || f.flightNo || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "14%", fontFamily: "Helvetica-Bold", color: C.gn3 }]}>{f.pnr || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "16%" }]}>{formatDateSafe(f.date)}</Text>
+                  <Text style={[s.td, { width: "22%" }]}>{f.from && f.to ? `${f.from} \u2192 ${f.to}` : (f.route || "\u2014")}</Text>
+                  <Text style={[s.td, { width: "8%" }]}>{f.departure || f.departureTime || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "8%" }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
                 </View>
               ))}
             </View>
@@ -601,19 +605,23 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
             </View>
             <View style={s.table}>
               <View style={s.tableHeaderRow}>
-                <Text style={[s.th, { width: "20%" }]}>RAILWAY</Text>
-                <Text style={[s.th, { width: "20%" }]}>DATE</Text>
-                <Text style={[s.th, { width: "30%" }]}>ROUTE</Text>
-                <Text style={[s.th, { width: "15%" }]}>DEP.</Text>
-                <Text style={[s.th, { width: "15%" }]}>ARR.</Text>
+                <Text style={[s.th, { width: "18%" }]}>RAILWAY</Text>
+                <Text style={[s.th, { width: "14%" }]}>TRAIN NO.</Text>
+                <Text style={[s.th, { width: "14%" }]}>PNR</Text>
+                <Text style={[s.th, { width: "16%" }]}>DATE</Text>
+                <Text style={[s.th, { width: "22%" }]}>ROUTE</Text>
+                <Text style={[s.th, { width: "8%" }]}>DEP.</Text>
+                <Text style={[s.th, { width: "8%" }]}>ARR.</Text>
               </View>
               {trains.map((f, i) => (
                 <View style={s.tableRow} key={i}>
-                  <Text style={[s.td, { width: "20%" }]}>{f.airline || f.name || "\u2014"}</Text>
-                  <Text style={[s.td, { width: "20%" }]}>{formatDateSafe(f.date)}</Text>
-                  <Text style={[s.td, { width: "30%" }]}>{f.from && f.to ? `${f.from} \u2192 ${f.to}` : (f.route || "\u2014")}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.departure || f.departureTime || "\u2014"}</Text>
-                  <Text style={[s.td, { width: "15%" }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "18%", fontFamily: "Helvetica-Bold" }]}>{f.airline || f.name || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "14%" }]}>{f.flightNumber || f.flightNo || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "14%", fontFamily: "Helvetica-Bold", color: C.cu }]}>{f.pnr || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "16%" }]}>{formatDateSafe(f.date)}</Text>
+                  <Text style={[s.td, { width: "22%" }]}>{f.from && f.to ? `${f.from} \u2192 ${f.to}` : (f.route || "\u2014")}</Text>
+                  <Text style={[s.td, { width: "8%" }]}>{f.departure || f.departureTime || "\u2014"}</Text>
+                  <Text style={[s.td, { width: "8%" }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
                 </View>
               ))}
             </View>

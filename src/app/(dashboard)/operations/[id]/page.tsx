@@ -13,6 +13,9 @@ interface Transport {
   _id: string;
   type: string;
   title: string;
+  airline?: string;
+  flightNumber?: string;
+  pnr?: string;
   vendorName: string;
   vendorContact: string;
   vendorEmail: string;
@@ -23,7 +26,7 @@ interface Transport {
   paymentDueDate: string;
   isUrgent: boolean;
   remarks: string;
-  legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string; pnr?: string; departureTime?: string; arrivalTime?: string; driverName?: string; driverContact?: string; vehicleNumber?: string; duration?: string }[];
+  legs: { _id?: string; from: string; to: string; date: string; tripDay: string; vehicleType: string; notes: string; pnr?: string; airline?: string; flightNumber?: string; departureTime?: string; arrivalTime?: string; driverName?: string; driverContact?: string; vehicleNumber?: string; duration?: string }[];
   isGroupMaster?: boolean;
   groupId?: string;
   linkedBooking?: string;
@@ -763,7 +766,9 @@ export default function OperationDetailPage() {
       let pdfFlights: any[] = transports
         .filter(t => t.type === 'flight')
         .flatMap(t => t.legs.map(leg => ({
-          airline: t.vendorName || t.title,
+          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('transfer') && !t.title.toLowerCase().includes('group') ? t.title.replace(/\s*flight$/i, '') : "") || "Flight",
+          flightNumber: leg.flightNumber || (t as any).flightNumber || "",
+          pnr: leg.pnr || (t as any).pnr || "",
           date: leg.date,
           from: leg.from,
           to: leg.to,
@@ -774,7 +779,9 @@ export default function OperationDetailPage() {
       let pdfTrains: any[] = transports
         .filter(t => t.type === 'train')
         .flatMap(t => t.legs.map(leg => ({
-          airline: t.vendorName || t.title,
+          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('group') ? t.title : "") || "Railway",
+          flightNumber: leg.flightNumber || (t as any).flightNumber || "",
+          pnr: leg.pnr || (t as any).pnr || "",
           date: leg.date,
           from: leg.from,
           to: leg.to,
@@ -788,6 +795,8 @@ export default function OperationDetailPage() {
         pkgFlights.filter((f: any) => f && (f.airline || f.from || f.to)).forEach((f: any) => {
           const entry = {
             airline: f.airline || (f.type === "train" ? "Railway" : "Flight"),
+            flightNumber: f.flightNumber || f.flightNo || "",
+            pnr: f.pnr || "",
             date: f.day ? `Day ${f.day}` : undefined,
             from: f.from,
             to: f.to,
@@ -1963,6 +1972,15 @@ export default function OperationDetailPage() {
             <option value="Buggy" /><option value="Bike" /><option value="Other" />
           </datalist>
 
+          <datalist id="airline-opts">
+            <option value="VietJet Air" /><option value="IndiGo" /><option value="Air India" />
+            <option value="Thai Airways" /><option value="AirAsia" /><option value="Singapore Airlines" />
+            <option value="Emirates" /><option value="Qatar Airways" /><option value="Etihad Airways" />
+            <option value="flydubai" /><option value="Malaysia Airlines" /><option value="SriLankan Airlines" />
+            <option value="Akasa Air" /><option value="SpiceJet" /><option value="Vistara" />
+            <option value="Batik Air" /><option value="Scoot" /><option value="Gulf Air" /><option value="Oman Air" />
+          </datalist>
+
           <div className="flex justify-between items-center">
             <p className="text-sm font-semibold text-slate-700">{transports.length} Flight & Train Service(s)</p>
             <div className="flex gap-2">
@@ -2055,7 +2073,10 @@ export default function OperationDetailPage() {
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Vendor / Operator</p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[9px] text-slate-400 uppercase block mb-1">Company / Operator Name</label>
+                          <label className="text-[9px] text-slate-400 uppercase block mb-1">
+                            Ticketing Partner / Vendor Name
+                            <span className="ml-1 text-[8px] text-slate-400 normal-case font-normal">(Internal supplier — not printed on voucher)</span>
+                          </label>
                           <VendorPick
                             value={t.vendorName || ""}
                             onChange={(val, matched) => {
@@ -2191,12 +2212,78 @@ export default function OperationDetailPage() {
                             ><Trash2 size={12} /></button>
                           )}
                         </div>
-                        <div className="pl-5 grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {(t.type === "flight" || t.type === "train") && (
+                        <div className="pl-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                          {t.type === "flight" && (
                             <>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">PNR / Ref</label><input type="text" value={leg.pnr || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], pnr: e.target.value }; setTransports(u); }} placeholder="e.g. ABC123" className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], departureTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; u[idx].legs[li] = { ...u[idx].legs[li], arrivalTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div>
+                                <label className="text-[8px] text-sky-700 font-bold uppercase block mb-1">✈️ Flight Name / Airline</label>
+                                <input
+                                  list="airline-opts"
+                                  type="text"
+                                  value={leg.airline || ""}
+                                  onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], airline: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                                  placeholder="e.g. VietJet Air, IndiGo"
+                                  className="w-full px-2 py-1.5 border border-sky-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-medium"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] text-sky-700 font-bold uppercase block mb-1">Flight Number</label>
+                                <input
+                                  type="text"
+                                  value={leg.flightNumber || ""}
+                                  onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], flightNumber: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                                  placeholder="e.g. VJ 893, 6E 1054"
+                                  className="w-full px-2 py-1.5 border border-sky-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-medium"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] text-emerald-700 font-bold uppercase block mb-1">Flight PNR / Ref</label>
+                                <input
+                                  type="text"
+                                  value={leg.pnr || ""}
+                                  onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], pnr: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                                  placeholder="e.g. 2EEAFD"
+                                  className="w-full px-2 py-1.5 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-bold text-emerald-700"
+                                />
+                              </div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                            </>
+                          )}
+                          {t.type === "train" && (
+                            <>
+                              <div>
+                                <label className="text-[8px] text-amber-700 font-bold uppercase block mb-1">🚆 Train Name / Railway</label>
+                                <input
+                                  type="text"
+                                  value={leg.airline || ""}
+                                  onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], airline: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                                  placeholder="e.g. Rajdhani Express"
+                                  className="w-full px-2 py-1.5 border border-amber-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white font-medium"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] text-amber-700 font-bold uppercase block mb-1">Train Number</label>
+                                <input
+                                  type="text"
+                                  value={leg.flightNumber || ""}
+                                  onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], flightNumber: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                                  placeholder="e.g. 12951"
+                                  className="w-full px-2 py-1.5 border border-amber-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white font-medium"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] text-emerald-700 font-bold uppercase block mb-1">Train PNR / Ref</label>
+                                <input
+                                  type="text"
+                                  value={leg.pnr || ""}
+                                  onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], pnr: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }}
+                                  placeholder="e.g. 2451234567"
+                                  className="w-full px-2 py-1.5 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-bold text-emerald-700"
+                                />
+                              </div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
                             </>
                           )}
                           {(t.type === "road" || t.type === "other") && (
