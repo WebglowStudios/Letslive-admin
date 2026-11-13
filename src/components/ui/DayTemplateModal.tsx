@@ -635,10 +635,10 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                   return (
                     <div
                       key={template._id}
-                      className={`relative bg-white border rounded-xl p-4 flex flex-col transition-all cursor-pointer group select-none ${
+                      className={`relative bg-white border rounded-xl p-4 flex flex-col transition-all cursor-pointer group select-none min-h-[175px] ${
                         isSelected
                           ? "border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-500/30 shadow-xs"
-                          : "border-slate-200 hover:border-indigo-300 hover:shadow-md"
+                          : "border-slate-200 hover:border-indigo-400 hover:shadow-md"
                       }`}
                       onClick={() => {
                         if (isSelectMode) {
@@ -737,6 +737,59 @@ export function DayTemplateModal({ open, onClose, onSelect }: Props) {
                           </div>
                         )}
                       </div>
+
+                      {/* HOVER DETAILS OVERLAY */}
+                      {!isSelectMode && (
+                        <div className="absolute inset-0 bg-white/95 backdrop-blur-xs rounded-xl p-3.5 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none group-hover:pointer-events-auto shadow-lg z-10 border border-indigo-300 animate-in fade-in zoom-in-98">
+                          <div className="overflow-y-auto space-y-1.5 pr-1 max-h-[110px]">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-xs text-slate-900 line-clamp-1">{template.name}</span>
+                              <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 shrink-0">
+                                {template.activities?.length || 0} Acts
+                              </span>
+                            </div>
+                            {template.title && (
+                              <p className="text-[11px] font-semibold text-indigo-700 line-clamp-1">{template.title}</p>
+                            )}
+                            {template.description && (
+                              <p className="text-[11px] text-slate-600 line-clamp-3 leading-relaxed">{template.description}</p>
+                            )}
+                            {template.activities && template.activities.length > 0 && (
+                              <div className="pt-1 border-t border-slate-100">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Key Activities:</span>
+                                <p className="text-[10px] text-slate-700 line-clamp-2 mt-0.5">
+                                  {template.activities.map((a: any) => typeof a === "string" ? a : (a.title || a.name)).filter(Boolean).join(" • ")}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewTemplate(template);
+                              }}
+                              className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 py-1 px-1.5 hover:bg-indigo-50 rounded transition-colors"
+                            >
+                              <Eye size={12} />
+                              <span>Full Preview</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelect(template);
+                              }}
+                              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition-colors"
+                            >
+                              <span>Insert</span>
+                              <span className="text-[10px]">↵</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
