@@ -503,6 +503,9 @@ export default function EditCustomItineraryPage() {
               nights: s.nights || 0,
               roomType: s.roomType || "",
               rooms: s.rooms || 0,
+              roomCategories: Array.isArray(s.roomCategories) && s.roomCategories.length > 0
+                ? s.roomCategories.map((rc: any) => ({ roomType: rc.roomType || "", rooms: Number(rc.rooms) || 1 }))
+                : (s.roomType ? [{ roomType: s.roomType, rooms: Number(s.rooms) || 1 }] : []),
               checkIn: s.checkIn || "",
               checkOut: s.checkOut || "",
               address: s.address || s.location || s.city || "",
@@ -817,31 +820,37 @@ export default function EditCustomItineraryPage() {
           accommodation: d.accommodation,
           images: d.images,
         })),
-        stays: stays.filter((s) => s.name || (s.hasOptions && s.options && s.options.length > 0)).map((s) => ({
-          name: s.name || (s.options && s.options.find(o => o.isDefault)?.name) || (s.options && s.options[0]?.name) || "",
-          rating: s.rating || (s.options && s.options.find(o => o.isDefault)?.rating) || (s.options && s.options[0]?.rating) || "",
-          nights: Number(s.nights) || 0,
-          roomType: s.roomType || (s.options && s.options.find(o => o.isDefault)?.roomType) || (s.options && s.options[0]?.roomType) || "",
-          rooms: Number(s.rooms) || 0,
-          checkIn: s.checkIn || undefined,
-          checkOut: s.checkOut || undefined,
-          address: s.address || undefined,
-          confirmationNo: s.confirmationNo || undefined,
-          amenities: s.amenities,
-          remark: s.remark?.trim() || undefined,
-          showRemarkToCustomer: !!s.showRemarkToCustomer,
-          hasOptions: !!s.hasOptions,
-          options: s.hasOptions && s.options ? s.options.map(opt => ({
-            optionId: opt.optionId,
-            isDefault: !!opt.isDefault,
-            name: opt.name,
-            rating: opt.rating || undefined,
-            roomType: opt.roomType || undefined,
-            priceDifference: Number(opt.priceDifference) || 0,
-            remark: opt.remark?.trim() || undefined,
-            address: opt.address?.trim() || undefined,
-          })) : [],
-        })),
+        stays: stays.filter((s) => s.name || (s.hasOptions && s.options && s.options.length > 0)).map((s) => {
+          const roomCats = Array.isArray(s.roomCategories) && s.roomCategories.length > 0
+            ? s.roomCategories.filter((rc: any) => rc.roomType?.trim()).map((rc: any) => ({ roomType: rc.roomType.trim(), rooms: Number(rc.rooms) || 1 }))
+            : (s.roomType ? [{ roomType: s.roomType.trim(), rooms: Number(s.rooms) || 1 }] : []);
+          return {
+            name: s.name || (s.options && s.options.find(o => o.isDefault)?.name) || (s.options && s.options[0]?.name) || "",
+            rating: s.rating || (s.options && s.options.find(o => o.isDefault)?.rating) || (s.options && s.options[0]?.rating) || "",
+            nights: Number(s.nights) || 0,
+            roomType: (roomCats[0]?.roomType) || s.roomType || (s.options && s.options.find(o => o.isDefault)?.roomType) || (s.options && s.options[0]?.roomType) || "",
+            rooms: (roomCats.length > 0 ? roomCats.reduce((sum: number, rc: any) => sum + (Number(rc.rooms) || 0), 0) : Number(s.rooms)) || 0,
+            roomCategories: roomCats,
+            checkIn: s.checkIn || undefined,
+            checkOut: s.checkOut || undefined,
+            address: s.address || undefined,
+            confirmationNo: s.confirmationNo || undefined,
+            amenities: s.amenities,
+            remark: s.remark?.trim() || undefined,
+            showRemarkToCustomer: !!s.showRemarkToCustomer,
+            hasOptions: !!s.hasOptions,
+            options: s.hasOptions && s.options ? s.options.map(opt => ({
+              optionId: opt.optionId,
+              isDefault: !!opt.isDefault,
+              name: opt.name,
+              rating: opt.rating || undefined,
+              roomType: opt.roomType || undefined,
+              priceDifference: Number(opt.priceDifference) || 0,
+              remark: opt.remark?.trim() || undefined,
+              address: opt.address?.trim() || undefined,
+            })) : [],
+          };
+        }),
         transfers: transfers.filter((t) => t.title || t.legs.some(l => l.from || l.to)).map((t) => ({ title: t.title, description: t.description, transferType: t.legs[0]?.transferType || t.transferType || undefined, vehicleType: t.legs[0]?.vehicleType || t.vehicleType || undefined, from: t.legs[0]?.from || t.from || undefined, to: t.legs[t.legs.length - 1]?.to || t.to || undefined, stops: t.stops, legs: t.legs.filter(l => l.from || l.to).map(l => ({ from: l.from, to: l.to, stops: l.stops.length > 0 ? l.stops : undefined, transferType: l.transferType || undefined, vehicleType: l.vehicleType || undefined })), day: t.day || undefined, details: t.details, images: t.images })),
         flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({ type: f.type || "flight", day: f.day || undefined, airline: f.airline, flightNumber: f.flightNumber, from: f.from, to: f.to, departure: f.departure, arrival: f.arrival, pnr: f.pnr || undefined, class: f.class || undefined, notes: f.notes || undefined })),
         departures: isGroupTour ? departures.filter((d) => d.startDate && d.endDate).map((d) => ({
