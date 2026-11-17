@@ -614,25 +614,34 @@ export default function EditCustomItineraryPage() {
   }
 
 
-  function addStay() { setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, checkIn: "", checkOut: "", address: "", confirmationNo: "", amenities: [], remark: "", showRemarkToCustomer: false }]); }
+  function addStay() { setStays([...stays, { _key: Date.now(), name: "", rating: "", nights: 0, roomType: "", rooms: 0, roomCategories: [{ roomType: '', rooms: 1 }], checkIn: "", checkOut: "", address: "", confirmationNo: "", amenities: [], remark: "", showRemarkToCustomer: false }]); }
   function removeStay(i: number) { setStays(stays.filter((_, idx) => idx !== i)); }
-  function updateStay(i: number, field: string, value: unknown) { 
-    const u = [...stays]; 
-    u[i] = { ...u[i], [field]: value }; 
-    
-    // Auto-calculate checkOut date if checkIn or nights change
-    if (field === 'checkIn' || field === 'nights') {
+  function updateStay(i: number, fieldOrUpdates: string | Record<string, unknown>, value?: unknown) {
+    setStays(prev => {
+      const u = [...prev];
+      if (typeof fieldOrUpdates === "string") {
+        u[i] = { ...u[i], [fieldOrUpdates]: value };
+      } else {
+        u[i] = { ...u[i], ...fieldOrUpdates };
+      }
+      
       const stay = u[i];
-      if (stay.checkIn && stay.nights && !isNaN(Number(stay.nights))) {
-        const checkInDate = new Date(stay.checkIn);
-        if (!isNaN(checkInDate.getTime())) {
-          checkInDate.setDate(checkInDate.getDate() + Number(stay.nights));
-          stay.checkOut = checkInDate.toISOString().split('T')[0];
+      const isDateRelated = typeof fieldOrUpdates === "string"
+        ? (fieldOrUpdates === "checkIn" || fieldOrUpdates === "nights")
+        : ("checkIn" in fieldOrUpdates || "nights" in fieldOrUpdates);
+
+      if (stay && isDateRelated) {
+        if (stay.checkIn && stay.nights && !isNaN(Number(stay.nights))) {
+          const checkInDate = new Date(stay.checkIn);
+          if (!isNaN(checkInDate.getTime())) {
+            checkInDate.setDate(checkInDate.getDate() + Number(stay.nights));
+            stay.checkOut = checkInDate.toISOString().split("T")[0];
+          }
         }
       }
-    }
-    
-    setStays(u); 
+      
+      return u;
+    });
   }
   function moveStay(index: number, direction: 'up' | 'down') {
     if (direction === 'up' && index === 0) return;
@@ -824,13 +833,15 @@ export default function EditCustomItineraryPage() {
           const roomCats = Array.isArray(s.roomCategories) && s.roomCategories.length > 0
             ? s.roomCategories.filter((rc: any) => rc.roomType?.trim()).map((rc: any) => ({ roomType: rc.roomType.trim(), rooms: Number(rc.rooms) || 1 }))
             : (s.roomType ? [{ roomType: s.roomType.trim(), rooms: Number(s.rooms) || 1 }] : []);
+          const primaryRoomType = (roomCats[0]?.roomType) || s.roomType?.trim() || (s.options && s.options.find(o => o.isDefault)?.roomType) || (s.options && s.options[0]?.roomType) || "";
+          const totalRooms = (roomCats.length > 0 ? roomCats.reduce((sum: number, rc: any) => sum + (Number(rc.rooms) || 0), 0) : Number(s.rooms)) || 0;
           return {
             name: s.name || (s.options && s.options.find(o => o.isDefault)?.name) || (s.options && s.options[0]?.name) || "",
             rating: s.rating || (s.options && s.options.find(o => o.isDefault)?.rating) || (s.options && s.options[0]?.rating) || "",
             nights: Number(s.nights) || 0,
-            roomType: (roomCats[0]?.roomType) || s.roomType || (s.options && s.options.find(o => o.isDefault)?.roomType) || (s.options && s.options[0]?.roomType) || "",
-            rooms: (roomCats.length > 0 ? roomCats.reduce((sum: number, rc: any) => sum + (Number(rc.rooms) || 0), 0) : Number(s.rooms)) || 0,
-            roomCategories: roomCats,
+            roomType: primaryRoomType,
+            rooms: totalRooms,
+            roomCategories: roomCats.length > 0 ? roomCats : (primaryRoomType ? [{ roomType: primaryRoomType, rooms: totalRooms || 1 }] : []),
             checkIn: s.checkIn || undefined,
             checkOut: s.checkOut || undefined,
             address: s.address || undefined,
@@ -2029,17 +2040,87 @@ export default function EditCustomItineraryPage() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Room Categories</span>
-                            <button type="button" onClick={() => { const base = stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }]); updateStay(i, 'roomCategories', [...base, { roomType: '', rooms: 1 }]); }} className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-800 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 flex items-center gap-1"><Plus size={11} /> Add Room Type</button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const base = Array.isArray(stay.roomCategories) && stay.roomCategories.length > 0
+                                  ? stay.roomCategories
+                                  : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }]);
+                                const next = [...base, { roomType: '', rooms: 1 }];
+                                const totalRooms = next.reduce((sum, c) => sum + (Number(c.rooms) || 0), 0);
+                                updateStay(i, {
+                                  roomCategories: next,
+                                  roomType: next[0]?.roomType || '',
+                                  rooms: totalRooms || 1,
+                                });
+                              }}
+                              className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-800 bg-cyan-50 px-2 py-1 rounded-md border border-cyan-100 flex items-center gap-1"
+                            >
+                              <Plus size={11} /> Add Room Type
+                            </button>
                           </div>
-                          {(stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }])).map((cat, ci) => (
+                          {(Array.isArray(stay.roomCategories) && stay.roomCategories.length > 0
+                            ? stay.roomCategories
+                            : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }])
+                          ).map((cat, ci) => (
                             <div key={ci} className="flex items-center gap-2">
-                              <input type="text" value={cat.roomType} onChange={(e) => { const base = stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : [{ roomType: stay.roomType, rooms: stay.rooms || 1 }]; const cats = [...base]; cats[ci] = { ...cats[ci], roomType: e.target.value }; updateStay(i, 'roomCategories', cats); if (ci === 0) updateStay(i, 'roomType', e.target.value); }} placeholder="Room type (e.g. Deluxe Room)" className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                              <input type="number" min={1} value={cat.rooms || 1} onChange={(e) => { const base = stay.roomCategories && stay.roomCategories.length > 0 ? stay.roomCategories : [{ roomType: stay.roomType, rooms: stay.rooms || 1 }]; const cats = [...base]; cats[ci] = { ...cats[ci], rooms: Number(e.target.value) || 1 }; updateStay(i, 'roomCategories', cats); if (ci === 0) updateStay(i, 'rooms', Number(e.target.value) || 1); }} placeholder="Qty" className="w-16 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                              <input
+                                type="text"
+                                value={cat.roomType}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const base = Array.isArray(stay.roomCategories) && stay.roomCategories.length > 0
+                                    ? stay.roomCategories
+                                    : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }]);
+                                  const next = base.map((c, idx) => idx === ci ? { ...c, roomType: val } : c);
+                                  updateStay(i, {
+                                    roomCategories: next,
+                                    roomType: next[0]?.roomType || '',
+                                  });
+                                }}
+                                placeholder="Room type (e.g. Deluxe Room)"
+                                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={cat.rooms || 1}
+                                onChange={(e) => {
+                                  const num = Math.max(1, Number(e.target.value) || 1);
+                                  const base = Array.isArray(stay.roomCategories) && stay.roomCategories.length > 0
+                                    ? stay.roomCategories
+                                    : (stay.roomType ? [{ roomType: stay.roomType, rooms: stay.rooms || 1 }] : [{ roomType: '', rooms: 1 }]);
+                                  const next = base.map((c, idx) => idx === ci ? { ...c, rooms: num } : c);
+                                  const totalRooms = next.reduce((sum, c) => sum + (Number(c.rooms) || 0), 0);
+                                  updateStay(i, {
+                                    roomCategories: next,
+                                    rooms: totalRooms || 1,
+                                  });
+                                }}
+                                placeholder="Qty"
+                                className="w-16 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                              />
                               <span className="text-xs text-slate-400 shrink-0">rm</span>
-                              {(stay.roomCategories || []).length > 1 && <button type="button" onClick={() => { const cats = (stay.roomCategories || []).filter((_, idx) => idx !== ci); updateStay(i, 'roomCategories', cats); }} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>}
+                              {(stay.roomCategories || []).length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = (stay.roomCategories || []).filter((_, idx) => idx !== ci);
+                                    const finalCats = next.length > 0 ? next : [{ roomType: '', rooms: 1 }];
+                                    const totalRooms = finalCats.reduce((sum, c) => sum + (Number(c.rooms) || 0), 0);
+                                    updateStay(i, {
+                                      roomCategories: finalCats,
+                                      roomType: finalCats[0]?.roomType || '',
+                                      rooms: totalRooms || 1,
+                                    });
+                                  }}
+                                  className="p-1 text-red-400 hover:text-red-600"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
                             </div>
-                          ))
-                          }
+                          ))}
                         </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><label className="text-xs font-medium text-slate-500 mb-1 block">Check-in</label><input type="date" value={stay.checkIn} onChange={(e) => updateStay(i, "checkIn", e.target.value)} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
