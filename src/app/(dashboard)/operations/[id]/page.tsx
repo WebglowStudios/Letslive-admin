@@ -332,6 +332,179 @@ function PartialPaymentFields({
 }
 
 
+function CostInput({
+  label,
+  value,
+  subtitle,
+  onSave,
+}: {
+  label: string;
+  value: number;
+  subtitle: string;
+  onSave: (val: number) => Promise<void>;
+}) {
+  const [val, setVal] = useState<string>(value ? String(value) : "0");
+  const [isFocused, setIsFocused] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setVal(value !== undefined && value !== null ? String(value) : "0");
+    }
+  }, [value, isFocused]);
+
+  const commitSave = async (currentValStr: string) => {
+    const num = Number(currentValStr) || 0;
+    if (num === (value || 0)) return;
+    setSaving(true);
+    try {
+      await onSave(num);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+      <label className="text-xs font-semibold text-slate-600 w-32 flex-shrink-0">{label}</label>
+      <div className="relative w-full sm:w-40">
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={val}
+          onFocus={() => {
+            setIsFocused(true);
+            if (val === "0") setVal("");
+          }}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9]/g, "");
+            setVal(v);
+          }}
+          onBlur={() => {
+            setIsFocused(false);
+            const finalVal = val === "" ? "0" : val;
+            setVal(finalVal);
+            commitSave(finalVal);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.currentTarget.blur();
+            }
+          }}
+          className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full"
+          placeholder="0"
+        />
+        {saving && (
+          <span className="absolute right-2 top-2 text-[10px] text-cyan-600 font-semibold animate-pulse pointer-events-none">
+            Saving...
+          </span>
+        )}
+        {saved && !saving && (
+          <span className="absolute right-2 top-2 text-[10px] text-emerald-600 font-bold pointer-events-none">
+            ✓
+          </span>
+        )}
+      </div>
+      <span className="text-xs text-slate-400">{subtitle}</span>
+    </div>
+  );
+}
+
+function MiscChargeRow({
+  charge,
+  onUpdate,
+  onDelete,
+}: {
+  charge: { label: string; amount: number; isVendorCost: boolean };
+  onUpdate: (updated: { label: string; amount: number; isVendorCost: boolean }) => void;
+  onDelete: () => void;
+}) {
+  const [label, setLabel] = useState(charge.label || "");
+  const [amount, setAmount] = useState(charge.amount ? String(charge.amount) : "0");
+
+  useEffect(() => {
+    setLabel(charge.label || "");
+    setAmount(charge.amount ? String(charge.amount) : "0");
+  }, [charge.label, charge.amount]);
+
+  const handleBlur = () => {
+    onUpdate({
+      label,
+      amount: Number(amount) || 0,
+      isVendorCost: charge.isVendorCost,
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        placeholder="Label (e.g. Tipping, Gratuity)"
+        className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 flex-1"
+      />
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={amount}
+        onFocus={() => {
+          if (amount === "0") setAmount("");
+        }}
+        onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+        onBlur={() => {
+          const finalAmt = amount === "" ? "0" : amount;
+          setAmount(finalAmt);
+          onUpdate({
+            label,
+            amount: Number(finalAmt) || 0,
+            isVendorCost: charge.isVendorCost,
+          });
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        placeholder="Amount"
+        className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-28"
+      />
+      <label className="flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap cursor-pointer">
+        <input
+          type="checkbox"
+          checked={charge.isVendorCost}
+          onChange={(e) => {
+            onUpdate({
+              label,
+              amount: Number(amount) || 0,
+              isVendorCost: e.target.checked,
+            });
+          }}
+          className="rounded cursor-pointer"
+        />
+        Vendor Cost
+      </label>
+      <button
+        type="button"
+        onClick={onDelete}
+        className="text-red-400 hover:text-red-600 p-1 cursor-pointer"
+        title="Remove charge"
+      >
+        <Trash2 size={13} />
+      </button>
+    </div>
+  );
+}
+
 export default function OperationDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -4891,32 +5064,81 @@ export default function OperationDetailPage() {
               <div className="space-y-4">
                 {/* Visa & Insurance Costs */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                    <label className="text-xs font-semibold text-slate-600 w-32 flex-shrink-0">Visa Cost (₹)</label>
-                    <input type="number" min="0" value={op.visaCost || 0} onChange={async (e) => { await api.put(`/operations/${id}`, { visaCost: Number(e.target.value) }); fetchAll(); }} className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full sm:w-40" placeholder="0" />
-                    <span className="text-xs text-slate-400">Total visa/immigration fees</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                    <label className="text-xs font-semibold text-slate-600 w-32 flex-shrink-0">Insurance Cost (₹)</label>
-                    <input type="number" min="0" value={op.insuranceCost || 0} onChange={async (e) => { await api.put(`/operations/${id}`, { insuranceCost: Number(e.target.value) }); fetchAll(); }} className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-full sm:w-40" placeholder="0" />
-                    <span className="text-xs text-slate-400">Travel insurance charges</span>
-                  </div>
+                  <CostInput
+                    label="Visa Cost (₹)"
+                    value={op.visaCost || 0}
+                    subtitle="Total visa/immigration fees"
+                    onSave={async (val) => {
+                      setOp((prev) => (prev ? { ...prev, visaCost: val } : prev));
+                      try {
+                        await api.put(`/operations/${id}`, { visaCost: val });
+                      } catch (err) {
+                        console.error("Failed to update visa cost", err);
+                      }
+                    }}
+                  />
+                  <CostInput
+                    label="Insurance Cost (₹)"
+                    value={op.insuranceCost || 0}
+                    subtitle="Travel insurance charges"
+                    onSave={async (val) => {
+                      setOp((prev) => (prev ? { ...prev, insuranceCost: val } : prev));
+                      try {
+                        await api.put(`/operations/${id}`, { insuranceCost: val });
+                      } catch (err) {
+                        console.error("Failed to update insurance cost", err);
+                      }
+                    }}
+                  />
                 </div>
                 {/* Misc Charges */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-semibold text-slate-600">Miscellaneous Charges</label>
-                    <button onClick={async () => { const updated = [...(op.miscCharges || []), { label: "", amount: 0, isVendorCost: false }]; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-semibold hover:bg-slate-200"><Plus size={11} /> Add Charge</button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const updated = [...(op.miscCharges || []), { label: "", amount: 0, isVendorCost: false }];
+                        setOp((prev) => (prev ? { ...prev, miscCharges: updated } : prev));
+                        try {
+                          await api.put(`/operations/${id}`, { miscCharges: updated });
+                        } catch (err) {
+                          console.error("Failed to add misc charge", err);
+                        }
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] font-semibold hover:bg-slate-200 cursor-pointer"
+                    >
+                      <Plus size={11} /> Add Charge
+                    </button>
                   </div>
-                  {(op.miscCharges || []).length === 0 && <p className="text-xs text-slate-400 italic">No misc charges yet. Click "+ Add Charge" to add.</p>}
+                  {(op.miscCharges || []).length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No misc charges yet. Click "+ Add Charge" to add.</p>
+                  )}
                   <div className="space-y-2">
                     {(op.miscCharges || []).map((mc, mci) => (
-                      <div key={mci} className="flex items-center gap-2">
-                        <input type="text" value={mc.label} onChange={async (e) => { const updated = [...(op.miscCharges || [])]; updated[mci] = { ...updated[mci], label: e.target.value }; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} placeholder="Label (e.g. Tipping, Gratuity)" className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 flex-1" />
-                        <input type="number" min="0" value={mc.amount} onChange={async (e) => { const updated = [...(op.miscCharges || [])]; updated[mci] = { ...updated[mci], amount: Number(e.target.value) }; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} placeholder="Amount" className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 w-28" />
-                        <label className="flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap"><input type="checkbox" checked={mc.isVendorCost} onChange={async (e) => { const updated = [...(op.miscCharges || [])]; updated[mci] = { ...updated[mci], isVendorCost: e.target.checked }; await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} className="rounded" /> Vendor Cost</label>
-                        <button onClick={async () => { const updated = (op.miscCharges || []).filter((_, fi) => fi !== mci); await api.put(`/operations/${id}`, { miscCharges: updated }); fetchAll(); }} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={13} /></button>
-                      </div>
+                      <MiscChargeRow
+                        key={mci}
+                        charge={mc}
+                        onUpdate={async (updatedItem) => {
+                          const currentMisc = [...(op.miscCharges || [])];
+                          currentMisc[mci] = updatedItem;
+                          setOp((prev) => (prev ? { ...prev, miscCharges: currentMisc } : prev));
+                          try {
+                            await api.put(`/operations/${id}`, { miscCharges: currentMisc });
+                          } catch (err) {
+                            console.error("Failed to update misc charge", err);
+                          }
+                        }}
+                        onDelete={async () => {
+                          const currentMisc = (op.miscCharges || []).filter((_, fi) => fi !== mci);
+                          setOp((prev) => (prev ? { ...prev, miscCharges: currentMisc } : prev));
+                          try {
+                            await api.put(`/operations/${id}`, { miscCharges: currentMisc });
+                          } catch (err) {
+                            console.error("Failed to delete misc charge", err);
+                          }
+                        }}
+                      />
                     ))}
                   </div>
                 </div>
