@@ -1193,6 +1193,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
   // 4. Calculate route sequence / stops
   const routeStops: { city: string; nights: number }[] = [];
   if (pkg.stays && pkg.stays.length > 0) {
+    let lastStay: (typeof pkg.stays)[0] | null = null;
     pkg.stays.forEach((stay) => {
       let rawCity = "";
       const stayLoc = stay.address || (stay as any).location || (stay as any).city || "";
@@ -1208,11 +1209,21 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
 
       const last = routeStops[routeStops.length - 1];
       if (last && last.city.toLowerCase() === city.toLowerCase()) {
-        // Same city consecutive stay — use max (parallel/concurrent rooms share same nights)
-        last.nights = Math.max(last.nights, n);
+        // If exact same check-in date or same hotel name without dates, assume parallel/concurrent rooms: use max.
+        // Otherwise, if check-in dates differ or it's a consecutive hotel change in same city: add nights.
+        const isConcurrent = Boolean(
+          (stay.checkIn && lastStay?.checkIn && stay.checkIn === lastStay.checkIn) ||
+          (!stay.checkIn && !lastStay?.checkIn && stay.name && lastStay?.name && stay.name.trim().toLowerCase() === lastStay.name.trim().toLowerCase())
+        );
+        if (isConcurrent) {
+          last.nights = Math.max(last.nights, n);
+        } else {
+          last.nights += n;
+        }
       } else {
         routeStops.push({ city, nights: n });
       }
+      lastStay = stay;
     });
   }
 
@@ -1376,7 +1387,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
       <PageHeader section="Trip Overview" />
 
       {/* Main Title Section */}
-      <View style={{ marginBottom: 20, marginTop: 4 }}>
+      <View style={{ marginBottom: 16, marginTop: 2 }}>
         <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: "#007a96", letterSpacing: 1.5, marginBottom: 4 }}>
           TRIP OVERVIEW
         </Text>
@@ -1387,7 +1398,7 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
       </View>
 
       {/* Row 1: 3 Info Cards */}
-      <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
         {/* Card 1: Travel Date */}
         <View
           style={{
@@ -1396,8 +1407,8 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             borderRadius: 10,
             borderWidth: 1,
             borderColor: "#d4ecf0",
-            padding: 12,
-            minHeight: 58,
+            padding: 11,
+            minHeight: 52,
             justifyContent: "center",
           }}
         >
@@ -1417,8 +1428,8 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             borderRadius: 10,
             borderWidth: 1,
             borderColor: "#d4ecf0",
-            padding: 12,
-            minHeight: 58,
+            padding: 11,
+            minHeight: 52,
             justifyContent: "center",
           }}
         >
@@ -1438,8 +1449,8 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
             borderRadius: 10,
             borderWidth: 1,
             borderColor: "#d4ecf0",
-            padding: 12,
-            minHeight: 58,
+            padding: 11,
+            minHeight: 52,
             justifyContent: "center",
           }}
         >
@@ -1459,9 +1470,9 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
           borderRadius: 8,
           borderLeftWidth: 4,
           borderLeftColor: "#009bb8",
-          paddingVertical: 11,
-          paddingHorizontal: 14,
-          marginBottom: 16,
+          paddingVertical: 9,
+          paddingHorizontal: 12,
+          marginBottom: 12,
         }}
       >
         <Text style={{ fontSize: 9.5, color: "#1a3a42", lineHeight: 1.55 }}>
@@ -1490,58 +1501,94 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
       </View>
 
       {/* Row 3: City Route Flow with Arrows */}
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 18 }}>
-        {routeStops.slice(0, 4).map((stop, idx) => (
-          <React.Fragment key={idx}>
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "#ffffff",
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: "#d4ecf0",
-                paddingVertical: 12,
-                paddingHorizontal: 8,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "#004d5e", textAlign: "center", marginBottom: 3 }}>
-                {stop.city}
-              </Text>
-              <Text style={{ fontSize: 9, color: "#6a909b", textAlign: "center" }}>
-                {stop.nights} {stop.nights === 1 ? "night" : "nights"}
-              </Text>
-            </View>
-            {idx < Math.min(routeStops.length, 4) - 1 && (
-              <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
-                <Svg width="18" height="12" viewBox="0 0 24 24">
-                  <Path
-                    d="M4 12h14M13 6l6 6-6 6"
-                    stroke="#8ab5be"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </Svg>
-              </View>
-            )}
-          </React.Fragment>
-        ))}
-      </View>
+      {(() => {
+        const rows: { city: string; nights: number }[][] = [];
+        if (routeStops.length <= 6) {
+          rows.push(routeStops);
+        } else {
+          const perRow = Math.ceil(routeStops.length / 2);
+          rows.push(routeStops.slice(0, perRow));
+          rows.push(routeStops.slice(perRow));
+        }
+
+        return (
+          <View style={{ marginBottom: 14, gap: 6 }}>
+            {rows.map((row, rIdx) => {
+              const rowLen = row.length;
+              const cardPadV = routeStops.length > 6 ? 7 : (rowLen >= 6 ? 8 : rowLen === 5 ? 9.5 : rowLen === 4 ? 11 : 12);
+              const cardPadH = rowLen >= 6 ? 4 : rowLen === 5 ? 5 : 6;
+              const cityFont = rowLen >= 6 ? 9.5 : rowLen === 5 ? 10.5 : rowLen === 4 ? 12 : 13;
+              const nightsFont = rowLen >= 6 ? 7.5 : rowLen === 5 ? 8 : 8.5;
+              const arrowWidth = rowLen >= 6 ? 12 : rowLen === 5 ? 16 : 22;
+              const svgW = rowLen >= 6 ? 11 : rowLen === 5 ? 13 : 16;
+              const svgH = rowLen >= 6 ? 8 : rowLen === 5 ? 9 : 11;
+
+              return (
+                <View key={rIdx} style={{ flexDirection: "row", alignItems: "center" }}>
+                  {row.map((stop, idx) => (
+                    <React.Fragment key={idx}>
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#ffffff",
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: "#d4ecf0",
+                          paddingVertical: cardPadV,
+                          paddingHorizontal: cardPadH,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: cityFont,
+                            fontFamily: "Helvetica-Bold",
+                            color: "#004d5e",
+                            textAlign: "center",
+                            marginBottom: 2,
+                          }}
+                        >
+                          {stop.city}
+                        </Text>
+                        <Text style={{ fontSize: nightsFont, color: "#6a909b", textAlign: "center" }}>
+                          {stop.nights} {stop.nights === 1 ? "night" : "nights"}
+                        </Text>
+                      </View>
+                      {idx < row.length - 1 && (
+                        <View style={{ width: arrowWidth, alignItems: "center", justifyContent: "center" }}>
+                          <Svg width={svgW} height={svgH} viewBox="0 0 24 24">
+                            <Path
+                              d="M4 12h14M13 6l6 6-6 6"
+                              stroke="#8ab5be"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              fill="none"
+                            />
+                          </Svg>
+                        </View>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </View>
+              );
+            })}
+          </View>
+        );
+      })()}
 
       {/* Row 4: Total Cost & Tax Position Banner (Deep Teal Bar) */}
       <View
         style={{
           backgroundColor: "#005570",
           borderRadius: 10,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
+          paddingVertical: 11,
+          paddingHorizontal: 15,
           flexDirection: "row",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: 16,
+          marginBottom: 12,
         }}
       >
         {hasFlightCostBreakdown ? (
