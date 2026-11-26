@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, Truck, Home, Compass, CreditCard, FileText, TrendingUp, Plus, Trash2, Check, Save, Download, Copy, Link as LinkIcon, Bell, Wand2, X, User, Edit2, RefreshCw, List, Building2, BedDouble, Star } from "lucide-react";
@@ -507,6 +507,7 @@ function MiscChargeRow({
 
 export default function OperationDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
@@ -577,6 +578,19 @@ export default function OperationDetailPage() {
   const [customerPayments, setCustomerPayments] = useState<CPayment[]>([]);
   const [vendorList, setVendorList] = useState<VendorItem[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
+  const [savingAll, setSavingAll] = useState(false);
+  const [snapshotVersion, setSnapshotVersion] = useState(0);
+  const savedSnapshotsRef = useRef<{
+    transports: Record<string, string>;
+    accommodations: Record<string, string>;
+    activities: Record<string, string>;
+    "customer-payments": Record<string, string>;
+  }>({
+    transports: {},
+    accommodations: {},
+    activities: {},
+    "customer-payments": {},
+  });
   const [selectedTransports, setSelectedTransports] = useState<Set<string>>(new Set());
   const [selectedAccommodations, setSelectedAccommodations] = useState<Set<string>>(new Set());
   const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
@@ -656,11 +670,113 @@ export default function OperationDetailPage() {
   const isAdmin = currentRole === "admin";
   const isManager = currentRole ? ["admin", "manager", "ops-manager"].includes(currentRole) : false;
 
+  const serializeForSnapshot = (endpoint: string, item: any): string => {
+    if (!item || typeof item !== "object") return "";
+    if (endpoint === "customer-payments") {
+      const { _isManual, ...rest } = item;
+      return JSON.stringify(rest);
+    }
+    return JSON.stringify(item);
+  };
+
+  const setSectionSnapshots = (endpoint: "transports" | "accommodations" | "activities" | "customer-payments", items: any[]) => {
+    const map: Record<string, string> = {};
+    for (const item of items || []) {
+      if (item?._id) map[item._id] = serializeForSnapshot(endpoint, item);
+    }
+    savedSnapshotsRef.current[endpoint] = map;
+  };
+
+  const dirtyTransportIds = useMemo(() => {
+    const dirty = new Set<string>();
+    const snap = savedSnapshotsRef.current.transports;
+    for (const t of transports) {
+      if (t?._id && snap[t._id] !== undefined && snap[t._id] !== serializeForSnapshot("transports", t)) dirty.add(t._id);
+    }
+    return dirty;
+  }, [transports, snapshotVersion]);
+
+  const dirtyAccommodationIds = useMemo(() => {
+    const dirty = new Set<string>();
+    const snap = savedSnapshotsRef.current.accommodations;
+    for (const a of accommodations) {
+      if (a?._id && snap[a._id] !== undefined && snap[a._id] !== serializeForSnapshot("accommodations", a)) dirty.add(a._id);
+    }
+    return dirty;
+  }, [accommodations, snapshotVersion]);
+
+  const dirtyActivityIds = useMemo(() => {
+    const dirty = new Set<string>();
+    const snap = savedSnapshotsRef.current.activities;
+    for (const a of activities) {
+      if (a?._id && snap[a._id] !== undefined && snap[a._id] !== serializeForSnapshot("activities", a)) dirty.add(a._id);
+    }
+    return dirty;
+  }, [activities, snapshotVersion]);
+
+  const dirtyPaymentIds = useMemo(() => {
+    const dirty = new Set<string>();
+    const snap = savedSnapshotsRef.current["customer-payments"];
+    for (const p of customerPayments) {
+      if (p?._id && snap[p._id] !== undefined && snap[p._id] !== serializeForSnapshot("customer-payments", p)) dirty.add(p._id);
+    }
+    return dirty;
+  }, [customerPayments, snapshotVersion]);
+
+  const totalDirtyCount =
+    dirtyTransportIds.size +
+    dirtyAccommodationIds.size +
+    dirtyActivityIds.size +
+    dirtyPaymentIds.size;
+
+  useEffect(() => {
+    if (totalDirtyCount === 0) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [totalDirtyCount]);
+
+  const showToast = (message: string, bgClass = "bg-emerald-600") => {
+    const existing = document.getElementById("save-toast");
+    if (existing) existing.remove();
+    const toast = document.createElement("div");
+    toast.id = "save-toast";
+    toast.className = `fixed bottom-4 right-4 z-50 ${bgClass} text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300`;
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  };
+
+  const refreshOperationTotals = useCallback(async () => {
+    try {
+      const res = await api.get(`/operations/${id}`);
+      if (res?.data?.operation) setOp(res.data.operation);
+    } catch {}
+  }, [id]);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const [res, vRes] = await Promise.all([api.get(`/operations/${id}`), api.get("/vendors")]);
-      if (res?.data) { setOp(res.data.operation); setTransports(res.data.transports || []); setAccommodations(res.data.accommodations || []); setActivities(res.data.activities || []); setCustomerPayments(res.data.customerPayments || []); }
+      if (res?.data) {
+        const nextTransports = res.data.transports || [];
+        const nextAccommodations = res.data.accommodations || [];
+        const nextActivities = res.data.activities || [];
+        const nextPayments = res.data.customerPayments || [];
+        setOp(res.data.operation);
+        setTransports(nextTransports);
+        setAccommodations(nextAccommodations);
+        setActivities(nextActivities);
+        setCustomerPayments(nextPayments);
+        setSectionSnapshots("transports", nextTransports);
+        setSectionSnapshots("accommodations", nextAccommodations);
+        setSectionSnapshots("activities", nextActivities);
+        setSectionSnapshots("customer-payments", nextPayments);
+        setSnapshotVersion((v) => v + 1);
+      }
       setVendorList(vRes?.data || []);
     } catch {} finally { setLoading(false); }
   }, [id]);
@@ -702,43 +818,158 @@ export default function OperationDetailPage() {
   }
 
 
-  async function saveItem(endpoint: string, itemId: string, data: any) { 
-    setSaving(itemId); 
-    try { 
-      // If it's a manual payment with a paid amount, trigger the Finance Approval flow
-      if (endpoint === "customer-payments" && data._isManual && data.paidAmount > 0) {
-        const payload = {
-          ...data,
-          financeDetails: {
-            mode: data.paymentMode || "Offline",
-            transactionId: data.transactionId || "N/A",
-            paidAmount: data.paidAmount
-          }
-        };
-        await api.put(`/operations/${id}/${endpoint}/${itemId}`, payload); 
-      } else {
-        await api.put(`/operations/${id}/${endpoint}/${itemId}`, data); 
+  type SectionEndpoint = "transports" | "accommodations" | "activities" | "customer-payments";
+
+  const buildItemPayload = (endpoint: SectionEndpoint, data: any) => {
+    if (endpoint === "customer-payments" && data?._isManual && data?.paidAmount > 0) {
+      return {
+        ...data,
+        financeDetails: {
+          mode: data.paymentMode || "Offline",
+          transactionId: data.transactionId || "N/A",
+          paidAmount: data.paidAmount,
+        },
+      };
+    }
+    return data;
+  };
+
+  const applySavedDocsToSection = (endpoint: SectionEndpoint, savedDocs: any[]) => {
+    if (savedDocs.length === 0) return;
+    const byId = new Map<string, any>();
+    for (const doc of savedDocs) {
+      if (doc?._id) {
+        byId.set(doc._id, doc);
+        savedSnapshotsRef.current[endpoint][doc._id] = serializeForSnapshot(endpoint, doc);
       }
-      if (['accommodations', 'transports', 'activities'].includes(endpoint)) {
-        try { await api.put(`/operations/${id}/recalculate`); } catch {}
-      }
-      fetchAll();
-      
-      const existing = document.getElementById('save-toast');
-      if (existing) existing.remove();
-      const toast = document.createElement('div');
-      toast.id = 'save-toast';
-      toast.className = 'fixed bottom-4 right-4 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300';
-      toast.innerHTML = `✓ Saved successfully!`;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    } catch { 
+    }
+    const mergeArr = (prev: any[]) => prev.map((item) => (item?._id && byId.has(item._id) ? byId.get(item._id) : item));
+    if (endpoint === "transports") setTransports(mergeArr);
+    else if (endpoint === "accommodations") setAccommodations(mergeArr);
+    else if (endpoint === "activities") setActivities(mergeArr);
+    else if (endpoint === "customer-payments") setCustomerPayments(mergeArr);
+    setSnapshotVersion((v) => v + 1);
+  };
+
+  async function saveItemsBatch(
+    endpoint: SectionEndpoint,
+    itemsToSave: any[],
+    opts: { skipRecalculate?: boolean; silent?: boolean; successMsg?: string } = {}
+  ) {
+    if (!itemsToSave || itemsToSave.length === 0) return true;
+    const results = await Promise.all(
+      itemsToSave.map(async (item) => {
+        const res = await api.put(`/operations/${id}/${endpoint}/${item._id}`, buildItemPayload(endpoint, item));
+        return res?.data || item;
+      })
+    );
+    if (!opts.skipRecalculate && ["accommodations", "transports", "activities", "customer-payments"].includes(endpoint)) {
+      try { await api.put(`/operations/${id}/recalculate`); } catch {}
+    }
+    applySavedDocsToSection(endpoint, results);
+    await refreshOperationTotals();
+    if (!opts.silent) {
+      showToast(opts.successMsg || "✓ Saved successfully!");
+    }
+    return true;
+  }
+
+  async function saveItem(endpoint: SectionEndpoint, itemId: string, data: any) {
+    setSaving(itemId);
+    try {
+      await saveItemsBatch(endpoint, [data], { successMsg: "✓ Saved successfully!" });
+    } catch {
       alert("Failed to save item.");
     } finally {
       setSaving(null);
     }
   }
-  async function delItem(endpoint: string, itemId: string) { if (!confirm("Delete?")) return; await api.del(`/operations/${id}/${endpoint}/${itemId}`); fetchAll(); }
+
+  async function saveGroup(endpoint: "transports" | "accommodations" | "activities", groupItems: { item: any; i: number }[]) {
+    const sourceList = endpoint === "transports" ? transports : endpoint === "accommodations" ? accommodations : activities;
+    const currentGroupDocs = groupItems
+      .map((gItem) => sourceList.find((x: any) => x._id === gItem.item?._id) || gItem.item)
+      .filter((x: any) => x && x._id);
+    if (currentGroupDocs.length === 0) return;
+
+    const masterId = currentGroupDocs[0]._id;
+    setSaving(masterId);
+    try {
+      await saveItemsBatch(endpoint, currentGroupDocs, { successMsg: `✓ Saved all ${currentGroupDocs.length} item(s) in group!` });
+    } catch {
+      alert("Failed to save group.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function saveAllDirty(targetEndpoint?: SectionEndpoint, opts: { silent?: boolean } = {}) {
+    const sections: { ep: SectionEndpoint; items: any[]; dirty: Set<string> }[] = [
+      { ep: "transports", items: transports, dirty: dirtyTransportIds },
+      { ep: "accommodations", items: accommodations, dirty: dirtyAccommodationIds },
+      { ep: "activities", items: activities, dirty: dirtyActivityIds },
+      { ep: "customer-payments", items: customerPayments, dirty: dirtyPaymentIds },
+    ];
+    const toProcess = targetEndpoint ? sections.filter((s) => s.ep === targetEndpoint) : sections;
+    const nonEmpty = toProcess.filter((s) => s.dirty.size > 0);
+    if (nonEmpty.length === 0) return true;
+
+    setSavingAll(true);
+    try {
+      let needsRecalc = false;
+      for (const sec of nonEmpty) {
+        const dirtyItems = sec.items.filter((it: any) => sec.dirty.has(it._id));
+        if (dirtyItems.length > 0) {
+          await saveItemsBatch(sec.ep, dirtyItems, { skipRecalculate: true, silent: true });
+          needsRecalc = true;
+        }
+      }
+      if (needsRecalc) {
+        try { await api.put(`/operations/${id}/recalculate`); } catch {}
+        await refreshOperationTotals();
+      }
+      if (!opts.silent) {
+        showToast("✓ All changes saved successfully!");
+      }
+      return true;
+    } catch {
+      alert("Failed to save all pending changes. Please try again.");
+      return false;
+    } finally {
+      setSavingAll(false);
+    }
+  }
+
+  async function delItem(endpoint: SectionEndpoint, itemId: string) {
+    if (!confirm("Delete?")) return;
+    try {
+      await api.del(`/operations/${id}/${endpoint}/${itemId}`);
+      delete savedSnapshotsRef.current[endpoint][itemId];
+      const filterOut = (prev: any[]) => prev.filter((item) => item._id !== itemId);
+      if (endpoint === "transports") setTransports(filterOut);
+      else if (endpoint === "accommodations") setAccommodations(filterOut);
+      else if (endpoint === "activities") setActivities(filterOut);
+      else if (endpoint === "customer-payments") setCustomerPayments(filterOut);
+      setSnapshotVersion((v) => v + 1);
+      try { await api.put(`/operations/${id}/recalculate`); } catch {}
+      await refreshOperationTotals();
+    } catch {
+      alert("Failed to delete item.");
+    }
+  }
+
+  function appendCreatedItem(endpoint: SectionEndpoint, createdDoc: any) {
+    if (!createdDoc?._id) {
+      fetchAll();
+      return;
+    }
+    savedSnapshotsRef.current[endpoint][createdDoc._id] = serializeForSnapshot(endpoint, createdDoc);
+    if (endpoint === "transports") setTransports((prev) => [...prev, createdDoc]);
+    else if (endpoint === "accommodations") setAccommodations((prev) => [...prev, createdDoc]);
+    else if (endpoint === "activities") setActivities((prev) => [...prev, createdDoc]);
+    else if (endpoint === "customer-payments") setCustomerPayments((prev) => [...prev, createdDoc]);
+    setSnapshotVersion((v) => v + 1);
+  }
 
   async function deleteSplitPayment(paymentId: string, restoreToParent: boolean) {
     try {
@@ -983,22 +1214,30 @@ export default function OperationDetailPage() {
 
   async function sendReminder(paymentId: string) { if (!confirm("Send a payment reminder email to the customer?")) return; try { await api.post(`/operations/${id}/customer-payments/${paymentId}/notify`); alert("Reminder sent successfully!"); } catch { alert("Failed to send reminder."); } }
 
-  async function handleGroupItems(type: string, itemIds: string[]) {
+  async function handleGroupItems(type: "transports" | "accommodations" | "activities", itemIds: string[]) {
     if (itemIds.length < 2) return alert("Select at least 2 items to group");
     try {
+      // Auto-save any unsaved edits in this tab before grouping so nothing is lost on reload
+      const savedOk = await saveAllDirty(type, { silent: true });
+      if (!savedOk) return;
       await api.post(`/operations/${id}/group`, { type, itemIds });
       if (type === 'transports') setSelectedTransports(new Set());
       if (type === 'accommodations') setSelectedAccommodations(new Set());
       if (type === 'activities') setSelectedActivities(new Set());
-      fetchAll();
+      await fetchAll();
+      showToast("✓ Items grouped (unsaved edits preserved)!");
     } catch (err) { alert("Failed to group items"); }
   }
 
-  async function handleUngroup(type: string, groupId: string) {
+  async function handleUngroup(type: "transports" | "accommodations" | "activities", groupId: string) {
     if (!confirm("Are you sure you want to ungroup these items?")) return;
     try {
+      // Auto-save any unsaved edits in this tab before ungrouping so nothing is lost on reload
+      const savedOk = await saveAllDirty(type, { silent: true });
+      if (!savedOk) return;
       await api.post(`/operations/${id}/ungroup`, { type, groupId });
-      fetchAll();
+      await fetchAll();
+      showToast("✓ Items ungrouped!");
     } catch (err) { alert("Failed to ungroup items"); }
   }
 
@@ -1008,6 +1247,10 @@ export default function OperationDetailPage() {
     }
     setImporting(true);
     try {
+      if (totalDirtyCount > 0) {
+        const savedOk = await saveAllDirty(undefined, { silent: true });
+        if (!savedOk) return;
+      }
       const res = await api.post(`/operations/${id}/import-itinerary`);
       alert(res.message || "Imported successfully!");
       fetchAll();
@@ -1642,12 +1885,12 @@ export default function OperationDetailPage() {
   };
 
   const tabs = [
-    { id: "overview", label: "Overview", icon: <FileText size={14} /> },
-    { id: "transport", label: `Flights & Trains (${transports.length})`, icon: <Truck size={14} /> },
-    { id: "accommodation", label: `Stay (${accommodations.length})`, icon: <Home size={14} /> },
-    { id: "activities", label: `Itinerary Days (${activities.length})`, icon: <Compass size={14} /> },
-    { id: "payments", label: `Payments (${customerPayments.length})`, icon: <CreditCard size={14} /> },
-    { id: "pnl", label: "P&L", icon: <TrendingUp size={14} /> },
+    { id: "overview", label: "Overview", icon: <FileText size={14} />, dirtyCount: 0 },
+    { id: "transport", label: `Flights & Trains (${transports.length})`, icon: <Truck size={14} />, dirtyCount: dirtyTransportIds.size },
+    { id: "accommodation", label: `Stay (${accommodations.length})`, icon: <Home size={14} />, dirtyCount: dirtyAccommodationIds.size },
+    { id: "activities", label: `Itinerary Days (${activities.length})`, icon: <Compass size={14} />, dirtyCount: dirtyActivityIds.size },
+    { id: "payments", label: `Payments (${customerPayments.length})`, icon: <CreditCard size={14} />, dirtyCount: dirtyPaymentIds.size },
+    { id: "pnl", label: "P&L", icon: <TrendingUp size={14} />, dirtyCount: 0 },
   ];
 
   const hasCustomers = op.customers && op.customers.length > 0;
@@ -1660,7 +1903,16 @@ export default function OperationDetailPage() {
     <>
       <div className="space-y-5">
       <div className="flex items-center gap-4">
-        <Link href="/operations" className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
+        <button
+          type="button"
+          onClick={() => {
+            if (totalDirtyCount > 0 && !confirm(`You have ${totalDirtyCount} unsaved change(s). Leave without saving?`)) return;
+            router.push("/operations");
+          }}
+          className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+        >
+          <ArrowLeft size={20} />
+        </button>
         <div className="flex-1">
           <div className="flex items-center gap-3"><h1 className="text-lg font-bold text-slate-800">{op.operationId}</h1><span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${op.status === "completed" ? "bg-emerald-100 text-emerald-700" : op.status === "planning" ? "bg-blue-100 text-blue-700" : op.status === "vendor-confirmed" ? "bg-teal-100 text-teal-700" : op.status === "booked" ? "bg-cyan-100 text-cyan-700" : op.status === "cancelled" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{op.status.replace("-", " ")}</span></div>
           <p className="text-xs text-slate-400">{displayCustomerName} | {op.destination} | {displayPax} pax</p>
@@ -1678,7 +1930,17 @@ export default function OperationDetailPage() {
       </div>
 
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
-        {tabs.map((t) => (<button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>{t.icon}{t.label}</button>))}
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            {t.icon}
+            {t.label}
+            {t.dirtyCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold" title={`${t.dirtyCount} unsaved item(s)`}>
+                {t.dirtyCount}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
     {/* OVERVIEW */}
@@ -2416,7 +2678,7 @@ export default function OperationDetailPage() {
             <p className="text-sm font-semibold text-slate-700">{transports.length} Flight & Train Service(s)</p>
             <div className="flex gap-2">
               {op.package && transports.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "flight", title: "", airline: "", flightNumber: "", pnr: "", vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "Flight", airline: "", flightNumber: "", pnr: "", departureTime: "", arrivalTime: "", notes: "" }] }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Flight / Train</button>
+              <button onClick={async () => { const res = await api.post(`/operations/${id}/transports`, { type: "flight", title: "", airline: "", flightNumber: "", pnr: "", vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "Flight", airline: "", flightNumber: "", pnr: "", departureTime: "", arrivalTime: "", notes: "" }] }); appendCreatedItem("transports", res?.data); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Flight / Train</button>
             </div>
           </div>
 
@@ -2461,7 +2723,7 @@ export default function OperationDetailPage() {
             });
 
             const renderTransportCard = (t: any, idx: number, isGrouped: boolean) => (
-              <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-4 ${t.isUrgent ? "border-red-300 bg-red-50/20" : "border-slate-200"} ${isGrouped ? 'shadow-sm' : 'mb-4'}`}>
+              <div key={t._id} className={`bg-white rounded-xl border p-4 space-y-4 ${dirtyTransportIds.has(t._id) ? "border-amber-400 ring-1 ring-amber-200" : t.isUrgent ? "border-red-300 bg-red-50/20" : "border-slate-200"} ${isGrouped ? 'shadow-sm' : 'mb-4'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {!isGrouped && (
@@ -2472,6 +2734,9 @@ export default function OperationDetailPage() {
                       }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
                     )}
                     <span className="text-xs font-bold text-cyan-700">#{idx + 1}</span>
+                    {dirtyTransportIds.has(t._id) && (
+                      <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">Unsaved</span>
+                    )}
                     <select value={t.type || "other"} onChange={(e) => {
                       const newType = e.target.value;
                       const u = [...transports];
@@ -2499,8 +2764,8 @@ export default function OperationDetailPage() {
                     {t.legs.length > 1 && <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{t.legs.length} legs</span>}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => saveItem("transports", t._id, transports[idx])} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors">
-                      {saving === t._id ? "..." : <><Check size={10} /> Save</>}
+                    <button onClick={() => saveItem("transports", t._id, transports[idx])} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${dirtyTransportIds.has(t._id) ? "bg-amber-500 text-white hover:bg-amber-600 shadow-sm" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}>
+                      {saving === t._id ? "..." : <><Check size={10} /> {dirtyTransportIds.has(t._id) ? "Save*" : "Save"}</>}
                     </button>
                     <button onClick={() => delItem("transports", t._id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
                   </div>
@@ -2800,9 +3065,14 @@ export default function OperationDetailPage() {
                 return renderTransportCard(g.item, g.idx, false);
               } else {
                 return (
-                  <div key={g.groupId} className="bg-indigo-50/20 rounded-xl border border-indigo-200 p-4 space-y-4 mb-4">
+                  <div key={g.groupId} className={`rounded-xl border p-4 space-y-4 mb-4 ${g.items.some((x: any) => dirtyTransportIds.has(x.item._id)) ? "bg-amber-50/30 border-amber-300" : "bg-indigo-50/20 border-indigo-200"}`}>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Transports</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Transports</span>
+                        {g.items.some((x: any) => dirtyTransportIds.has(x.item._id)) && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">Unsaved group changes</span>
+                        )}
+                      </div>
                       <button onClick={() => handleUngroup('transports', g.groupId)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-colors">
                         Ungroup All
                       </button>
@@ -2813,12 +3083,11 @@ export default function OperationDetailPage() {
                     <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
-                        <button onClick={() => {
-                          const masterId = g.masterInfo.item._id;
-                          const currentItem = transports.find(item => item._id === masterId) || transports[g.masterInfo.i] || g.masterInfo.item;
-                          saveItem("transports", masterId, currentItem);
-                        }} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
-                          <Check size={10} /> Save Group
+                        <button
+                          onClick={() => saveGroup("transports", g.items)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${g.items.some((x: any) => dirtyTransportIds.has(x.item._id)) ? "bg-amber-500 text-white hover:bg-amber-600 shadow-sm" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
+                        >
+                          {saving === g.masterInfo.item._id ? "Saving..." : <><Check size={10} /> Save Group</>}
                         </button>
                       </div>
                       
@@ -3102,7 +3371,7 @@ export default function OperationDetailPage() {
             <p className="text-sm font-semibold text-slate-700">{accommodations.length} accommodation(s)</p>
             <div className="flex gap-2">
               {op.package && accommodations.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/accommodations`, { type: "hotel" }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Stay</button>
+              <button onClick={async () => { const res = await api.post(`/operations/${id}/accommodations`, { type: "hotel" }); appendCreatedItem("accommodations", res?.data); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Stay</button>
             </div>
           </div>
           {op.package && accommodations.length === 0 && (
@@ -3220,18 +3489,23 @@ export default function OperationDetailPage() {
                 );
               } else {
                 return (
-                  <div key={g.groupId} className="bg-indigo-50/20 rounded-xl border border-indigo-200 p-4 space-y-4 mb-4">
+                  <div key={g.groupId} className={`rounded-xl border p-4 space-y-4 mb-4 ${g.items.some((x: any) => dirtyAccommodationIds.has(x.item._id)) ? "bg-amber-50/30 border-amber-300" : "bg-indigo-50/20 border-indigo-200"}`}>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Accommodations</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">GROUP: {g.items.length} Accommodations</span>
+                        {g.items.some((x: any) => dirtyAccommodationIds.has(x.item._id)) && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">Unsaved group changes</span>
+                        )}
+                      </div>
                       <button onClick={() => handleUngroup('accommodations', g.groupId)} className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-colors">
                         Ungroup All
                       </button>
                     </div>
                     <div className="space-y-3 border-l-2 border-indigo-200 pl-4 ml-1">
                       {g.items.map(({ item: a, i: idx }: { item: any, i: number }) => (
-                        <div key={a._id} className="bg-white rounded-xl border border-slate-200 p-4 relative shadow-sm">
+                        <div key={a._id} className={`bg-white rounded-xl border p-4 relative shadow-sm ${dirtyAccommodationIds.has(a._id) ? "border-amber-400 ring-1 ring-amber-200" : "border-slate-200"}`}>
                           <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-bold text-cyan-700 flex items-center gap-2">#{idx+1} <span className="capitalize text-slate-500">{a.type}</span></span>
+                            <span className="text-xs font-bold text-cyan-700 flex items-center gap-2">#{idx+1} <span className="capitalize text-slate-500">{a.type}</span>{dirtyAccommodationIds.has(a._id) && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">Unsaved</span>}</span>
                             <button onClick={() => delItem("accommodations", a._id)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -3252,12 +3526,11 @@ export default function OperationDetailPage() {
                     <div className="bg-white rounded-xl border border-indigo-100 p-4 mt-4">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Group Vendor & Pricing</span>
-                        <button onClick={() => {
-                          const masterId = g.masterInfo.item._id;
-                          const currentItem = accommodations.find(item => item._id === masterId) || accommodations[g.masterInfo.i] || g.masterInfo.item;
-                          saveItem("accommodations", masterId, currentItem);
-                        }} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100">
-                          <Check size={10} /> Save Group
+                        <button
+                          onClick={() => saveGroup("accommodations", g.items)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${g.items.some((x: any) => dirtyAccommodationIds.has(x.item._id)) ? "bg-amber-500 text-white hover:bg-amber-600 shadow-sm" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
+                        >
+                          {saving === g.masterInfo.item._id ? "Saving..." : <><Check size={10} /> Save Group</>}
                         </button>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -3332,7 +3605,7 @@ export default function OperationDetailPage() {
             <p className="text-sm font-semibold text-slate-700">{activities.length} Itinerary Day(s)</p>
             <div className="flex gap-2">
               {op.package && activities.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/activities`, {}); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Day Expense</button>
+              <button onClick={async () => { const res = await api.post(`/operations/${id}/activities`, {}); appendCreatedItem("activities", res?.data); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Day Expense</button>
             </div>
           </div>
           {op.package && activities.length === 0 && (
@@ -4030,11 +4303,16 @@ export default function OperationDetailPage() {
               } else {
                 const dayLabels = g.items.map((x: any) => x.item.tripDay || `Day ${x.i + 1}`).join(", ");
                 return (
-                  <div key={g.groupId} className="bg-indigo-50/20 rounded-xl border border-indigo-200 p-4 space-y-4 mb-4">
+                  <div key={g.groupId} className={`rounded-xl border p-4 space-y-4 mb-4 ${g.items.some((x: any) => dirtyActivityIds.has(x.item._id)) ? "bg-amber-50/30 border-amber-300" : "bg-indigo-50/20 border-indigo-200"}`}>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-md">
-                        GROUP: {g.items.length} Itinerary Days ({dayLabels})
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-md">
+                          GROUP: {g.items.length} Itinerary Days ({dayLabels})
+                        </span>
+                        {g.items.some((x: any) => dirtyActivityIds.has(x.item._id)) && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">Unsaved group changes</span>
+                        )}
+                      </div>
                       <button
                         onClick={() => handleUngroup('activities', g.groupId)}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-[10px] font-bold hover:bg-orange-100 transition-colors"
@@ -4056,14 +4334,10 @@ export default function OperationDetailPage() {
                           <p className="text-[9px] text-slate-400">Common / aggregate expense for these {g.items.length} days</p>
                         </div>
                         <button
-                          onClick={() => {
-                            const masterId = g.masterInfo.item._id;
-                            const currentItem = activities.find(item => item._id === masterId) || activities[g.masterInfo.i] || g.masterInfo.item;
-                            saveItem("activities", masterId, currentItem);
-                          }}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
+                          onClick={() => saveGroup("activities", g.items)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${g.items.some((x: any) => dirtyActivityIds.has(x.item._id)) ? "bg-amber-500 text-white hover:bg-amber-600 shadow-sm" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
                         >
-                          {saving === g.masterInfo.item._id ? "..." : <><Check size={10} /> Save Group Pricing</>}
+                          {saving === g.masterInfo.item._id ? "Saving..." : <><Check size={10} /> Save Group Pricing</>}
                         </button>
                       </div>
 
@@ -4544,12 +4818,12 @@ export default function OperationDetailPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await api.post(`/operations/${id}/customer-payments`, {
+                    const res = await api.post(`/operations/${id}/customer-payments`, {
                       milestone: `${transportTerm} Ticket Payment`,
                       category: "flight",
                       amount: Math.max(0, netFlightPending),
                     });
-                    fetchAll();
+                    appendCreatedItem("customer-payments", res?.data);
                   }}
                   className="px-2.5 py-1 bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 rounded text-[11px] font-bold transition flex items-center gap-1"
                   title={`Add payment installment specifically for ${transportTerm.toLowerCase()}s`}
@@ -4560,12 +4834,12 @@ export default function OperationDetailPage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await api.post(`/operations/${id}/customer-payments`, {
+                      const res = await api.post(`/operations/${id}/customer-payments`, {
                         milestone: "Land Package & Hotel Payment",
                         category: "land",
                         amount: Math.max(0, netCombinedLandHotelPending),
                       });
-                      fetchAll();
+                      appendCreatedItem("customer-payments", res?.data);
                     }}
                     className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold transition flex items-center gap-1"
                     title="Add payment installment specifically for Land Package & Stay"
@@ -4576,12 +4850,12 @@ export default function OperationDetailPage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await api.post(`/operations/${id}/customer-payments`, {
+                      const res = await api.post(`/operations/${id}/customer-payments`, {
                         milestone: "Hotel Booking Payment",
                         category: "hotel",
                         amount: Math.max(0, netHotelPending),
                       });
-                      fetchAll();
+                      appendCreatedItem("customer-payments", res?.data);
                     }}
                     className="px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded text-[11px] font-bold transition flex items-center gap-1"
                     title="Add payment installment specifically for hotels"
@@ -5217,8 +5491,8 @@ export default function OperationDetailPage() {
               <button onClick={async () => { 
                 setSplitModalOpen(false); 
                 const bookingId = splitData.primaryPaymentId || (op?.bookings && op.bookings.length === 1 ? op.bookings[0]._id : op?.booking?._id);
-                await api.post(`/operations/${id}/customer-payments`, { booking: bookingId || undefined }); 
-                fetchAll(); 
+                const res = await api.post(`/operations/${id}/customer-payments`, { booking: bookingId || undefined }); 
+                appendCreatedItem("customer-payments", res?.data); 
               }} className="w-full text-left p-4 border border-slate-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-colors group">
                 <p className="text-sm font-bold text-slate-800 group-hover:text-cyan-700">Add Extra Charge (Increases Trip Cost)</p>
                 <p className="text-xs text-slate-500 mt-1">Use this if the customer added a new activity or penalty.</p>
@@ -6373,6 +6647,39 @@ export default function OperationDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Unsaved Changes Bar */}
+      {totalDirtyCount > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="font-semibold">
+              {totalDirtyCount} unsaved {totalDirtyCount === 1 ? "item" : "items"}
+            </span>
+          </div>
+          <div className="h-4 w-px bg-slate-700" />
+          <button
+            type="button"
+            disabled={savingAll}
+            onClick={() => {
+              if (!confirm("Discard all unsaved edits and reload saved data from server?")) return;
+              fetchAll();
+            }}
+            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            disabled={savingAll}
+            onClick={() => saveAllDirty()}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-colors disabled:opacity-50 shadow-sm"
+          >
+            <Save size={13} />
+            {savingAll ? "Saving All..." : "Save All Changes"}
+          </button>
         </div>
       )}
     </>
