@@ -612,7 +612,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         {!hideTrainInfo && trains && trains.length > 0 && (
           <View style={s.sectionWrapper} wrap={false}>
             <View style={s.sectionHeader}>
-              <Icon d={ICONS.flight} color={C.cu} size={14} />
+              <Icon d={ICONS.train} color={C.cu} size={14} />
               <Text style={s.sectionTitle}>TRAIN SCHEDULE</Text>
             </View>
             <View style={s.table}>
