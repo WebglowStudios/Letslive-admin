@@ -39,6 +39,7 @@ export default function OperationsPage() {
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const [pendingIncentivesOnly, setPendingIncentivesOnly] = useState(false);
   const [assignedFilter, setAssignedFilter] = useState("all");
+  const [salespersonFilter, setSalespersonFilter] = useState("all");
   const [search, setSearch] = useState("");
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -50,6 +51,7 @@ export default function OperationsPage() {
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "admin" || user?.role === "manager" || user?.role === "ops-manager";
   const [staffList, setStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
+  const [salesStaffList, setSalesStaffList] = useState<{ _id: string; firstName: string; lastName: string }[]>([]);
 
   const fetchOperations = useCallback(async () => {
     setLoading(true);
@@ -59,6 +61,7 @@ export default function OperationsPage() {
       if (hasPendingPayment) params.set("hasPendingPayment", "true");
       if (pendingIncentivesOnly) params.set("incentiveStatus", "pending");
       if (assignedFilter && assignedFilter !== "all") params.set("assignedTo", assignedFilter);
+      if (salespersonFilter && salespersonFilter !== "all") params.set("salesperson", salespersonFilter);
       const res = await api.get(`/operations?${params}`);
       setOperations(res?.data || []);
     } catch {
@@ -66,18 +69,22 @@ export default function OperationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly, assignedFilter]);
+  }, [statusFilter, hasPendingPayment, pendingIncentivesOnly, assignedFilter, salespersonFilter]);
 
   useEffect(() => {
     fetchOperations();
   }, [fetchOperations]);
 
-  // Fetch staff list for assignment & filtering
+  // Fetch department-segregated staff lists for assignment & filtering
   useEffect(() => {
     if (!isManager) return;
-    api.get("/users/staff").then((res) => {
+    api.get("/users/staff?department=ops").then((res) => {
       const list = res?.data || res || [];
       setStaffList(Array.isArray(list) ? list : []);
+    }).catch(() => {});
+    api.get("/users/staff?department=sales").then((res) => {
+      const list = res?.data || res || [];
+      setSalesStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});
   }, [isManager]);
 
@@ -86,8 +93,8 @@ export default function OperationsPage() {
     try {
       await api.put(`/operations/${opId}`, { assignedTo: staffId });
       fetchOperations();
-    } catch {
-      alert("Failed to assign operation");
+    } catch (err: any) {
+      alert(err?.message || "Failed to assign operation");
     }
   }
 
@@ -227,21 +234,21 @@ export default function OperationsPage() {
             )}
             <div className="w-px h-6 bg-slate-200 mx-1"></div>
 
-            {/* Assigned Staff Filter */}
+            {/* Assigned Ops Filter */}
             {isManager && staffList.length > 0 && (
               <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
                 assignedFilter !== "all"
-                  ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs"
+                  ? "bg-cyan-50 border-cyan-300 text-cyan-900 shadow-2xs"
                   : "bg-white border-slate-200 text-slate-700"
               }`}>
-                <User size={13} className={assignedFilter !== "all" ? "text-indigo-600" : "text-slate-400"} />
-                <span className="text-xs font-semibold">Assigned:</span>
+                <User size={13} className={assignedFilter !== "all" ? "text-cyan-600" : "text-slate-400"} />
+                <span className="text-xs font-semibold">Ops:</span>
                 <select
                   value={assignedFilter}
                   onChange={(e) => setAssignedFilter(e.target.value)}
                   className="bg-transparent border-none text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer"
                 >
-                  <option value="all">All Staff</option>
+                  <option value="all">All Ops</option>
                   {staffList.map((s) => (
                     <option key={s._id} value={s._id}>
                       {s.firstName} {s.lastName}
@@ -250,6 +257,35 @@ export default function OperationsPage() {
                 </select>
                 {assignedFilter !== "all" && (
                   <button onClick={() => setAssignedFilter("all")} className="text-slate-400 hover:text-slate-600">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Salesperson Filter */}
+            {isManager && salesStaffList.length > 0 && (
+              <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 border transition-colors ${
+                salespersonFilter !== "all"
+                  ? "bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs"
+                  : "bg-white border-slate-200 text-slate-700"
+              }`}>
+                <User size={13} className={salespersonFilter !== "all" ? "text-indigo-600" : "text-slate-400"} />
+                <span className="text-xs font-semibold">Sale:</span>
+                <select
+                  value={salespersonFilter}
+                  onChange={(e) => setSalespersonFilter(e.target.value)}
+                  className="bg-transparent border-none text-slate-800 text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="all">All Sales</option>
+                  {salesStaffList.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.firstName} {s.lastName}
+                    </option>
+                  ))}
+                </select>
+                {salespersonFilter !== "all" && (
+                  <button onClick={() => setSalespersonFilter("all")} className="text-slate-400 hover:text-slate-600">
                     <X size={12} />
                   </button>
                 )}

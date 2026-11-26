@@ -674,8 +674,8 @@ export default function OperationDetailPage() {
       const list = res?.data || res || [];
       setStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});
-    // Fetch all staff for Salesperson dropdown
-    api.get("/users/staff").then((res) => {
+    // Fetch sales staff for Salesperson dropdown
+    api.get("/users/staff?department=sales").then((res) => {
       const list = res?.data || res || [];
       setAllStaffList(Array.isArray(list) ? list : []);
     }).catch(() => {});
@@ -686,8 +686,8 @@ export default function OperationDetailPage() {
     try {
       await api.put(`/operations/${op._id}`, { assignedTo: staffId || null });
       fetchAll();
-    } catch (err) {
-      alert("Failed to assign operation");
+    } catch (err: any) {
+      alert(err?.message || "Failed to assign operation");
     }
   }
 
@@ -696,8 +696,8 @@ export default function OperationDetailPage() {
     try {
       await api.put(`/operations/${op._id}`, { salesperson: staffId || null });
       fetchAll();
-    } catch (err) {
-      alert("Failed to assign salesperson");
+    } catch (err: any) {
+      alert(err?.message || "Failed to assign salesperson");
     }
   }
 
