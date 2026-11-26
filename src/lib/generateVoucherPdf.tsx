@@ -888,18 +888,23 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                       if (dayTransfers.length === 0) return null;
 
                       dayTransfers.sort((a, b) => parseTimeToMinutes(a.departureTime) - parseTimeToMinutes(b.departureTime));
-                      const hasFlightOrTrain = dayTransfers.some((d) => d.type === "flight" || d.type === "train");
+                      const hasFlight = dayTransfers.some((d) => d.type === "flight");
+                      const hasTrain = dayTransfers.some((d) => d.type === "train");
                       const hasRoad = dayTransfers.some((d) => d.type !== "flight" && d.type !== "train");
-                      const sectionHeading = hasFlightOrTrain && hasRoad
-                        ? "FLIGHTS, TRAINS & TRANSFERS"
-                        : hasFlightOrTrain
-                          ? "FLIGHT & TRAIN TRANSITS"
-                          : "TRANSFERS & TRANSPORTATION";
+                      const sectionHeading =
+                        hasFlight && hasTrain
+                          ? (hasRoad ? "FLIGHTS, TRAINS & TRANSFERS" : "FLIGHTS & TRAINS")
+                          : hasFlight
+                            ? (hasRoad ? "FLIGHTS & TRANSFERS" : "FLIGHT TRANSITS")
+                            : hasTrain
+                              ? (hasRoad ? "TRAINS & TRANSFERS" : "TRAIN TRANSITS")
+                              : "TRANSFERS & TRANSPORTATION";
+                      const sectionIcon = hasFlight ? ICONS.flight : hasTrain ? ICONS.train : ICONS.bus;
 
                       return (
                         <View style={s.transferSection}>
                           <View style={s.transferHeaderRow}>
-                            <Icon d={hasFlightOrTrain ? ICONS.flight : ICONS.bus} color={C.cu} size={10} />
+                            <Icon d={sectionIcon} color={C.cu} size={10} />
                             <Text style={s.transferHeaderTitle}>{sectionHeading}</Text>
                           </View>
                           {dayTransfers.map((leg: any, li: number) => {

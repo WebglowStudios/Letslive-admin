@@ -2892,11 +2892,11 @@ export default function OperationDetailPage() {
                       });
                       let updatedTitle = prev.title || "";
                       if (newType === "train") {
-                        if (/^flight$/i.test(updatedTitle.trim())) updatedTitle = "";
-                        else if (/\bflight$/i.test(updatedTitle.trim())) updatedTitle = updatedTitle.trim().replace(/\s*flight$/i, " Train");
+                        if (/^flights?(\s+journey)?$/i.test(updatedTitle.trim())) updatedTitle = "";
+                        else if (/\bflights?\b/i.test(updatedTitle)) updatedTitle = updatedTitle.replace(/\bflights?\b/gi, "Train").replace(/\s+/g, " ").trim();
                       } else if (newType === "flight") {
-                        if (/^train(\s+journey)?$/i.test(updatedTitle.trim())) updatedTitle = "";
-                        else if (/\btrain$/i.test(updatedTitle.trim())) updatedTitle = updatedTitle.trim().replace(/\s*train$/i, " Flight");
+                        if (/^trains?(\s+journey)?$/i.test(updatedTitle.trim())) updatedTitle = "";
+                        else if (/\btrains?\b/i.test(updatedTitle)) updatedTitle = updatedTitle.replace(/\btrains?\b/gi, "Flight").replace(/\s+/g, " ").trim();
                       }
                       u[idx] = { ...prev, type: newType, title: updatedTitle, legs: updatedLegs };
                       setTransports(u);
