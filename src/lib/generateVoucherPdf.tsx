@@ -62,6 +62,7 @@ const getVehicleIcon = (type?: string) => {
 export interface VoucherData {
   operationId: string;
   destination: string;
+  travelDates?: { start?: string | Date; end?: string | Date };
   customerName: string;
   pax: number;
   adults?: number;
@@ -327,21 +328,92 @@ const s = StyleSheet.create({
 });
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+const IST_TZ = "Asia/Kolkata";
+
 const formatDateSafe = (d: any) => {
   if (!d) return "—";
   try {
     const date = new Date(d);
     if (isNaN(date.getTime())) return String(d);
-    
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    
-    return `${day}-${month}-${year}`;
+    const formatted = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone: IST_TZ,
+    }).format(date);
+    return formatted.replace(/\s+/g, "-");
   } catch {
     return String(d);
   }
+};
+
+const addDaysSafe = (start: any, deltaDays: number): Date | null => {
+  if (!start) return null;
+  const d = new Date(start);
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getTime() + deltaDays * 86400000);
+};
+
+const toIstDayEpoch = (val: any): number | null => {
+  if (!val) return null;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return null;
+  const shifted = new Date(d.getTime() + 5.5 * 3600000);
+  return Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+};
+
+const parseTimeToMinutes = (t?: string): number => {
+  if (!t) return 9999;
+  const m = String(t).trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (!m) return 9999;
+  let hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  const meridiem = (m[3] || "").toUpperCase();
+  if (meridiem === "PM" && hh < 12) hh += 12;
+  if (meridiem === "AM" && hh === 12) hh = 0;
+  return hh * 60 + mm;
+};
+
+const computeTransitDayNum = (item: any, travelStart: any, totalDays: number): number | null => {
+  if (typeof item?.day === "number" && item.day > 0) return item.day;
+  const str = String(item?.tripDay || "").trim();
+  const dayMatch = str.match(/\d+/);
+  if (dayMatch) return parseInt(dayMatch[0], 10);
+  if (str && /arrival|pickup/i.test(str)) return 1;
+  if (str && /departure|drop|return/i.test(str)) return totalDays || 1;
+
+  const legEpoch = toIstDayEpoch(item?.date);
+  const startEpoch = toIstDayEpoch(travelStart);
+  if (legEpoch !== null && startEpoch !== null) {
+    const rawDay = Math.round((legEpoch - startEpoch) / 86400000) + 1;
+    if (rawDay <= 0 && totalDays > 0) return 1;
+    if (rawDay > totalDays && totalDays > 0) return totalDays;
+    return rawDay >= 1 ? rawDay : null;
+  }
+  return null;
+};
+
+const sortTransitsChronologically = (items: any[], travelStart: any, totalDays: number): any[] => {
+  const startEpoch = toIstDayEpoch(travelStart);
+  return [...(items || [])]
+    .map((item, idx) => ({ item, idx }))
+    .sort((a, b) => {
+      const aEpoch = toIstDayEpoch(a.item?.date);
+      const bEpoch = toIstDayEpoch(b.item?.date);
+      const aDay = computeTransitDayNum(a.item, travelStart, totalDays);
+      const bDay = computeTransitDayNum(b.item, travelStart, totalDays);
+
+      const aPrimary = aEpoch !== null ? aEpoch : (startEpoch !== null && aDay ? startEpoch + (aDay - 1) * 86400000 : (aDay ? aDay : 9999999999999));
+      const bPrimary = bEpoch !== null ? bEpoch : (startEpoch !== null && bDay ? startEpoch + (bDay - 1) * 86400000 : (bDay ? bDay : 9999999999999));
+      if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+
+      const aMins = parseTimeToMinutes(a.item?.departure || a.item?.departureTime);
+      const bMins = parseTimeToMinutes(b.item?.departure || b.item?.departureTime);
+      if (aMins !== bMins) return aMins - bMins;
+
+      return a.idx - b.idx;
+    })
+    .map((x) => x.item);
 };
 
 const formatFlightRoute = (from?: string, to?: string, route?: string) => {
@@ -358,52 +430,97 @@ const formatFlightRoute = (from?: string, to?: string, route?: string) => {
 
 // ─── Document Component ─────────────────────────────────────────────────────
 const VoucherDocument = ({ data }: { data: VoucherData }) => {
-  const { operationId, destination, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, trainsIncluded, hideTrainInfo, flights, trains, accommodations, transports, itinerary, activities, transferSummary, travellersDetails } = data;
+  const { operationId, destination, travelDates, customerName, pax, adults, children, paymentStatus, totalAmount, paidAmount, isInternational, visaIncluded, flightsIncluded, trainsIncluded, hideTrainInfo, flights, trains, accommodations, transports, itinerary, activities, transferSummary, travellersDetails } = data;
+
+  const sortedItinerary = [...(itinerary || [])].sort((a: any, b: any) => (Number(a.day) || 0) - (Number(b.day) || 0));
+  const totalDays = sortedItinerary.length;
+  const sortedFlights = sortTransitsChronologically(flights || [], travelDates?.start, totalDays);
+  const sortedTrains = sortTransitsChronologically(trains || [], travelDates?.start, totalDays);
+  const sortedAccommodations = [...(accommodations || [])]
+    .map((acc, idx) => ({ acc, idx }))
+    .sort((a, b) => {
+      const aEpoch = toIstDayEpoch(a.acc?.checkIn);
+      const bEpoch = toIstDayEpoch(b.acc?.checkIn);
+      if (aEpoch !== null && bEpoch !== null && aEpoch !== bEpoch) return aEpoch - bEpoch;
+      if (aEpoch !== null && bEpoch === null) return -1;
+      if (aEpoch === null && bEpoch !== null) return 1;
+      const aDay = parseInt(String(a.acc?.tripDay || "").match(/\d+/)?.[0] || "999", 10);
+      const bDay = parseInt(String(b.acc?.tripDay || "").match(/\d+/)?.[0] || "999", 10);
+      if (aDay !== bDay) return aDay - bDay;
+      return a.idx - b.idx;
+    })
+    .map((x) => x.acc);
 
   const transfersByDay: Record<number | string, any[]> = {};
-  
-  // Transfers from transports (flights/trains/cabs)
+
+  const pushDayTransfer = (dayKey: number | string, entry: any) => {
+    if (!transfersByDay[dayKey]) transfersByDay[dayKey] = [];
+    transfersByDay[dayKey].push(entry);
+  };
+
+  // Road / local transports from operation transports
   transports?.forEach((t: any) => {
     (t.legs || []).forEach((leg: any) => {
-      const str = String(leg.tripDay || '').trim();
-      const dayMatch = str.match(/\d+/);
-      let dayNum = dayMatch ? parseInt(dayMatch[0], 10) : null;
-
-      // Handle common textual days like "Arrival", "Pickup", "Departure", "Drop"
-      if (dayNum === null && str) {
-        if (/arrival|pickup/i.test(str)) {
-          dayNum = 1;
-        } else if (/departure|drop|return/i.test(str)) {
-          dayNum = itinerary?.length || 1;
-        }
-      }
+      const str = String(leg.tripDay || "").trim();
+      const dayNum = computeTransitDayNum(leg, travelDates?.start, totalDays);
 
       // If no tripDay specified but has driver or vehicle details, assign to Day 1 so driver details are visible
-      if (dayNum === null && !str && (leg.driverName || leg.driverContact || leg.vehicleNumber)) {
-        dayNum = 1;
-      }
+      const resolvedDay = dayNum === null && !str && (leg.driverName || leg.driverContact || leg.vehicleNumber) ? 1 : dayNum;
 
-      if (dayNum !== null) {
-        if (!transfersByDay[dayNum]) transfersByDay[dayNum] = [];
-        transfersByDay[dayNum].push({ ...leg, type: t.type, title: t.title });
-      }
-      if (str) {
-        if (!transfersByDay[str]) transfersByDay[str] = [];
-        if (dayNum === null) {
-          transfersByDay[str].push({ ...leg, type: t.type, title: t.title });
-        }
+      if (resolvedDay !== null) {
+        pushDayTransfer(resolvedDay, { ...leg, type: t.type, title: t.title });
+      } else if (str) {
+        pushDayTransfer(str, { ...leg, type: t.type, title: t.title });
       }
     });
   });
 
+  // Flights & Trains arranged inside their respective itinerary days (in addition to overview tables)
+  sortedFlights.forEach((f: any) => {
+    const dayNum = computeTransitDayNum(f, travelDates?.start, totalDays);
+    if (dayNum !== null) {
+      const titleParts = [f.airline || "Flight", f.flightNumber || f.flightNo].filter(Boolean);
+      pushDayTransfer(dayNum, {
+        title: titleParts.join(" · "),
+        from: f.from,
+        to: f.to,
+        vehicleType: f.flightNumber || f.flightNo ? `Flight ${f.flightNumber || f.flightNo}` : "Flight",
+        departureTime: f.departure || f.departureTime,
+        arrivalTime: f.arrival || f.arrivalTime,
+        pnr: f.pnr,
+        notes: f.notes || (f.class ? `Class: ${f.class}` : ""),
+        type: "flight",
+      });
+    }
+  });
+
+  if (!hideTrainInfo) {
+    sortedTrains.forEach((f: any) => {
+      const dayNum = computeTransitDayNum(f, travelDates?.start, totalDays);
+      if (dayNum !== null) {
+        const titleParts = [f.airline || "Train", f.flightNumber || f.flightNo].filter(Boolean);
+        pushDayTransfer(dayNum, {
+          title: titleParts.join(" · "),
+          from: f.from,
+          to: f.to,
+          vehicleType: f.flightNumber || f.flightNo ? `Train ${f.flightNumber || f.flightNo}` : "Train",
+          departureTime: f.departure || f.departureTime,
+          arrivalTime: f.arrival || f.arrivalTime,
+          pnr: f.pnr,
+          notes: f.notes || (f.class ? `Class: ${f.class}` : ""),
+          type: "train",
+        });
+      }
+    });
+  }
+
   // Road transfers from activities (itinerary days)
   activities?.forEach((a: any, idx: number) => {
-    const dayMatch = String(a.tripDay || '').match(/\d+/);
+    const dayMatch = String(a.tripDay || "").match(/\d+/);
     const dayNum = dayMatch ? parseInt(dayMatch[0], 10) : (idx + 1);
 
     (a.transfers || []).forEach((tr: any) => {
-      if (!transfersByDay[dayNum]) transfersByDay[dayNum] = [];
-      transfersByDay[dayNum].push({
+      pushDayTransfer(dayNum, {
         from: tr.from,
         to: tr.to,
         title: tr.title,
@@ -414,7 +531,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         driverContact: tr.driverContact,
         vehicleNumber: tr.vehicleNumber,
         notes: tr.notes,
-        type: 'road',
+        type: "road",
       });
     });
   });
@@ -508,6 +625,22 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                 <Text style={s.cardValue}>{operationId}</Text>
               </View>
             </View>
+
+            {travelDates?.start && (
+              <>
+                <View style={[s.cardDivider, { marginTop: 14, marginBottom: 12 }]} />
+                <View style={s.cardRow}>
+                  <View style={s.cardCol}>
+                    <Text style={s.cardLabel}>TRAVEL DATES</Text>
+                    <Text style={[s.cardValue, { color: C.gn2 }]}>
+                      {travelDates.end && formatDateSafe(travelDates.end) !== formatDateSafe(travelDates.start)
+                        ? `${formatDateSafe(travelDates.start)}  to  ${formatDateSafe(travelDates.end)}`
+                        : formatDateSafe(travelDates.start)}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
             
             {/* Payment Status Row */}
             {totalAmount !== undefined && (
@@ -577,7 +710,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         )}
 
         {/* FLIGHT SCHEDULE */}
-        {flights.length > 0 && (
+        {sortedFlights.length > 0 && (
           <View style={s.sectionWrapper} wrap={false}>
             <View style={s.sectionHeader}>
               <Icon d={ICONS.flight} color={C.gn3} size={14} />
@@ -593,12 +726,12 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                 <Text style={[s.th, { width: "8%", textAlign: "center", paddingRight: 0 }]}>DEP.</Text>
                 <Text style={[s.th, { width: "8%", textAlign: "center", paddingRight: 0 }]}>ARR.</Text>
               </View>
-              {[...flights].sort((a: any, b: any) => (a.day || 999) - (b.day || 999)).map((f, i) => (
+              {sortedFlights.map((f, i) => (
                 <View style={s.tableRow} key={i}>
                   <Text style={[s.td, { width: "16%", fontFamily: "Helvetica-Bold" }]}>{f.airline || f.name || "\u2014"}</Text>
                   <Text style={[s.td, { width: "11%", textAlign: "center" }]}>{f.flightNumber || f.flightNo || "\u2014"}</Text>
                   <Text style={[s.td, { width: "12%", textAlign: "center", fontFamily: "Helvetica-Bold", color: C.gn3 }]}>{f.pnr || "\u2014"}</Text>
-                  <Text style={[s.td, { width: "14%" }]}>{formatDateSafe(f.date)}</Text>
+                  <Text style={[s.td, { width: "14%" }]}>{f.date ? formatDateSafe(f.date) : (f.day ? `Day ${f.day}` : "\u2014")}</Text>
                   <Text style={[s.td, { width: "31%" }]}>{formatFlightRoute(f.from, f.to, f.route)}</Text>
                   <Text style={[s.td, { width: "8%", textAlign: "center", paddingRight: 0 }]}>{f.departure || f.departureTime || "\u2014"}</Text>
                   <Text style={[s.td, { width: "8%", textAlign: "center", paddingRight: 0 }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
@@ -609,7 +742,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         )}
 
         {/* TRAIN SCHEDULE */}
-        {!hideTrainInfo && trains && trains.length > 0 && (
+        {!hideTrainInfo && sortedTrains.length > 0 && (
           <View style={s.sectionWrapper} wrap={false}>
             <View style={s.sectionHeader}>
               <Icon d={ICONS.train} color={C.cu} size={14} />
@@ -625,12 +758,12 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                 <Text style={[s.th, { width: "8%", textAlign: "center", paddingRight: 0 }]}>DEP.</Text>
                 <Text style={[s.th, { width: "8%", textAlign: "center", paddingRight: 0 }]}>ARR.</Text>
               </View>
-              {trains.map((f, i) => (
+              {sortedTrains.map((f, i) => (
                 <View style={s.tableRow} key={i}>
                   <Text style={[s.td, { width: "16%", fontFamily: "Helvetica-Bold" }]}>{f.airline || f.name || "\u2014"}</Text>
                   <Text style={[s.td, { width: "11%", textAlign: "center" }]}>{f.flightNumber || f.flightNo || "\u2014"}</Text>
                   <Text style={[s.td, { width: "12%", textAlign: "center", fontFamily: "Helvetica-Bold", color: C.cu }]}>{f.pnr || "\u2014"}</Text>
-                  <Text style={[s.td, { width: "14%" }]}>{formatDateSafe(f.date)}</Text>
+                  <Text style={[s.td, { width: "14%" }]}>{f.date ? formatDateSafe(f.date) : (f.day ? `Day ${f.day}` : "\u2014")}</Text>
                   <Text style={[s.td, { width: "31%" }]}>{formatFlightRoute(f.from, f.to, f.route)}</Text>
                   <Text style={[s.td, { width: "8%", textAlign: "center", paddingRight: 0 }]}>{f.departure || f.departureTime || "\u2014"}</Text>
                   <Text style={[s.td, { width: "8%", textAlign: "center", paddingRight: 0 }]}>{f.arrival || f.arrivalTime || "\u2014"}</Text>
@@ -641,12 +774,12 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
         )}
 
         {/* ACCOMMODATION DETAILS */}
-        {accommodations.length > 0 && (() => {
+        {sortedAccommodations.length > 0 && (() => {
           // Group same-hotel entries (same name + same check-in/out) into one row
           // so "2x Superior + 3x Deluxe at Pullman Phu Quoc" shows as a single line.
           type AccGroup = { area: string; name: string; roomCategories: string[]; confirmationNumber: string; mealPlan: string; checkIn: any; checkOut: any };
           const grouped: AccGroup[] = [];
-          for (const a of accommodations) {
+          for (const a of sortedAccommodations) {
             // Group any entries with matching hotel name AND matching dates
             const existing = grouped.find(
               g =>
@@ -706,20 +839,23 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
 
 
         {/* DAY-WISE ITINERARY */}
-        {itinerary && itinerary.length > 0 && (
+        {sortedItinerary.length > 0 && (
           <View style={s.sectionWrapper}>
             <View style={s.sectionHeader}>
               <Icon d={ICONS.calendar} color={C.gn3} size={14} />
               <Text style={s.sectionTitle}>DAY-WISE ITINERARY</Text>
             </View>
             <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 16 }}>
-              {[...itinerary].sort((a: any, b: any) => (a.day || 0) - (b.day || 0)).map((day, i) => (
+              {sortedItinerary.map((day, i) => {
+                const dayDateObj = travelDates?.start ? addDaysSafe(travelDates.start, (Number(day.day) || (i + 1)) - 1) : null;
+                const dayDateLabel = dayDateObj ? formatDateSafe(dayDateObj) : null;
+                return (
                 <View style={s.dayBlock} key={i} wrap={false}>
                   <View style={s.dayLine} />
                   <View style={s.dayContent}>
                     <View style={s.dayHeader}>
                       <Text style={s.dayTitle}>
-                        DAY {day.day}: {day.title}
+                        DAY {day.day}: {day.title}{dayDateLabel ? ` (${dayDateLabel})` : ""}
                       </Text>
                       {day.meals && day.meals.length > 0 && (
                         <View style={s.mealBadge}>
@@ -729,14 +865,14 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                       )}
                     </View>
                     <Text style={s.dayDesc}>{day.description}</Text>
-                    {/* Transfers for this day - Upgraded Card Layout */}
+                    {/* Flights, Trains & Transfers for this day */}
                     {(() => {
                       const dayTransfers: any[] = [];
                       const seen = new Set<string>();
 
                       const addIfUnique = (leg: any) => {
                         if (!leg) return;
-                        const key = `${leg.title || ''}-${leg.from || ''}-${leg.to || ''}-${leg.departureTime || ''}-${leg.pnr || ''}-${leg.vehicleNumber || ''}-${leg.driverName || ''}-${leg.driverContact || ''}`;
+                        const key = `${leg.type || ''}-${leg.title || ''}-${leg.from || ''}-${leg.to || ''}-${leg.departureTime || ''}-${leg.pnr || ''}-${leg.vehicleNumber || ''}-${leg.driverName || ''}-${leg.driverContact || ''}`;
                         if (!seen.has(key)) {
                           seen.add(key);
                           dayTransfers.push(leg);
@@ -750,11 +886,21 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                       }
 
                       if (dayTransfers.length === 0) return null;
+
+                      dayTransfers.sort((a, b) => parseTimeToMinutes(a.departureTime) - parseTimeToMinutes(b.departureTime));
+                      const hasFlightOrTrain = dayTransfers.some((d) => d.type === "flight" || d.type === "train");
+                      const hasRoad = dayTransfers.some((d) => d.type !== "flight" && d.type !== "train");
+                      const sectionHeading = hasFlightOrTrain && hasRoad
+                        ? "FLIGHTS, TRAINS & TRANSFERS"
+                        : hasFlightOrTrain
+                          ? "FLIGHT & TRAIN TRANSITS"
+                          : "TRANSFERS & TRANSPORTATION";
+
                       return (
                         <View style={s.transferSection}>
                           <View style={s.transferHeaderRow}>
-                            <Icon d={ICONS.bus} color={C.cu} size={10} />
-                            <Text style={s.transferHeaderTitle}>TRANSFERS & TRANSPORTATION</Text>
+                            <Icon d={hasFlightOrTrain ? ICONS.flight : ICONS.bus} color={C.cu} size={10} />
+                            <Text style={s.transferHeaderTitle}>{sectionHeading}</Text>
                           </View>
                           {dayTransfers.map((leg: any, li: number) => {
                             const iconData = getVehicleIcon(leg.transferType || leg.vehicleType || leg.type);
@@ -860,7 +1006,8 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
                     })()}
                   </View>
                 </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         )}
@@ -875,7 +1022,7 @@ const VoucherDocument = ({ data }: { data: VoucherData }) => {
             <View style={{ marginBottom: 12, padding: 12, backgroundColor: C.iv, borderLeftWidth: 3, borderLeftColor: C.cu, borderRadius: 4 }}>
               {data.dateChangeHistory.map((h, i) => (
                 <Text key={i} style={{ fontSize: 9, color: C.ink, marginBottom: 4 }}>
-                  <Text style={{ fontFamily: "Helvetica-Bold" }}>Travel date changed</Text> from {new Date(h.oldDate).toLocaleDateString()} to {new Date(h.newDate).toLocaleDateString()}.
+                  <Text style={{ fontFamily: "Helvetica-Bold" }}>Travel date changed</Text> from {formatDateSafe(h.oldDate)} to {formatDateSafe(h.newDate)}.
                   {"\n"}Reason: <Text style={{ fontStyle: "italic", color: C.ink3 }}>{h.reason}</Text>
                 </Text>
               ))}

@@ -1301,45 +1301,86 @@ export default function OperationDetailPage() {
         }).sort((a, b) => a.day - b.day);
       }
 
-      let pdfFlights: any[] = transports
-        .filter(t => t.type === 'flight')
-        .flatMap(t => t.legs.map(leg => ({
-          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('transfer') && !t.title.toLowerCase().includes('group') && !t.title.toLowerCase().includes('train') ? t.title.replace(/\s*flight$/i, '').trim() : "") || "Flight",
+      const bkg = op?.booking || (op?.bookings && op.bookings[0]) || null;
+      const tripStartDate = op?.travelDates?.start || bkg?.travelDate;
+      const tripEndDate = op?.travelDates?.end || bkg?.returnDate;
+
+      const parseVoucherDay = (tripDayStr?: string, itemDate?: Date | string): number | undefined => {
+        const str = String(tripDayStr || "").trim();
+        const m = str.match(/\d+/);
+        if (m) return parseInt(m[0], 10);
+        if (str && /arrival|pickup/i.test(str)) return 1;
+        if (str && /departure|drop|return/i.test(str)) return itinerary?.length || undefined;
+        if (itemDate && tripStartDate) {
+          const startD = new Date(tripStartDate);
+          const legD = new Date(itemDate);
+          if (!isNaN(startD.getTime()) && !isNaN(legD.getTime())) {
+            const IST = 5.5 * 3600000;
+            const sShift = new Date(startD.getTime() + IST);
+            const lShift = new Date(legD.getTime() + IST);
+            const sUtc = Date.UTC(sShift.getUTCFullYear(), sShift.getUTCMonth(), sShift.getUTCDate());
+            const lUtc = Date.UTC(lShift.getUTCFullYear(), lShift.getUTCMonth(), lShift.getUTCDate());
+            return Math.round((lUtc - sUtc) / 86400000) + 1;
+          }
+        }
+        return undefined;
+      };
+
+      const resolveVoucherLegDate = (explicitDate?: Date | string, dayNum?: number): Date | string | undefined => {
+        if (explicitDate) return explicitDate;
+        if (tripStartDate && dayNum && dayNum >= 1) {
+          const d = new Date(tripStartDate);
+          if (!isNaN(d.getTime())) {
+            d.setDate(d.getDate() + (dayNum - 1));
+            return d.toISOString();
+          }
+        }
+        return dayNum ? `Day ${dayNum}` : undefined;
+      };
+
+      const mapVoucherLeg = (t: any, leg: any, fallbackLabel: string) => {
+        const dayNum = parseVoucherDay(leg.tripDay, leg.date);
+        return {
+          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes("transfer") && !t.title.toLowerCase().includes("group") && !t.title.toLowerCase().includes(fallbackLabel === "Flight" ? "train" : "flight") ? (fallbackLabel === "Flight" ? t.title.replace(/\s*flight$/i, "").trim() : t.title) : "") || fallbackLabel,
           flightNumber: leg.flightNumber || (t as any).flightNumber || "",
           pnr: leg.pnr || (t as any).pnr || "",
-          date: leg.date,
+          day: dayNum,
+          tripDay: leg.tripDay || (dayNum ? `Day ${dayNum}` : ""),
+          date: resolveVoucherLegDate(leg.date, dayNum),
           from: leg.from,
           to: leg.to,
           departure: leg.departureTime,
           arrival: leg.arrivalTime,
-        })));
+          title: t.title || "",
+          notes: leg.notes || "",
+        };
+      };
+
+      let pdfFlights: any[] = transports
+        .filter(t => t.type === 'flight')
+        .flatMap(t => t.legs.map(leg => mapVoucherLeg(t, leg, "Flight")));
 
       let pdfTrains: any[] = transports
         .filter(t => t.type === 'train')
-        .flatMap(t => t.legs.map(leg => ({
-          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('group') && !t.title.toLowerCase().includes('flight') ? t.title : "") || "Railway",
-          flightNumber: leg.flightNumber || (t as any).flightNumber || "",
-          pnr: leg.pnr || (t as any).pnr || "",
-          date: leg.date,
-          from: leg.from,
-          to: leg.to,
-          departure: leg.departureTime,
-          arrival: leg.arrivalTime,
-        })));
+        .flatMap(t => t.legs.map(leg => mapVoucherLeg(t, leg, "Railway")));
 
       // Fallback: If no flights/trains imported into transports yet, use package flights from custom itinerary
       if (pdfFlights.length === 0 && pdfTrains.length === 0) {
         const pkgFlights = (op?.package?.flights || op?.booking?.package?.flights || []);
-        pkgFlights.filter((f: any) => f && (f.airline || f.from || f.to)).forEach((f: any) => {
+        pkgFlights.filter((f: any) => f && (f.airline || f.from || f.to || f.flightNumber || f.flightNo)).forEach((f: any) => {
+          const dayNum = f.day ? Number(f.day) : undefined;
           const entry = {
             airline: f.airline || (f.type === "train" ? "Railway" : "Flight"),
             flightNumber: f.flightNumber || f.flightNo || "",
             pnr: f.pnr || "",
-            date: f.day ? `Day ${f.day}` : undefined,
+            day: dayNum,
+            tripDay: dayNum ? `Day ${dayNum}` : "",
+            date: resolveVoucherLegDate(undefined, dayNum),
             from: f.from,
             to: f.to,
             departure: f.departure,
             arrival: f.arrival,
+            notes: [f.class ? `Class: ${f.class}` : "", f.notes || ""].filter(Boolean).join(" · "),
           };
           if (f.type === "train") {
             pdfTrains.push(entry);
@@ -1357,7 +1398,6 @@ export default function OperationDetailPage() {
         ? op.customer 
         : (op?.customers && op.customers.length > 0 && op.customers[0]?.name ? op.customers[0] : null);
 
-      const bkg = op?.booking || (op?.bookings && op.bookings[0]) || null;
       const bkgPrimary = bkg?.primaryTraveller;
       const primaryName = bkgPrimary?.firstName ? `${bkgPrimary.firstName} ${bkgPrimary.lastName || ""}`.trim() : "";
       const firstTravellerName = (bkg?.travellersDetails && bkg.travellersDetails[0]?.name) || "";
@@ -1390,18 +1430,19 @@ export default function OperationDetailPage() {
       await generateVoucherPdf({
         operationId: op?.operationId || "",
         destination: op?.destination || "",
+        travelDates: tripStartDate ? { start: tripStartDate, end: tripEndDate } : undefined,
         customerName: voucherCustomerName,
         pax: voucherPax,
         adults: voucherAdults,
         children: voucherChildren,
-        paymentStatus: op?.booking?.paymentStatus || "pending",
-        totalAmount: op?.booking?.totalAmount,
-        paidAmount: op?.booking?.paidAmount,
-        isInternational: op?.package?.isInternational !== undefined ? op?.package?.isInternational : op?.booking?.package?.isInternational,
-        visaIncluded: op?.package?.visaIncluded !== undefined ? op?.package?.visaIncluded : op?.booking?.package?.visaIncluded,
-        flightsIncluded: op?.package?.flightsIncluded !== undefined ? op?.package?.flightsIncluded : op?.booking?.package?.flightsIncluded,
-        trainsIncluded: op?.package?.trainsIncluded !== undefined ? op?.package?.trainsIncluded : op?.booking?.package?.trainsIncluded,
-        hideTrainInfo: op?.package?.hideTrainInfo !== undefined ? op?.package?.hideTrainInfo : op?.booking?.package?.hideTrainInfo,
+        paymentStatus: bkg?.paymentStatus || "pending",
+        totalAmount: bkg?.totalAmount,
+        paidAmount: bkg?.paidAmount,
+        isInternational: op?.package?.isInternational !== undefined ? op?.package?.isInternational : bkg?.package?.isInternational,
+        visaIncluded: op?.package?.visaIncluded !== undefined ? op?.package?.visaIncluded : bkg?.package?.visaIncluded,
+        flightsIncluded: op?.package?.flightsIncluded !== undefined ? op?.package?.flightsIncluded : bkg?.package?.flightsIncluded,
+        trainsIncluded: op?.package?.trainsIncluded !== undefined ? op?.package?.trainsIncluded : bkg?.package?.trainsIncluded,
+        hideTrainInfo: op?.package?.hideTrainInfo !== undefined ? op?.package?.hideTrainInfo : bkg?.package?.hideTrainInfo,
         flights: pdfFlights,
         trains: pdfTrains,
         accommodations: accommodations,
@@ -1409,9 +1450,9 @@ export default function OperationDetailPage() {
         itinerary,
         activities: activities,
         transferSummary,
-        packageSlug: op?.package?.slug || "",
+        packageSlug: op?.package?.slug || bkg?.package?.slug || "",
         hasPolicies,
-        dateChangeHistory: op?.booking?.dateChangeHistory,
+        dateChangeHistory: bkg?.dateChangeHistory,
         travellersDetails: bkgDetails,
       });
 
