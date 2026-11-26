@@ -2411,7 +2411,7 @@ export default function OperationDetailPage() {
             <p className="text-sm font-semibold text-slate-700">{transports.length} Flight & Train Service(s)</p>
             <div className="flex gap-2">
               {op.package && transports.length > 0 && <button onClick={importFromItinerary} disabled={importing} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 disabled:opacity-50"><Wand2 size={14} /> {importing ? "..." : "Re-import"}</button>}
-              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "flight", title: "", vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "Flight", notes: "" }] }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Flight / Train</button>
+              <button onClick={async () => { await api.post(`/operations/${id}/transports`, { type: "flight", title: "", airline: "", flightNumber: "", pnr: "", vendorName: "", vendorContact: "", vendorEmail: "", vendorCost: 0, sellingPrice: 0, paymentStatus: "pending", remarks: "", legs: [{ from: "", to: "", date: "", tripDay: "", vehicleType: "Flight", airline: "", flightNumber: "", pnr: "", departureTime: "", arrivalTime: "", notes: "" }] }); fetchAll(); }} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Flight / Train</button>
             </div>
           </div>
 
@@ -2535,7 +2535,7 @@ export default function OperationDetailPage() {
                             }}
                             vendors={vendorList}
                             filterType="flight"
-                            placeholder="e.g. IndiGo, Ravi Travels..."
+                            placeholder="e.g. IRCTC, MakeMyTrip, TBO, Ravi Travels..."
                           />
                         </div>
                         <div>
@@ -2709,7 +2709,7 @@ export default function OperationDetailPage() {
                                 />
                               </div>
                               <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
                             </>
                           )}
                           {(t.type === "road" || t.type === "other") && (
