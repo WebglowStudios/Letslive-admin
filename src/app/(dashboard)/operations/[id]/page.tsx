@@ -1056,7 +1056,7 @@ export default function OperationDetailPage() {
       let pdfFlights: any[] = transports
         .filter(t => t.type === 'flight')
         .flatMap(t => t.legs.map(leg => ({
-          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('transfer') && !t.title.toLowerCase().includes('group') ? t.title.replace(/\s*flight$/i, '') : "") || "Flight",
+          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('transfer') && !t.title.toLowerCase().includes('group') && !t.title.toLowerCase().includes('train') ? t.title.replace(/\s*flight$/i, '').trim() : "") || "Flight",
           flightNumber: leg.flightNumber || (t as any).flightNumber || "",
           pnr: leg.pnr || (t as any).pnr || "",
           date: leg.date,
@@ -1069,7 +1069,7 @@ export default function OperationDetailPage() {
       let pdfTrains: any[] = transports
         .filter(t => t.type === 'train')
         .flatMap(t => t.legs.map(leg => ({
-          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('group') ? t.title : "") || "Railway",
+          airline: leg.airline || (t as any).airline || (t.title && !t.title.toLowerCase().includes('group') && !t.title.toLowerCase().includes('flight') ? t.title : "") || "Railway",
           flightNumber: leg.flightNumber || (t as any).flightNumber || "",
           pnr: leg.pnr || (t as any).pnr || "",
           date: leg.date,
@@ -1365,7 +1365,12 @@ export default function OperationDetailPage() {
   const getPaidVal = (p: any) => (p.paidAmount !== undefined && p.paidAmount !== null && p.paidAmount > 0) ? p.paidAmount : (p.status === 'paid' ? (p.amount || 0) : 0);
 
   // Categorized payments filter helpers
-  const isFlightPayment = (p: any) => p.category === 'flight' || ((!p.category || p.category === 'all') && (p.milestone || '').toLowerCase().includes('flight'));
+  const isFlightPayment = (p: any) => p.category === 'flight' || ((!p.category || p.category === 'all') && ((p.milestone || '').toLowerCase().includes('flight') || (p.milestone || '').toLowerCase().includes('train')));
+  const hasTrainTransports = transports.some((t) => t.type === 'train') || Boolean(pkgData?.trainsIncluded);
+  const hasFlightTransports = transports.some((t) => t.type === 'flight') || Boolean(pkgData?.flightsIncluded);
+  const isTrainOnlyTransport = hasTrainTransports && !hasFlightTransports;
+  const transportTerm = isTrainOnlyTransport ? "Train" : hasTrainTransports ? "Flight / Train" : "Flight";
+  const transportEmoji = isTrainOnlyTransport ? "🚆" : "✈️";
   const isHotelPayment = (p: any) => p.category === 'hotel' || ((!p.category || p.category === 'all') && (p.milestone || '').toLowerCase().includes('hotel'));
   const isLandPayment = (p: any) => p.category === 'land' || ((!p.category || p.category === 'all') && (p.milestone || '').toLowerCase().includes('land'));
   const isVisaPayment = (p: any) => p.category === 'visa' || ((!p.category || p.category === 'all') && (p.milestone || '').toLowerCase().includes('visa'));
@@ -1851,7 +1856,7 @@ export default function OperationDetailPage() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Separation</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-                      <p className="text-[10px] text-slate-500 flex items-center gap-1 font-medium"><span>✈️</span> Flight Charge</p>
+                      <p className="text-[10px] text-slate-500 flex items-center gap-1 font-medium"><span>{transportEmoji}</span> {transportTerm} Charge</p>
                       <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(flightBilled)}</p>
                       <p className={`text-[10px] font-semibold mt-0.5 ${flightPaid >= flightBilled && flightBilled > 0 ? "text-emerald-600" : "text-amber-600"}`}>
                         Paid: {formatCurrency(flightPaid)}
@@ -2341,13 +2346,13 @@ export default function OperationDetailPage() {
               : "bg-red-50 border-red-200"
           }`}>
             <div className="flex items-center gap-3">
-              <span className="text-2xl">✈️</span>
+              <span className="text-2xl">{transportEmoji}</span>
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  Flight Charges & Payment Status (Customer)
+                  {transportTerm} Charges & Payment Status (Customer)
                 </p>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Customer Flight Charge: <strong className="text-slate-900 font-semibold">{formatCurrency(flightBilled)}</strong>
+                  Customer {transportTerm} Charge: <strong className="text-slate-900 font-semibold">{formatCurrency(flightBilled)}</strong>
                   {" · "}
                   Customer Paid: <strong className={flightPaid >= flightBilled && flightBilled > 0 ? "text-emerald-700 font-bold" : "text-amber-700 font-bold"}>{formatCurrency(flightPaid)}</strong>
                   {" · "}
@@ -2359,16 +2364,16 @@ export default function OperationDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const val = prompt("Update Quoted Flight Price (₹):", String(flightBilled));
+                  const val = prompt(`Update Quoted ${transportTerm} Price (₹):`, String(flightBilled));
                   if (val !== null && val.trim() !== "" && !isNaN(Number(val))) {
                     handleSyncPricing({ component: "flight", price: Number(val) });
                   }
                 }}
                 className="px-2.5 py-1 bg-white border border-sky-300 hover:bg-sky-50 text-sky-800 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
-                title="Edit Quoted Flight Price"
+                title={`Edit Quoted ${transportTerm} Price`}
               >
                 <Edit2 size={12} />
-                <span>✏️ Quoted Flight: {formatCurrency(flightBilled)}</span>
+                <span>✏️ Quoted {transportTerm}: {formatCurrency(flightBilled)}</span>
               </button>
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                 flightBilled === 0
@@ -2380,12 +2385,12 @@ export default function OperationDetailPage() {
                   : "bg-red-100 text-red-800 border border-red-300"
               }`}>
                 {flightBilled === 0
-                  ? "No Flight Charge"
+                  ? `No ${transportTerm} Charge`
                   : flightPaid >= flightBilled
-                  ? "✓ Flight Fully Paid (Ready to Ticket)"
+                  ? `✓ ${transportTerm} Fully Paid (Ready to Ticket)`
                   : flightPaid > 0
                   ? "⚠️ Partially Paid"
-                  : "⚠️ Flight Payment Pending — Do Not Ticket Yet"}
+                  : `⚠️ ${transportTerm} Payment Pending — Do Not Ticket Yet`}
               </span>
             </div>
           </div>
@@ -2467,7 +2472,27 @@ export default function OperationDetailPage() {
                       }} className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" />
                     )}
                     <span className="text-xs font-bold text-cyan-700">#{idx + 1}</span>
-                    <select value={t.type || "other"} onChange={(e) => { const u = [...transports]; u[idx] = { ...u[idx], type: e.target.value }; setTransports(u); }} className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer p-0">
+                    <select value={t.type || "other"} onChange={(e) => {
+                      const newType = e.target.value;
+                      const u = [...transports];
+                      const prev = u[idx];
+                      const updatedLegs = (prev.legs || []).map((leg: any) => {
+                        const vt = (leg.vehicleType || "").trim().toLowerCase();
+                        if (newType === "train" && (!vt || vt === "flight")) return { ...leg, vehicleType: "Train" };
+                        if (newType === "flight" && (!vt || vt === "train")) return { ...leg, vehicleType: "Flight" };
+                        return leg;
+                      });
+                      let updatedTitle = prev.title || "";
+                      if (newType === "train") {
+                        if (/^flight$/i.test(updatedTitle.trim())) updatedTitle = "";
+                        else if (/\bflight$/i.test(updatedTitle.trim())) updatedTitle = updatedTitle.trim().replace(/\s*flight$/i, " Train");
+                      } else if (newType === "flight") {
+                        if (/^train(\s+journey)?$/i.test(updatedTitle.trim())) updatedTitle = "";
+                        else if (/\btrain$/i.test(updatedTitle.trim())) updatedTitle = updatedTitle.trim().replace(/\s*train$/i, " Flight");
+                      }
+                      u[idx] = { ...prev, type: newType, title: updatedTitle, legs: updatedLegs };
+                      setTransports(u);
+                    }} className="text-xs font-bold text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer p-0">
                       {TRANSPORT_TYPES.map(tt => <option key={tt.v} value={tt.v}>{tt.l} Group</option>)}
                     </select>
                     {t.isUrgent && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">URGENT</span>}
@@ -4520,16 +4545,16 @@ export default function OperationDetailPage() {
                   type="button"
                   onClick={async () => {
                     await api.post(`/operations/${id}/customer-payments`, {
-                      milestone: "Flight Ticket Payment",
+                      milestone: `${transportTerm} Ticket Payment`,
                       category: "flight",
                       amount: Math.max(0, netFlightPending),
                     });
                     fetchAll();
                   }}
                   className="px-2.5 py-1 bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 rounded text-[11px] font-bold transition flex items-center gap-1"
-                  title="Add payment installment specifically for flights"
+                  title={`Add payment installment specifically for ${transportTerm.toLowerCase()}s`}
                 >
-                  <span>+ ✈️ Flight</span>
+                  <span>+ {transportEmoji} {transportTerm}</span>
                 </button>
                 {isMergedHotelLand ? (
                   <button
@@ -4943,7 +4968,7 @@ export default function OperationDetailPage() {
 
               const renderPaymentCard = (p: any, idx: number) => (
               <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.category === "flight" && <span className="ml-1 bg-sky-100 text-sky-800 border border-sky-200 px-1.5 py-0.5 rounded text-[9px] font-bold">✈️ FLIGHT</span>}{p.category === "hotel" && <span className="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏨 HOTEL</span>}{p.category === "land" && <span className="ml-1 bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🚗 LAND</span>}{p.category === "visa" && <span className="ml-1 bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛂 VISA</span>}{p.category === "insurance" && <span className="ml-1 bg-teal-100 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛡️ INSURANCE</span>}{p.category === "misc" && <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏷️ MISC</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}{(p as any).splitFrom&&<span className="ml-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[9px]">SPLIT</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => {
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.category === "flight" && (() => { const mLower = (p.milestone || "").toLowerCase(); const badgeIsTrain = mLower.includes("train") || (isTrainOnlyTransport && !mLower.includes("flight")); return <span className={`ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${badgeIsTrain ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-sky-100 text-sky-800 border-sky-200"}`}>{badgeIsTrain ? "🚆 TRAIN" : hasTrainTransports && !mLower.includes("flight") ? "✈️🚆 FLIGHT / TRAIN" : "✈️ FLIGHT"}</span>; })()}{p.category === "hotel" && <span className="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏨 HOTEL</span>}{p.category === "land" && <span className="ml-1 bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🚗 LAND</span>}{p.category === "visa" && <span className="ml-1 bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛂 VISA</span>}{p.category === "insurance" && <span className="ml-1 bg-teal-100 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛡️ INSURANCE</span>}{p.category === "misc" && <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏷️ MISC</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}{(p as any).splitFrom&&<span className="ml-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[9px]">SPLIT</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => {
                   // If it's a split child and unpaid, show the special modal
                   if ((p as any).splitFrom && (p.paidAmount || 0) === 0) {
                     setDeleteSplitModal({ paymentId: p._id, amount: p.amount, milestone: p.milestone });

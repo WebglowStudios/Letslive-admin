@@ -1348,16 +1348,21 @@ const PackageSnapshotPage = ({ pkg }: { pkg: PackageData }) => {
     });
   }
 
+  const actualFlightCount = (pkg.flights || []).filter((f) => (f.type ?? "flight") === "flight").length;
+  const actualTrainCount = (pkg.flights || []).filter((f) => f.type === "train").length;
+
   if (pkg.flightsIncluded) {
     bifurcationRows.push({
-      label: `Flights & Airfare (${pkg.flights?.length ? `${pkg.flights.length} Flight Leg${pkg.flights.length > 1 ? "s" : ""}` : "Confirmed Airfare"})`,
+      label: `Flights & Airfare (${actualFlightCount > 0 ? `${actualFlightCount} Flight Leg${actualFlightCount > 1 ? "s" : ""}` : "Confirmed Airfare"})`,
       amount: flightPriceVal > 0 ? flightPriceVal : null,
     });
   }
 
   if (pkg.trainsIncluded) {
     bifurcationRows.push({
-      label: "Train Tickets & Reservations",
+      label: actualTrainCount > 0
+        ? `Train Tickets & Reservations (${actualTrainCount} Train Leg${actualTrainCount > 1 ? "s" : ""})`
+        : "Train Tickets & Reservations",
       amount: trainPriceVal > 0 ? trainPriceVal : null,
     });
   }
