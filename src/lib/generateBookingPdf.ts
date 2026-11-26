@@ -90,6 +90,7 @@ function formatDate(dateStr: string): string {
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone: "Asia/Kolkata",
     });
   } catch {
     return dateStr;
@@ -102,6 +103,7 @@ function formatShortDate(dateStr: string): string {
       day: "numeric",
       month: "short",
       year: "numeric",
+      timeZone: "Asia/Kolkata",
     });
   } catch {
     return dateStr;
@@ -278,7 +280,10 @@ export function generateBookingPdf(booking: BookingData): void {
 
   // Left column
   let yL = y;
-  yL = field("Travel Date", formatDate(booking.travelDate), M, yL);
+  const travelDateDisplay = booking.returnDate && formatShortDate(booking.returnDate) !== formatShortDate(booking.travelDate)
+    ? `${formatShortDate(booking.travelDate)} to ${formatShortDate(booking.returnDate)}`
+    : formatDate(booking.travelDate);
+  yL = field("Travel Date", travelDateDisplay, M, yL);
 
   // Travellers
   let travText = "1 Adult";

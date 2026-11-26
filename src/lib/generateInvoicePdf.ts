@@ -5,6 +5,8 @@ interface InvoiceData {
   operationId: string;
   customer: { name: string; email: string; phone: string };
   destination: string;
+  travelDates?: { start?: string; end?: string };
+  dateChangeHistory?: { oldDate: string; newDate: string; reason: string; changedAt: string }[];
   milestone: string;
   amount: number;
   dueDate?: string;
@@ -13,6 +15,17 @@ interface InvoiceData {
   paymentLink?: string;
   sellingPrice: number;
   allPayments: { milestone: string; amount: number; paidAmount: number; status: string }[];
+}
+
+function fmtDate(dateStr?: string): string {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+  } catch {
+    return dateStr;
+  }
 }
 
 function s(text: string | undefined | null): string {
@@ -67,8 +80,10 @@ export function generateInvoicePdf(data: InvoiceData): void {
   y += 12;
 
   // Customer details
+  const hasTravelDates = Boolean(data.travelDates?.start);
+  const tripCardH = hasTravelDates ? 36 : 28;
   doc.setFillColor(245, 250, 250);
-  doc.roundedRect(M, y, CW, 28, 3, 3, "F");
+  doc.roundedRect(M, y, CW, tripCardH, 3, 3, "F");
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 130, 140);
@@ -90,7 +105,21 @@ export function generateInvoicePdf(data: InvoiceData): void {
   doc.setTextColor(26, 58, 66);
   doc.text(s(data.destination), W - M - 60, y + 16);
 
-  y += 36;
+  if (hasTravelDates && data.travelDates?.start) {
+    const startFmt = fmtDate(data.travelDates.start);
+    const endFmt = data.travelDates.end ? fmtDate(data.travelDates.end) : "";
+    const travelLabel = endFmt && endFmt !== startFmt ? `${startFmt} - ${endFmt}` : startFmt;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 130, 140);
+    doc.text("TRAVEL DATES", W - M - 60, y + 23);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 77, 94);
+    doc.text(s(travelLabel), W - M - 60, y + 29);
+  }
+
+  y += tripCardH + 8;
 
   // Invoice amount box
   doc.setFillColor(0, 77, 94);
@@ -114,7 +143,7 @@ export function generateInvoicePdf(data: InvoiceData): void {
   doc.setFontSize(9);
   doc.setTextColor(200, 225, 230);
   if (data.dueDate) {
-    doc.text(`Due by: ${new Date(data.dueDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`, M + 10, y + 30);
+    doc.text(`Due by: ${fmtDate(data.dueDate)}`, M + 10, y + 30);
   }
 
   // Status badge
@@ -199,6 +228,22 @@ export function generateInvoicePdf(data: InvoiceData): void {
     doc.setTextColor(0, 122, 150);
     doc.text(s(data.paymentLink), M + 6, y + 9);
     y += 22;
+  }
+
+  // Date change notice (if travel dates were revised)
+  if (data.dateChangeHistory && data.dateChangeHistory.length > 0) {
+    const latest = data.dateChangeHistory[data.dateChangeHistory.length - 1];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(180, 110, 0);
+    doc.text("Date Change Notice:", M, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(80, 95, 100);
+    const notice = s(`Travel date updated from ${fmtDate(latest.oldDate)} to ${fmtDate(latest.newDate)}${latest.reason ? ` (${latest.reason})` : ""}.`);
+    const lines = doc.splitTextToSize(notice, CW - 34);
+    doc.text(lines, M + 32, y);
+    y += Math.max(6, lines.length * 4.5 + 3);
   }
 
   // Terms

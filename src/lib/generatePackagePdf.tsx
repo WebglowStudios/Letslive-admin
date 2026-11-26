@@ -2396,30 +2396,38 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
   const renderTable = (entries: Flight[], label: string, colLabels: { airline: string; number: string }) => {
     if (entries.length === 0) return null;
     const shouldWrapAll = entries.length <= 6;
+    const hasTimings = entries.some((f) => Boolean(f.departure?.trim() || f.arrival?.trim()));
+    const colWidths = hasTimings
+      ? { day: "8%", airline: "18%", number: "12%", from: "17%", to: "17%", depart: "14%", arrive: "14%" }
+      : { day: "8%", airline: "26%", number: "16%", from: "25%", to: "25%", depart: "0%", arrive: "0%" };
 
     const tableHeader = (
       <View style={s.tableHead} wrap={false}>
-        <View style={[s.tableHeadCol, { width: "8%" }]}>
+        <View style={[s.tableHeadCol, { width: colWidths.day }]}>
           <Text style={s.tableHeadCell}>Day</Text>
         </View>
-        <View style={[s.tableHeadCol, { width: "18%" }]}>
+        <View style={[s.tableHeadCol, { width: colWidths.airline }]}>
           <Text style={s.tableHeadCell}>{colLabels.airline}</Text>
         </View>
-        <View style={[s.tableHeadCol, { width: "12%" }]}>
+        <View style={[s.tableHeadCol, { width: colWidths.number }]}>
           <Text style={s.tableHeadCell}>{colLabels.number}</Text>
         </View>
-        <View style={[s.tableHeadCol, { width: "17%" }]}>
+        <View style={[s.tableHeadCol, { width: colWidths.from }]}>
           <Text style={s.tableHeadCell}>From</Text>
         </View>
-        <View style={[s.tableHeadCol, { width: "17%" }]}>
+        <View style={[s.tableHeadCol, { width: colWidths.to }, ...(hasTimings ? [] : [s.tableColLast])]}>
           <Text style={s.tableHeadCell}>To</Text>
         </View>
-        <View style={[s.tableHeadCol, { width: "14%" }]}>
-          <Text style={s.tableHeadCell}>Depart</Text>
-        </View>
-        <View style={[s.tableHeadCol, { width: "14%" }, s.tableColLast]}>
-          <Text style={s.tableHeadCell}>Arrive</Text>
-        </View>
+        {hasTimings && (
+          <>
+            <View style={[s.tableHeadCol, { width: colWidths.depart }]}>
+              <Text style={s.tableHeadCell}>Depart</Text>
+            </View>
+            <View style={[s.tableHeadCol, { width: colWidths.arrive }, s.tableColLast]}>
+              <Text style={s.tableHeadCell}>Arrive</Text>
+            </View>
+          </>
+        )}
       </View>
     );
 
@@ -2428,27 +2436,31 @@ const FlightsSection = ({ pkg }: { pkg: PackageData }) => {
         const idx = startIdx + i;
         return (
           <View key={idx} style={[s.tableRow, idx % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-            <View style={[s.tableCol, { width: "8%" }]}>
+            <View style={[s.tableCol, { width: colWidths.day }]}>
               <Text style={s.tableCell}>{f.day || "—"}</Text>
             </View>
-            <View style={[s.tableCol, { width: "18%" }]}>
-              <Text style={[s.tableCell, { fontFamily: "Helvetica-Bold", color: C.ink }]}>{f.airline}</Text>
+            <View style={[s.tableCol, { width: colWidths.airline }]}>
+              <Text style={[s.tableCell, { fontFamily: "Helvetica-Bold", color: C.ink }]}>{f.airline || "—"}</Text>
             </View>
-            <View style={[s.tableCol, { width: "12%" }]}>
-              <Text style={s.tableCell}>{f.flightNumber}</Text>
+            <View style={[s.tableCol, { width: colWidths.number }]}>
+              <Text style={s.tableCell}>{f.flightNumber || "—"}</Text>
             </View>
-            <View style={[s.tableCol, { width: "17%" }]}>
-              <Text style={s.tableCell}>{f.from}</Text>
+            <View style={[s.tableCol, { width: colWidths.from }]}>
+              <Text style={s.tableCell}>{f.from || "—"}</Text>
             </View>
-            <View style={[s.tableCol, { width: "17%" }]}>
-              <Text style={s.tableCell}>{f.to}</Text>
+            <View style={[s.tableCol, { width: colWidths.to }, ...(hasTimings ? [] : [s.tableColLast])]}>
+              <Text style={s.tableCell}>{f.to || "—"}</Text>
             </View>
-            <View style={[s.tableCol, { width: "14%" }]}>
-              <Text style={s.tableCell}>{f.departure}</Text>
-            </View>
-            <View style={[s.tableCol, { width: "14%" }, s.tableColLast]}>
-              <Text style={s.tableCell}>{f.arrival}</Text>
-            </View>
+            {hasTimings && (
+              <>
+                <View style={[s.tableCol, { width: colWidths.depart }]}>
+                  <Text style={s.tableCell}>{f.departure?.trim() || "—"}</Text>
+                </View>
+                <View style={[s.tableCol, { width: colWidths.arrive }, s.tableColLast]}>
+                  <Text style={s.tableCell}>{f.arrival?.trim() || "—"}</Text>
+                </View>
+              </>
+            )}
           </View>
         );
       });

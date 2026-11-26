@@ -998,15 +998,15 @@ export default function EditPackagePage() {
           priceCategory: d.priceCategory,
           status: d.status
         })) : undefined,
-        flights: flights.filter((f) => f.airline || f.from || f.to).map((f) => ({
+        flights: flights.filter((f) => f.airline || f.flightNumber || f.from || f.to || f.pnr).map((f) => ({
           type: f.type || "flight",
           day: f.day || undefined,
           airline: f.airline,
           flightNumber: f.flightNumber,
           from: f.from,
           to: f.to,
-          departure: f.departure,
-          arrival: f.arrival,
+          departure: f.departure?.trim() || undefined,
+          arrival: f.arrival?.trim() || undefined,
           pnr: f.pnr || undefined,
           class: f.class || undefined,
           notes: f.notes || undefined,
@@ -2836,12 +2836,12 @@ export default function EditPackagePage() {
                         </div>
                         <div className="grid grid-cols-4 gap-3">
                           <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Departure</label>
-                            <input type="text" value={f.departure} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], departure: e.target.value }; setFlights(u); }} placeholder="06:30 AM" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Departure <span className="text-slate-400 font-normal">(Optional)</span></label>
+                            <input type="text" value={f.departure} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], departure: e.target.value }; setFlights(u); }} placeholder="Optional (e.g. 06:30 AM)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                           </div>
                           <div>
-                            <label className="text-xs font-medium text-slate-500 mb-1 block">Arrival</label>
-                            <input type="text" value={f.arrival} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], arrival: e.target.value }; setFlights(u); }} placeholder="09:15 AM" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                            <label className="text-xs font-medium text-slate-500 mb-1 block">Arrival <span className="text-slate-400 font-normal">(Optional)</span></label>
+                            <input type="text" value={f.arrival} onChange={(e) => { const u = [...flights]; u[i] = { ...u[i], arrival: e.target.value }; setFlights(u); }} placeholder="Optional (e.g. 09:15 AM)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" />
                           </div>
                           <div>
                             <label className="text-xs font-medium text-slate-500 mb-1 block">Class</label>

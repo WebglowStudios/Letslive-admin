@@ -512,6 +512,11 @@ export default function OperationDetailPage() {
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [op, setOp] = useState<OpData | null>(null);
+  const [editingOpDates, setEditingOpDates] = useState(false);
+  const [opEditStart, setOpEditStart] = useState("");
+  const [opEditEnd, setOpEditEnd] = useState("");
+  const [opDateReason, setOpDateReason] = useState("");
+  const [savingOpDates, setSavingOpDates] = useState(false);
   
   // Modals
   const [passengerModalOpen, setPassengerModalOpen] = useState(false);
@@ -1981,9 +1986,106 @@ export default function OperationDetailPage() {
               })()}
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Trip</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Trip</p>
+                {isManager && !editingOpDates && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpEditStart(op.travelDates?.start ? op.travelDates.start.split("T")[0] : "");
+                      setOpEditEnd(op.travelDates?.end ? op.travelDates.end.split("T")[0] : "");
+                      setOpDateReason("");
+                      setEditingOpDates(true);
+                    }}
+                    className="text-[10px] font-semibold text-cyan-600 hover:text-cyan-700 underline underline-offset-2"
+                  >
+                    Edit Dates
+                  </button>
+                )}
+              </div>
               <p className="text-sm font-semibold text-slate-800">{op.destination}</p>
-              <p className="text-xs text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"} → {op.travelDates?.end ? formatDate(op.travelDates.end) : "—"}</p>
+              {!editingOpDates ? (
+                <p className="text-xs text-slate-500">{op.travelDates?.start ? formatDate(op.travelDates.start) : "—"} → {op.travelDates?.end ? formatDate(op.travelDates.end) : "—"}</p>
+              ) : (
+                <div className="mt-2 space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] text-slate-500 uppercase block mb-0.5">Departure</label>
+                      <input
+                        type="date"
+                        value={opEditStart}
+                        onChange={(e) => {
+                          const newStart = e.target.value;
+                          if (opEditStart && opEditEnd && newStart) {
+                            const oldMs = new Date(opEditStart).getTime();
+                            const newMs = new Date(newStart).getTime();
+                            const endMs = new Date(opEditEnd).getTime();
+                            if (!isNaN(oldMs) && !isNaN(newMs) && !isNaN(endMs) && endMs >= oldMs) {
+                              setOpEditEnd(new Date(endMs + (newMs - oldMs)).toISOString().split("T")[0]);
+                            }
+                          }
+                          setOpEditStart(newStart);
+                        }}
+                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-slate-500 uppercase block mb-0.5">Return (Optional)</label>
+                      <input
+                        type="date"
+                        value={opEditEnd}
+                        onChange={(e) => setOpEditEnd(e.target.value)}
+                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white"
+                      />
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={opDateReason}
+                    onChange={(e) => setOpDateReason(e.target.value)}
+                    placeholder="Reason for date change (optional)"
+                    className="w-full px-2 py-1 text-xs border border-slate-200 rounded bg-white"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={savingOpDates || !opEditStart}
+                      onClick={async () => {
+                        if (!opEditStart) return;
+                        setSavingOpDates(true);
+                        try {
+                          if (totalDirtyCount > 0) {
+                            const savedOk = await saveAllDirty(undefined, { silent: true });
+                            if (!savedOk) return;
+                          }
+                          await api.put(`/operations/${id}/dates`, {
+                            start: opEditStart,
+                            end: opEditEnd || undefined,
+                            reason: opDateReason.trim() || undefined,
+                          });
+                          setEditingOpDates(false);
+                          await fetchAll();
+                          showToast("✓ Travel dates updated & synced across system!");
+                        } catch (err: any) {
+                          alert(err?.message || "Failed to update travel dates");
+                        } finally {
+                          setSavingOpDates(false);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[10px] font-bold disabled:opacity-50"
+                    >
+                      {savingOpDates ? "Saving..." : "Save Dates"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingOpDates(false)}
+                      className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 rounded text-[10px] font-semibold hover:bg-slate-100"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               {(() => {
                 const websiteBaseUrl = getWebsiteBaseUrl(op.booking?.brand, op.booking?.bookingId, op.operationId);
                 const pkg = op.booking?.package || op.package;
@@ -2962,8 +3064,8 @@ export default function OperationDetailPage() {
                                   className="w-full px-2 py-1.5 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-bold text-emerald-700"
                                 />
                               </div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure (Optional)</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival (Optional)</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
                             </>
                           )}
                           {t.type === "train" && (
@@ -2998,8 +3100,8 @@ export default function OperationDetailPage() {
                                   className="w-full px-2 py-1.5 border border-emerald-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-bold text-emerald-700"
                                 />
                               </div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
-                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Departure (Optional)</label><input type="time" value={leg.departureTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], departureTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
+                              <div><label className="text-[8px] text-slate-400 uppercase block mb-1">Arrival (Optional)</label><input type="time" value={leg.arrivalTime || ""} onChange={(e) => { const u = [...transports]; const legs = [...u[idx].legs]; legs[li] = { ...legs[li], arrivalTime: e.target.value }; u[idx] = { ...u[idx], legs }; setTransports(u); }} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 bg-white" /></div>
                             </>
                           )}
                           {(t.type === "road" || t.type === "other") && (
@@ -4553,7 +4655,7 @@ export default function OperationDetailPage() {
               <button onClick={recalculate} className="flex items-center gap-1.5 px-3 py-2 bg-cyan-50 border border-cyan-200 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-100 transition-colors" title="Recalculate pricing and sync customer payments with operation totals">
                 <RefreshCw size={13} /> Recalculate
               </button>
-              {customerPayments.length > 0 && <button onClick={() => generateInvoicePdf({ mode: "summary", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: "Full Statement", amount: customerPayments.reduce((s,p)=>s+p.amount,0), dueDate: undefined, paidAmount: customerPayments.reduce((s,p)=>s+p.paidAmount,0), status: "statement", sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp=>({milestone:cp.milestone,amount:cp.amount,paidAmount:cp.paidAmount,status:cp.status})) })} className="flex items-center gap-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200"><Download size={14} /> Statement</button>}
+              {customerPayments.length > 0 && <button onClick={() => generateInvoicePdf({ mode: "summary", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, travelDates: op.travelDates, dateChangeHistory: op.booking?.dateChangeHistory || op.bookings?.[0]?.dateChangeHistory, milestone: "Full Statement", amount: customerPayments.reduce((s,p)=>s+p.amount,0), dueDate: undefined, paidAmount: customerPayments.reduce((s,p)=>s+p.paidAmount,0), status: "statement", sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp=>({milestone:cp.milestone,amount:cp.amount,paidAmount:cp.paidAmount,status:cp.status})) })} className="flex items-center gap-1 px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-200"><Download size={14} /> Statement</button>}
               <button onClick={() => setSplitModalOpen(true)} className="flex items-center gap-1 px-3 py-2 bg-cyan-600 text-white rounded-lg text-xs font-semibold"><Plus size={14} /> Add Installment</button>
             </div>
           </div>
@@ -5242,7 +5344,7 @@ export default function OperationDetailPage() {
 
               const renderPaymentCard = (p: any, idx: number) => (
               <div key={p._id} className={`bg-white border rounded-xl p-4 space-y-3 ${p.status==="overdue"?"border-red-300 bg-red-50/30":"border-slate-200"}`}>
-                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.category === "flight" && (() => { const mLower = (p.milestone || "").toLowerCase(); const badgeIsTrain = mLower.includes("train") || (isTrainOnlyTransport && !mLower.includes("flight")); return <span className={`ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${badgeIsTrain ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-sky-100 text-sky-800 border-sky-200"}`}>{badgeIsTrain ? "🚆 TRAIN" : hasTrainTransports && !mLower.includes("flight") ? "✈️🚆 FLIGHT / TRAIN" : "✈️ FLIGHT"}</span>; })()}{p.category === "hotel" && <span className="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏨 HOTEL</span>}{p.category === "land" && <span className="ml-1 bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🚗 LAND</span>}{p.category === "visa" && <span className="ml-1 bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛂 VISA</span>}{p.category === "insurance" && <span className="ml-1 bg-teal-100 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛡️ INSURANCE</span>}{p.category === "misc" && <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏷️ MISC</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}{(p as any).splitFrom&&<span className="ml-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[9px]">SPLIT</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => {
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-cyan-700">#{idx+1} {p.status==="paid"&&<span className="ml-1 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px]">PAID</span>}{p.category === "flight" && (() => { const mLower = (p.milestone || "").toLowerCase(); const badgeIsTrain = mLower.includes("train") || (isTrainOnlyTransport && !mLower.includes("flight")); return <span className={`ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${badgeIsTrain ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-sky-100 text-sky-800 border-sky-200"}`}>{badgeIsTrain ? "🚆 TRAIN" : hasTrainTransports && !mLower.includes("flight") ? "✈️🚆 FLIGHT / TRAIN" : "✈️ FLIGHT"}</span>; })()}{p.category === "hotel" && <span className="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏨 HOTEL</span>}{p.category === "land" && <span className="ml-1 bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🚗 LAND</span>}{p.category === "visa" && <span className="ml-1 bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛂 VISA</span>}{p.category === "insurance" && <span className="ml-1 bg-teal-100 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🛡️ INSURANCE</span>}{p.category === "misc" && <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[9px] font-bold">🏷️ MISC</span>}{p.status==="partial"&&<span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px]">PARTIAL</span>}{p.status==="overdue"&&<span className="ml-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded text-[9px]">OVERDUE</span>}{p.paymentMode==="razorpay"&&p.status==="paid"&&<span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[9px]">VIA LINK</span>}{(p as any).splitFrom&&<span className="ml-1 bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[9px]">SPLIT</span>}</span><div className="flex gap-2"><button onClick={() => sendReminder(p._id)} className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded text-[10px] font-bold hover:bg-amber-100 transition-colors"><Bell size={10}/> Remind</button><button onClick={() => generateInvoicePdf({ mode: "single", operationId: op.operationId, customer: op.customers?.[0] || op.customer || {name: 'Unknown', email: '', phone: '', pax: 0}, destination: op.destination, travelDates: op.travelDates, dateChangeHistory: op.booking?.dateChangeHistory || op.bookings?.[0]?.dateChangeHistory, milestone: p.milestone, amount: p.amount, dueDate: p.dueDate, paidAmount: p.paidAmount, status: p.status, paymentLink: p.paymentLinkEnabled ? p.paymentLink : undefined, sellingPrice: op.sellingPrice, allPayments: customerPayments.map(cp => ({ milestone: cp.milestone, amount: cp.amount, paidAmount: cp.paidAmount, status: cp.status })) })} className="flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded text-[10px] font-bold"><Download size={10}/> Invoice</button><button onClick={() => saveItem("customer-payments", p._id, customerPayments[idx])} disabled={saving === p._id} className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold disabled:opacity-50"><Check size={10}/> {saving === p._id ? "Saving..." : "Save"}</button><button onClick={() => {
                   // If it's a split child and unpaid, show the special modal
                   if ((p as any).splitFrom && (p.paidAmount || 0) === 0) {
                     setDeleteSplitModal({ paymentId: p._id, amount: p.amount, milestone: p.milestone });

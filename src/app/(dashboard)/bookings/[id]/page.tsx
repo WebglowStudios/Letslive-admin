@@ -154,7 +154,7 @@ export default function BookingDetailPage() {
 
   const canUpdate = usePermission("bookings.update");
   const role = useRole();
-  const canEditDates = role === 'admin' || role === 'manager';
+  const canEditDates = ['admin', 'manager', 'sales-manager', 'ops-manager'].includes(role || '');
 
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [editTravelDate, setEditTravelDate] = useState("");
@@ -481,7 +481,18 @@ export default function BookingDetailPage() {
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                           <label className="text-xs text-slate-500 w-12">Start:</label>
-                          <input type="date" value={editTravelDate} onChange={e => setEditTravelDate(e.target.value)} className="text-sm border border-slate-200 rounded px-2 py-1" />
+                          <input type="date" value={editTravelDate} onChange={e => {
+                            const newStart = e.target.value;
+                            if (editTravelDate && editReturnDate && newStart) {
+                              const oldMs = new Date(editTravelDate).getTime();
+                              const newMs = new Date(newStart).getTime();
+                              const retMs = new Date(editReturnDate).getTime();
+                              if (!isNaN(oldMs) && !isNaN(newMs) && !isNaN(retMs) && retMs >= oldMs) {
+                                setEditReturnDate(new Date(retMs + (newMs - oldMs)).toISOString().split('T')[0]);
+                              }
+                            }
+                            setEditTravelDate(newStart);
+                          }} className="text-sm border border-slate-200 rounded px-2 py-1" />
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="text-xs text-slate-500 w-12">Return:</label>
